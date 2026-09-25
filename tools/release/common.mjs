@@ -14,6 +14,10 @@ import { spawnSync } from 'node:child_process';
 export const repoRoot = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 export const alphaProfile = 'internal-alpha-word-excel';
 export const devProfile = 'development';
+export const cimbProdProfile = 'cimb-production';
+/** Office apps the production profile can ship. OneNote ships as its own XML manifest. */
+export const PROD_SURFACES = ['word', 'excel', 'powerpoint', 'outlook', 'onenote'];
+const DEFAULT_PROD_SURFACES = 'word,excel,powerpoint,outlook';
 const DEFAULT_DEV_PORT = '13000';
 
 export function parseArgs(argv = process.argv.slice(2)) {
@@ -71,7 +75,7 @@ function devWebOrigin(env) {
 
 export function profileFromArgs(args) {
   const profile = String(args.profile ?? alphaProfile);
-  if (profile !== alphaProfile && profile !== devProfile) {
+  if (profile !== alphaProfile && profile !== devProfile && profile !== cimbProdProfile) {
     throw new Error(`Unsupported profile "${profile}".`);
   }
   return profile;
@@ -199,6 +203,8 @@ export function releaseConfig(profile, env = process.env) {
     };
   }
 
+  if (profile === cimbProdProfile) return prodReleaseConfig(env);
+
   const required = [
     'GE_ALPHA_APP_ID',
     'GE_ALPHA_ENTRA_CLIENT_ID',
@@ -231,16 +237,120 @@ export function releaseConfig(profile, env = process.env) {
   return cfg;
 }
 
-export function validateReleaseConfig(cfg) {
-  if (!GUID.test(cfg.appId) || DEV_GUIDS.has(cfg.appId.toLowerCase())) {
-    throw new Error('GE_ALPHA_APP_ID must be a non-development GUID.');
+// The placeholder ids the development profile falls back to; never valid in a release.
+const DEV_FALLBACK_GUIDS = new Set(
+  ['1', '2', '3', '4', '5', '6', '7', '8'].map((d) => {
+    const x = d.repeat(8);
+    return `${x}-${d.repeat(4)}-4${d.repeat(3)}-8${d.repeat(3)}-${d.repeat(12)}`;
+  }),
+);
+
+function isReleaseGuid(value) {
+  const v = String(value ?? '').toLowerCase();
+  return GUID.test(v) && !DEV_GUIDS.has(v) && !DEV_FALLBACK_GUIDS.has(v);
+}
+
+function prodReleaseConfig(env) {
+  const keys = [
+    'APP_ID',
+    'ENTRA_CLIENT_ID',
+    'WEB_DOMAIN',
+    'DEVELOPER_NAME',
+    'WEBSITE_URL',
+    'PRIVACY_URL',
+    'TERMS_URL',
+    'SUPPORT_URL',
+  ];
+  const surfaces = String(env.GE_PROD_SURFACES || DEFAULT_PROD_SURFACES)
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const unknown = surfaces.filter((s) => !PROD_SURFACES.includes(s));
+  if (unknown.length) {
+    throw new Error(
+      `GE_PROD_SURFACES has unknown app(s): ${unknown.join(', ')}. Use: ${PROD_SURFACES.join(', ')}.`,
+    );
   }
-  if (!GUID.test(cfg.entraClientId) || DEV_GUIDS.has(cfg.entraClientId.toLowerCase())) {
-    throw new Error('GE_ALPHA_ENTRA_CLIENT_ID must be a non-development GUID.');
+  if (!surfaces.length) throw new Error('GE_PROD_SURFACES must list at least one Office app.');
+  const hasDocumentHost = surfaces.some((s) => ['word', 'excel', 'powerpoint'].includes(s));
+  if (hasDocumentHost) keys.push('OFFICE_XML_APP_ID');
+  if (surfaces.includes('outlook')) keys.push('OUTLOOK_APP_ID');
+  if (surfaces.includes('onenote')) keys.push('ONENOTE_APP_ID');
+
+  const missing = keys.map((k) => `GE_PROD_${k}`).filter((key) => !env[key]);
+  if (missing.length) {
+    const err = new Error(`Missing production manifest configuration: ${missing.join(', ')}`);
+    err.code = 'BLOCKED_EXTERNAL';
+    throw err;
   }
-  if (!HOST.test(cfg.webDomain)) throw new Error('GE_ALPHA_WEB_DOMAIN must be a bare DNS host.');
+  const cfg = {
+    profile: cimbProdProfile,
+    surfaces,
+    appId: env.GE_PROD_APP_ID,
+    officeXmlAppId: env.GE_PROD_OFFICE_XML_APP_ID,
+    outlookAppId: env.GE_PROD_OUTLOOK_APP_ID,
+    oneNoteAppId: env.GE_PROD_ONENOTE_APP_ID,
+    entraClientId: env.GE_PROD_ENTRA_CLIENT_ID,
+    webOrigin: `https://${env.GE_PROD_WEB_DOMAIN}`,
+    webDomain: env.GE_PROD_WEB_DOMAIN,
+    developerName: env.GE_PROD_DEVELOPER_NAME,
+    websiteUrl: env.GE_PROD_WEBSITE_URL,
+    privacyUrl: env.GE_PROD_PRIVACY_URL,
+    termsUrl: env.GE_PROD_TERMS_URL,
+    supportUrl: env.GE_PROD_SUPPORT_URL,
+    displayName: 'CNGPT',
+    fullName: 'CNGPT for Microsoft 365',
+    description: {
+      short: 'CNGPT across your Microsoft 365 apps.',
+      full: 'CNGPT in Microsoft 365: grounded answers and reviewable, traceable changes, scoped to your identity.',
+    },
+    xmlDescriptionPrefix: '',
+  };
+  validateReleaseConfig(cfg, 'GE_PROD');
+  const host = cfg.webDomain.toLowerCase();
+  if (!host.includes('.') || host.includes('..') || /^\d+(\.\d+){3}$/.test(host)) {
+    throw new Error(
+      'GE_PROD_WEB_DOMAIN must be a full DNS name, not an IP address or single label.',
+    );
+  }
+  const ids = {
+    OFFICE_XML_APP_ID: 'officeXmlAppId',
+    OUTLOOK_APP_ID: 'outlookAppId',
+    ONENOTE_APP_ID: 'oneNoteAppId',
+  };
+  for (const [key, field] of Object.entries(ids)) {
+    if (keys.includes(key) && !isReleaseGuid(cfg[field])) {
+      throw new Error(`GE_PROD_${key} must be a non-development GUID.`);
+    }
+  }
+  const used = [cfg.appId, cfg.officeXmlAppId, cfg.outlookAppId, cfg.oneNoteAppId]
+    .filter(Boolean)
+    .map((v) => v.toLowerCase());
+  if (new Set(used).size !== used.length) {
+    throw new Error('GE_PROD_* app ids must all be different.');
+  }
+  return cfg;
+}
+
+/** Unified-manifest scopes for the selected apps (OneNote is not part of the unified package). */
+export function manifestScopes(cfg) {
+  const all = { outlook: 'mail', excel: 'workbook', word: 'document', powerpoint: 'presentation' };
+  if (!cfg.surfaces) return ['mail', 'workbook', 'document', 'presentation'];
+  return Object.entries(all)
+    .filter(([surface]) => cfg.surfaces.includes(surface))
+    .map(([, scope]) => scope);
+}
+
+export function validateReleaseConfig(cfg, prefix = 'GE_ALPHA') {
+  if (!isReleaseGuid(cfg.appId)) {
+    throw new Error(`${prefix}_APP_ID must be a non-development GUID.`);
+  }
+  if (!isReleaseGuid(cfg.entraClientId)) {
+    throw new Error(`${prefix}_ENTRA_CLIENT_ID must be a non-development GUID.`);
+  }
+  if (!HOST.test(cfg.webDomain)) throw new Error(`${prefix}_WEB_DOMAIN must be a bare DNS host.`);
   if (/localhost|example\.com/i.test(cfg.webDomain)) {
-    throw new Error('GE_ALPHA_WEB_DOMAIN must not be localhost or example.com.');
+    throw new Error(`${prefix}_WEB_DOMAIN must not be localhost or example.com.`);
   }
   for (const key of ['websiteUrl', 'privacyUrl', 'termsUrl', 'supportUrl']) {
     const url = new URL(cfg[key]);
@@ -423,13 +533,18 @@ export function alphaManifest(cfg) {
 export function developmentManifest(cfg) {
   const origin = cfg.webOrigin;
   const domain = cfg.webDomain;
+  const scopes = manifestScopes(cfg);
+  const docScopes = ['document', 'workbook', 'presentation'].filter((s) => scopes.includes(s));
   return {
     $schema: 'https://developer.microsoft.com/json-schemas/teams/v1.23/MicrosoftTeams.schema.json',
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'CNGPT Dev', full: 'CNGPT for Microsoft 365 Dev' },
-    description: {
+    name: {
+      short: cfg.displayName ?? 'CNGPT Dev',
+      full: cfg.fullName ?? 'CNGPT for Microsoft 365 Dev',
+    },
+    description: cfg.description ?? {
       short: 'Development package for CNGPT across Microsoft Office.',
       full: 'Development sideload package for Word, Excel, PowerPoint, and Outlook. Not a production release artifact.',
     },
@@ -449,7 +564,7 @@ export function developmentManifest(cfg) {
     extensions: [
       {
         requirements: {
-          scopes: ['mail', 'workbook', 'document', 'presentation'],
+          scopes,
         },
         runtimes: [
           {
@@ -503,40 +618,48 @@ export function developmentManifest(cfg) {
             ],
           },
         ],
-        contextMenus: [
-          {
-            requirements: { scopes: ['document', 'workbook', 'presentation'] },
-            menus: [
-              askSelectionMenu(
-                origin,
-                'text',
-                'Text',
-                'Summarize or review the current selection in the CNGPT pane.',
-              ),
-              askSelectionMenu(
-                origin,
-                'cell',
-                'Cell',
-                'Summarize or review the current spreadsheet range in the CNGPT pane.',
-              ),
-            ],
-          },
-        ],
-        autoRunEvents: [
-          {
-            requirements: {
-              capabilities: [{ name: 'Mailbox', minVersion: '1.12' }],
-              scopes: ['mail'],
-            },
-            events: [
-              {
-                type: 'messageSending',
-                actionId: 'onMessageSend',
-                options: { sendMode: 'softBlock' },
-              },
-            ],
-          },
-        ],
+        ...(docScopes.length
+          ? {
+              contextMenus: [
+                {
+                  requirements: { scopes: docScopes },
+                  menus: [
+                    askSelectionMenu(
+                      origin,
+                      'text',
+                      'Text',
+                      'Summarize or review the current selection in the CNGPT pane.',
+                    ),
+                    askSelectionMenu(
+                      origin,
+                      'cell',
+                      'Cell',
+                      'Summarize or review the current spreadsheet range in the CNGPT pane.',
+                    ),
+                  ],
+                },
+              ],
+            }
+          : {}),
+        ...(scopes.includes('mail')
+          ? {
+              autoRunEvents: [
+                {
+                  requirements: {
+                    capabilities: [{ name: 'Mailbox', minVersion: '1.12' }],
+                    scopes: ['mail'],
+                  },
+                  events: [
+                    {
+                      type: 'messageSending',
+                      actionId: 'onMessageSend',
+                      options: { sendMode: 'softBlock' },
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
       },
     ],
   };
@@ -556,8 +679,8 @@ export function oneNoteManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="CNGPT Dev (OneNote)" />
-  <Description DefaultValue="Development OneNote add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (OneNote)" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}OneNote add-in for CNGPT." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -687,8 +810,8 @@ export function taskPaneXmlManifest(cfg, surface) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="CNGPT Dev (${esc(title)})" />
-  <Description DefaultValue="Development ${esc(title)} add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (${esc(title)})" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}${esc(title)} add-in for CNGPT." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -810,7 +933,7 @@ export function multiHostOfficeXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="CNGPT Dev" />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')}" />
   <Description DefaultValue="CNGPT for Word, Excel, and PowerPoint." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
@@ -885,8 +1008,8 @@ export function outlookXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="CNGPT Dev (Outlook)" />
-  <Description DefaultValue="Development Outlook add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (Outlook)" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}Outlook add-in for CNGPT." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -1005,9 +1128,11 @@ export function validateGeneratedManifest(manifest, profile) {
   const errors = [];
   const text = JSON.stringify(manifest);
   const forbiddenTokens =
-    profile === alphaProfile
-      ? ['REPLACE_', 'example.com', 'localhost']
-      : ['REPLACE_', 'example.com'];
+    profile === cimbProdProfile
+      ? ['REPLACE_', 'example.com', 'localhost', 'http://']
+      : profile === alphaProfile
+        ? ['REPLACE_', 'example.com', 'localhost']
+        : ['REPLACE_', 'example.com'];
   for (const token of forbiddenTokens) {
     if (text.includes(token)) errors.push(`manifest contains forbidden token ${token}`);
   }

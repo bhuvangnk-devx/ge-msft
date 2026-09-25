@@ -88,18 +88,35 @@ jobs:
 
       - name: Generate Office manifests for this address
         env:
-          GE_DEV_WEB_ORIGIN: ${{ vars.WEB_ORIGIN || steps.deploy.outputs.url }}
+          ENVIRONMENT: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN || steps.deploy.outputs.url }}
+          # staging (development profile)
           GE_DEV_APP_ID: ${{ vars.MANIFEST_APP_ID }}
           GE_DEV_OFFICE_XML_APP_ID: ${{ vars.OFFICE_XML_APP_ID }}
           GE_DEV_OUTLOOK_APP_ID: ${{ vars.OUTLOOK_APP_ID }}
           GE_DEV_DEVELOPER_NAME: ${{ vars.PUBLISHER_NAME }}
           GE_DEV_ENTRA_CLIENT_ID: ${{ vars.VITE_ENTRA_CLIENT_ID }}
-        run: |
-          bun tools/release/manifests-generate.mjs --profile development
-          bun run package:dev
+          # production (cimb-production profile)
+          GE_PROD_APP_ID: ${{ vars.GE_PROD_APP_ID }}
+          GE_PROD_OFFICE_XML_APP_ID: ${{ vars.GE_PROD_OFFICE_XML_APP_ID }}
+          GE_PROD_OUTLOOK_APP_ID: ${{ vars.GE_PROD_OUTLOOK_APP_ID }}
+          GE_PROD_ONENOTE_APP_ID: ${{ vars.GE_PROD_ONENOTE_APP_ID }}
+          GE_PROD_SURFACES: ${{ vars.GE_PROD_SURFACES }}
+          GE_PROD_WEB_DOMAIN: ${{ vars.GE_PROD_WEB_DOMAIN }}
+          GE_PROD_DEVELOPER_NAME: ${{ vars.GE_PROD_DEVELOPER_NAME }}
+          GE_PROD_WEBSITE_URL: ${{ vars.GE_PROD_WEBSITE_URL }}
+          GE_PROD_PRIVACY_URL: ${{ vars.GE_PROD_PRIVACY_URL }}
+          GE_PROD_TERMS_URL: ${{ vars.GE_PROD_TERMS_URL }}
+          GE_PROD_SUPPORT_URL: ${{ vars.GE_PROD_SUPPORT_URL }}
+        run: scripts/cimb-release.sh manifests
       - uses: actions/upload-artifact@v4
         with:
           name: office-manifests-${{ github.ref_name }}
           path: |
             dist/package/development/xml
             dist/package/development/centralized
+            dist/package/cimb-production
+            dist/release/*.zip
