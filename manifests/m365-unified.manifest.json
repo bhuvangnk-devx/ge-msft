@@ -3,10 +3,13 @@
   "manifestVersion": "1.23",
   "id": "REPLACE_WITH_APP_GUID",
   "version": "1.0.3",
-  "name": { "short": "CIMB Niaga Assist", "full": "CIMB Niaga Assist for Microsoft 365" },
+  "name": {
+    "short": "CNGPT",
+    "full": "CNGPT for Microsoft 365"
+  },
   "description": {
-    "short": "CIMB Niaga Assist: grounded help across Office.",
-    "full": "Brings CIMB Niaga Assist into Word, Excel, PowerPoint, and Teams — grounded on a curated research unit, scoped to your identity, with traceable changes."
+    "short": "CNGPT: grounded help across Office.",
+    "full": "Brings CNGPT into Word, Excel, PowerPoint, and Teams — grounded on a curated research unit, scoped to your identity, with traceable changes."
   },
   "developer": {
     "name": "REPLACE_DEVELOPER",
@@ -14,9 +17,11 @@
     "privacyUrl": "https://example.com/privacy",
     "termsOfUseUrl": "https://example.com/terms"
   },
-  "icons": { "color": "icon-color.png", "outline": "icon-outline.png" },
+  "icons": {
+    "color": "icon-color.png",
+    "outline": "icon-outline.png"
+  },
   "accentColor": "#5B5FC7",
-
   "webApplicationInfo": {
     "id": "REPLACE_ENTRA_CLIENT_ID",
     "resource": "api://REPLACE_WEB_SHELL_DOMAIN/REPLACE_ENTRA_CLIENT_ID"
@@ -24,24 +29,35 @@
   "authorization": {
     "permissions": {
       "resourceSpecific": [
-        { "name": "OnlineMeetingTranscript.Read.Chat", "type": "Application" }
+        {
+          "name": "OnlineMeetingTranscript.Read.Chat",
+          "type": "Application"
+        }
       ]
     }
   },
-  "validDomains": ["REPLACE_WEB_SHELL_DOMAIN", "login.microsoftonline.com"],
-
+  "validDomains": [
+    "REPLACE_WEB_SHELL_DOMAIN",
+    "login.microsoftonline.com"
+  ],
   "staticTabs": [
     {
       "entityId": "gemini-tab",
       "name": "Gemini",
       "contentUrl": "https://REPLACE_WEB_SHELL_DOMAIN/?host=teams",
-      "scopes": ["personal"]
+      "scopes": [
+        "personal"
+      ]
     }
   ],
   "bots": [
     {
       "botId": "REPLACE_BOT_ID",
-      "scopes": ["personal", "team", "groupChat"],
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
       "supportsCalling": false,
       "supportsVideo": false,
       "commandLists": []
@@ -55,31 +71,58 @@
           "id": "groundOnUnit",
           "type": "query",
           "title": "Ground on the unit",
-          "description": "Ask CIMB Niaga Assist about this, grounded on your research unit.",
+          "description": "Ask CNGPT about this, grounded on your research unit.",
           "initialRun": false,
-          "parameters": [{ "name": "q", "title": "Question", "description": "What to ask" }]
+          "parameters": [
+            {
+              "name": "q",
+              "title": "Question",
+              "description": "What to ask"
+            }
+          ]
         }
       ]
     }
   ],
-
   "extensions": [
     {
       "requirements": {
-        "scopes": ["mail", "workbook", "document", "presentation"],
+        "scopes": [
+          "mail",
+          "workbook",
+          "document",
+          "presentation"
+        ],
         "capabilities": [
-          { "name": "Mailbox", "minVersion": "1.12" },
-          { "name": "WordApi", "minVersion": "1.3" },
-          { "name": "ExcelApi", "minVersion": "1.7" }
+          {
+            "name": "Mailbox",
+            "minVersion": "1.12"
+          },
+          {
+            "name": "WordApi",
+            "minVersion": "1.3"
+          },
+          {
+            "name": "ExcelApi",
+            "minVersion": "1.7"
+          }
         ]
       },
       "runtimes": [
         {
           "id": "taskpane_runtime",
           "type": "general",
-          "code": { "page": "https://REPLACE_WEB_SHELL_DOMAIN/taskpane.html" },
+          "code": {
+            "page": "https://REPLACE_WEB_SHELL_DOMAIN/taskpane.html"
+          },
           "lifetime": "short",
-          "actions": [{ "id": "openPanel", "type": "openPage", "view": "Gemini" }]
+          "actions": [
+            {
+              "id": "openPanel",
+              "type": "openPage",
+              "view": "Gemini"
+            }
+          ]
         },
         {
           "id": "commands_runtime",
@@ -90,39 +133,74 @@
           },
           "lifetime": "short",
           "actions": [
-            { "id": "openGemini", "type": "executeFunction" },
-            { "id": "onMessageSend", "type": "executeFunction" },
-            { "id": "askSelection", "type": "executeFunction" },
-            { "id": "summarizeSelection", "type": "executeFunction" },
-            { "id": "explainSelection", "type": "executeFunction" }
+            {
+              "id": "openGemini",
+              "type": "executeFunction"
+            },
+            {
+              "id": "onMessageSend",
+              "type": "executeFunction"
+            },
+            {
+              "id": "askSelection",
+              "type": "executeFunction"
+            },
+            {
+              "id": "summarizeSelection",
+              "type": "executeFunction"
+            },
+            {
+              "id": "explainSelection",
+              "type": "executeFunction"
+            }
           ]
         }
       ],
       "ribbons": [
         {
-          "contexts": ["default"],
+          "contexts": [
+            "default"
+          ],
           "tabs": [
             {
               "builtInTabId": "TabHome",
               "groups": [
                 {
                   "id": "geminiGroup",
-                  "label": "CIMB Niaga Assist",
+                  "label": "CNGPT",
                   "icons": [
-                    { "size": 16, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png" },
-                    { "size": 32, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png" },
-                    { "size": 80, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-80.png" }
+                    {
+                      "size": 16,
+                      "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png"
+                    },
+                    {
+                      "size": 32,
+                      "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png"
+                    },
+                    {
+                      "size": 80,
+                      "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-80.png"
+                    }
                   ],
                   "controls": [
                     {
                       "id": "openGeminiBtn",
                       "type": "button",
-                      "label": "Open CIMB Niaga Assist",
+                      "label": "Open CNGPT",
                       "actionId": "openPanel",
                       "icons": [
-                        { "size": 16, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png" },
-                        { "size": 32, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png" },
-                        { "size": 80, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-80.png" }
+                        {
+                          "size": 16,
+                          "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png"
+                        },
+                        {
+                          "size": 32,
+                          "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png"
+                        },
+                        {
+                          "size": 80,
+                          "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-80.png"
+                        }
                       ]
                     }
                   ]
@@ -134,7 +212,13 @@
       ],
       "contextMenus": [
         {
-          "requirements": { "scopes": ["document", "workbook", "presentation"] },
+          "requirements": {
+            "scopes": [
+              "document",
+              "workbook",
+              "presentation"
+            ]
+          },
           "menus": [
             {
               "id": "geminiSummarizeSelection",
@@ -142,7 +226,7 @@
               "label": "Summarize selection",
               "supertip": {
                 "title": "Summarize selection",
-                "description": "Summarize the current selection in the CIMB Niaga Assist pane."
+                "description": "Summarize the current selection in the CNGPT pane."
               },
               "actionId": "summarizeSelection"
             },
@@ -152,7 +236,7 @@
               "label": "Explain selection",
               "supertip": {
                 "title": "Explain selection",
-                "description": "Explain the current selection in the CIMB Niaga Assist pane."
+                "description": "Explain the current selection in the CNGPT pane."
               },
               "actionId": "explainSelection"
             }
@@ -162,14 +246,23 @@
       "autoRunEvents": [
         {
           "requirements": {
-            "capabilities": [{ "name": "Mailbox", "minVersion": "1.12" }],
-            "scopes": ["mail"]
+            "capabilities": [
+              {
+                "name": "Mailbox",
+                "minVersion": "1.12"
+              }
+            ],
+            "scopes": [
+              "mail"
+            ]
           },
           "events": [
             {
               "type": "messageSending",
               "actionId": "onMessageSend",
-              "options": { "sendMode": "softBlock" }
+              "options": {
+                "sendMode": "softBlock"
+              }
             }
           ]
         }

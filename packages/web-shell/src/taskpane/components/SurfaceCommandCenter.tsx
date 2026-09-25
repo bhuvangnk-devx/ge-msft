@@ -164,10 +164,7 @@ export function SurfaceCommandCenter({
                 </span>
               </div>
 
-              <div
-                className="surface-entrypoints"
-                aria-label="Ways to use CIMB Niaga Assist in this host"
-              >
+              <div className="surface-entrypoints" aria-label="Ways to use CNGPT in this host">
                 {entrypoints(copy.object).map((entry) => (
                   <span key={entry.id} className="detail-hover surface-entry-wrap">
                     <span

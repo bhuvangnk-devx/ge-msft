@@ -482,7 +482,7 @@ export function Composer({
       )}
       <div className="cb">
         <label className="visually-hidden" htmlFor="ask">
-          Ask CIMB Niaga Assist{' '}
+          Ask CNGPT{' '}
         </label>
         <textarea
           ref={textareaRef}

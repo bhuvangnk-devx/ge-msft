@@ -219,7 +219,7 @@ function msalRedirectUri(): string {
 function renderSignInPrompt(startInteractive: AuthStart): void {
   fatal(
     'Sign in required',
-    'Use your Microsoft 365 account to start CIMB Niaga Assist in this Office document.',
+    'Use your Microsoft 365 account to start CNGPT in this Office document.',
     {
       label: 'Sign in',
       onClick: (button) => {
@@ -261,7 +261,7 @@ function runAuthAttempt(start: AuthStart, button: HTMLButtonElement): void {
   start()
     .catch((err: unknown) => {
       recordAuthDebug('ui.signInUnhandledError', summarizeAuthError(err));
-      fatal('Could not start CIMB Niaga Assist', errorMessage(err));
+      fatal('Could not start CNGPT', errorMessage(err));
     })
     .finally(() => window.clearTimeout(timeout));
 }
@@ -387,7 +387,7 @@ async function boot(opts: BootOptions = {}): Promise<void> {
     } else if (!opts.interactiveAuth && isRecoverableAuthBootstrapError(err)) {
       renderSignInPrompt(() => boot({ interactiveAuth: true }));
     } else {
-      fatal('Could not start CIMB Niaga Assist', detail);
+      fatal('Could not start CNGPT', detail);
     }
   }
 }
@@ -505,7 +505,7 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
     } else if (!opts.interactiveAuth && isRecoverableAuthBootstrapError(err)) {
       renderSignInPrompt(() => finishBoot(prepared, { interactiveAuth: true }));
     } else {
-      fatal('Could not start CIMB Niaga Assist', detail);
+      fatal('Could not start CNGPT', detail);
     }
   }
 }

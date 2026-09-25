@@ -201,7 +201,7 @@ export const FIXTURE_PROPOSALS: Proposal[] = [
     status: 'pending',
     entityCard: {
       title: 'Northwind Cloud',
-      subtitle: 'Entity · enriched by CIMB Niaga Assist',
+      subtitle: 'Entity · enriched by CNGPT',
       rows: [
         { key: 'Contract status', value: 'Active · renews Nov 26' },
         { key: 'SLA', value: '99.5% (below policy)' },
