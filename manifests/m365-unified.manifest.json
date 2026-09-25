@@ -3,10 +3,10 @@
   "manifestVersion": "1.23",
   "id": "REPLACE_WITH_APP_GUID",
   "version": "1.0.3",
-  "name": { "short": "Gemini Enterprise", "full": "Gemini Enterprise for Microsoft 365" },
+  "name": { "short": "CIMB Niaga Assist", "full": "CIMB Niaga Assist for Microsoft 365" },
   "description": {
-    "short": "Grounded Gemini Enterprise agents across Office and Teams.",
-    "full": "Brings Gemini Enterprise into Word, Excel, PowerPoint, and Teams — grounded on a curated research unit, scoped to your identity, with traceable changes."
+    "short": "CIMB Niaga Assist: grounded help across Office.",
+    "full": "Brings CIMB Niaga Assist into Word, Excel, PowerPoint, and Teams — grounded on a curated research unit, scoped to your identity, with traceable changes."
   },
   "developer": {
     "name": "REPLACE_DEVELOPER",
@@ -55,7 +55,7 @@
           "id": "groundOnUnit",
           "type": "query",
           "title": "Ground on the unit",
-          "description": "Ask Gemini about this, grounded on your research unit.",
+          "description": "Ask CIMB Niaga Assist about this, grounded on your research unit.",
           "initialRun": false,
           "parameters": [{ "name": "q", "title": "Question", "description": "What to ask" }]
         }
@@ -107,7 +107,7 @@
               "groups": [
                 {
                   "id": "geminiGroup",
-                  "label": "Gemini Enterprise",
+                  "label": "CIMB Niaga Assist",
                   "icons": [
                     { "size": 16, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png" },
                     { "size": 32, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png" },
@@ -117,7 +117,7 @@
                     {
                       "id": "openGeminiBtn",
                       "type": "button",
-                      "label": "Open Gemini",
+                      "label": "Open CIMB Niaga Assist",
                       "actionId": "openPanel",
                       "icons": [
                         { "size": 16, "url": "https://REPLACE_WEB_SHELL_DOMAIN/icon-16.png" },
@@ -142,7 +142,7 @@
               "label": "Summarize selection",
               "supertip": {
                 "title": "Summarize selection",
-                "description": "Summarize the current selection in the Gemini pane."
+                "description": "Summarize the current selection in the CIMB Niaga Assist pane."
               },
               "actionId": "summarizeSelection"
             },
@@ -152,7 +152,7 @@
               "label": "Explain selection",
               "supertip": {
                 "title": "Explain selection",
-                "description": "Explain the current selection in the Gemini pane."
+                "description": "Explain the current selection in the CIMB Niaga Assist pane."
               },
               "actionId": "explainSelection"
             }

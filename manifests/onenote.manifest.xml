@@ -9,8 +9,8 @@
   <Version>0.1.0</Version>
   <ProviderName>REPLACE_DEVELOPER</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise (OneNote)" />
-  <Description DefaultValue="Research capture and synthesis grounded on your Gemini Enterprise unit." />
+  <DisplayName DefaultValue="CIMB Niaga Assist (OneNote)" />
+  <Description DefaultValue="Research capture and synthesis grounded on your research unit." />
   <IconUrl DefaultValue="https://REPLACE_WEB_SHELL_DOMAIN/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://REPLACE_WEB_SHELL_DOMAIN/icon-64.png" />
   <SupportUrl DefaultValue="https://example.com/support" />
@@ -32,6 +32,7 @@
             <OfficeTab id="TabHome">
               <Group id="geminiGroup">
                 <Label resid="Gemini.Group" />
+                <Icon><bt:Image size="16" resid="Icon.16" /><bt:Image size="32" resid="Icon.32" /></Icon>
                 <Control xsi:type="Button" id="openGeminiBtn">
                   <Label resid="Gemini.Open" />
                   <Supertip>
@@ -75,9 +76,9 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://REPLACE_WEB_SHELL_DOMAIN/taskpane.html?host=onenote" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
-        <bt:String id="Gemini.Ask" DefaultValue="Ask Gemini about this" />
+        <bt:String id="Gemini.Group" DefaultValue="CIMB Niaga Assist" />
+        <bt:String id="Gemini.Open" DefaultValue="Open CIMB Niaga Assist" />
+        <bt:String id="Gemini.Ask" DefaultValue="Ask CIMB Niaga Assist about this" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="Gemini.Desc" DefaultValue="Capture and synthesize research grounded on your unit." />

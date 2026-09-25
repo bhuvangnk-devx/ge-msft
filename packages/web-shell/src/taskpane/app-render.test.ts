@@ -39,7 +39,7 @@ afterEach(() => {
 describe('<App/> render smoke', () => {
   it('renders the header and marks the panel busy for the chosen surface', () => {
     render();
-    expect(container.textContent).toContain('Gemini Enterprise');
+    expect(container.textContent).toContain('CIMB Niaga Assist');
     const panel = container.querySelector('.panel');
     expect(panel?.getAttribute('data-surface')).toBe('word');
     expect(panel?.getAttribute('aria-busy')).toBe('true');

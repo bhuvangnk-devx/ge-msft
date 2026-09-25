@@ -181,7 +181,7 @@ export function Toolbar({
       <div className="tw-identity">
         <span className="tw-brand" aria-hidden="true" />
         <span className="tw-name" title={agentLabel ?? 'Grounded on your research unit'}>
-          Gemini Enterprise
+          CIMB Niaga Assist
         </span>
         <span className="tw-spacer" />
         <span
@@ -197,7 +197,7 @@ export function Toolbar({
         </span>
       </div>
 
-      <div className="tw-bar" role="toolbar" aria-label="Gemini Enterprise controls">
+      <div className="tw-bar" role="toolbar" aria-label="CIMB Niaga Assist controls">
         <button
           type="button"
           className={`tw-icon${panel === 'context' ? ' on' : ''}`}
@@ -297,7 +297,7 @@ export function Toolbar({
         >
           <header className="tw-modal-head">
             <div>
-              <span className="eyebrow">Gemini Enterprise</span>
+              <span className="eyebrow">CIMB Niaga Assist</span>
               <h2 id="tw-modal-title" className="tw-modal-title">
                 {panel ? PANEL_TITLE[panel] : 'Commands'}
               </h2>

@@ -538,7 +538,7 @@ export function App({
       />
 
       <footer className="pf" aria-label="Provenance">
-        <span>Gemini Enterprise</span>
+        <span>CIMB Niaga Assist</span>
         <span className="pf-lamp">Review changes before applying</span>
       </footer>
     </div>

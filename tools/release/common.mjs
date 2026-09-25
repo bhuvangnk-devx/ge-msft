@@ -191,7 +191,7 @@ export function releaseConfig(profile, env = process.env) {
         '22222222-2222-4222-8222-222222222222',
       webDomain: devEnv.GE_DEV_WEB_DOMAIN ?? webUrl.hostname,
       webOrigin,
-      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? 'Gemini Enterprise Dev',
+      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? 'CIMB Niaga Assist Dev',
       websiteUrl: devEnv.GE_DEV_WEBSITE_URL ?? `${webOrigin}/`,
       privacyUrl: devEnv.GE_DEV_PRIVACY_URL ?? `${webOrigin}/privacy`,
       termsUrl: devEnv.GE_DEV_TERMS_URL ?? `${webOrigin}/terms`,
@@ -294,9 +294,9 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
       {
         id: `geminiAsk${suffix}Menu`,
         type: 'menu',
-        label: 'Gemini Enterprise',
+        label: 'CIMB Niaga Assist',
         icons: ribbonIcons(origin),
-        supertip: supertip('Gemini Enterprise', description),
+        supertip: supertip('CIMB Niaga Assist', description),
         items: [
           {
             id: `geminiSummarize${suffix}`,
@@ -304,7 +304,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Summarize ${target}`,
             supertip: supertip(
               `Summarize ${target}`,
-              `Summarize the current ${target} in the Gemini pane.`,
+              `Summarize the current ${target} in the CIMB Niaga Assist pane.`,
             ),
             actionId: 'summarizeSelection',
           },
@@ -314,7 +314,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Explain ${target}`,
             supertip: supertip(
               `Explain ${target}`,
-              `Explain the current ${target} in the Gemini pane.`,
+              `Explain the current ${target} in the CIMB Niaga Assist pane.`,
             ),
             actionId: 'explainSelection',
           },
@@ -332,9 +332,9 @@ export function alphaManifest(cfg) {
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'Gemini Enterprise', full: 'Gemini Enterprise for Microsoft 365 Alpha' },
+    name: { short: 'CIMB Niaga Assist', full: 'CIMB Niaga Assist for Microsoft 365 Alpha' },
     description: {
-      short: 'Internal Word and Excel alpha for grounded Gemini Enterprise assistance.',
+      short: 'Internal Word and Excel alpha for grounded CIMB Niaga Assist assistance.',
       full: 'Internal tenant alpha for Word and Excel only. Changes are reviewable, gated, and require durable provenance.',
     },
     developer: {
@@ -388,16 +388,19 @@ export function alphaManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'Gemini Enterprise',
+                    label: 'CIMB Niaga Assist',
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open Gemini',
+                        label: 'Open CIMB Niaga Assist',
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open Gemini', 'Open the Gemini Enterprise task pane.'),
+                        supertip: supertip(
+                          'Open CIMB Niaga Assist',
+                          'Open the CIMB Niaga Assist task pane.',
+                        ),
                       },
                     ],
                   },
@@ -428,9 +431,9 @@ export function developmentManifest(cfg) {
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'Gemini Enterprise Dev', full: 'Gemini Enterprise for Microsoft 365 Dev' },
+    name: { short: 'CIMB Niaga Assist Dev', full: 'CIMB Niaga Assist for Microsoft 365 Dev' },
     description: {
-      short: 'Development package for Gemini Enterprise across Microsoft Office.',
+      short: 'Development package for CIMB Niaga Assist across Microsoft Office.',
       full: 'Development sideload package for Word, Excel, PowerPoint, and Outlook. Not a production release artifact.',
     },
     developer: {
@@ -485,16 +488,19 @@ export function developmentManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'Gemini Enterprise',
+                    label: 'CIMB Niaga Assist',
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open Gemini',
+                        label: 'Open CIMB Niaga Assist',
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open Gemini', 'Open the Gemini Enterprise task pane.'),
+                        supertip: supertip(
+                          'Open CIMB Niaga Assist',
+                          'Open the CIMB Niaga Assist task pane.',
+                        ),
                       },
                     ],
                   },
@@ -511,13 +517,13 @@ export function developmentManifest(cfg) {
                 origin,
                 'text',
                 'Text',
-                'Summarize or review the current selection in the Gemini pane.',
+                'Summarize or review the current selection in the CIMB Niaga Assist pane.',
               ),
               askSelectionMenu(
                 origin,
                 'cell',
                 'Cell',
-                'Summarize or review the current spreadsheet range in the Gemini pane.',
+                'Summarize or review the current spreadsheet range in the CIMB Niaga Assist pane.',
               ),
             ],
           },
@@ -556,8 +562,8 @@ export function oneNoteManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (OneNote)" />
-  <Description DefaultValue="Development OneNote add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="CIMB Niaga Assist Dev (OneNote)" />
+  <Description DefaultValue="Development OneNote add-in for CIMB Niaga Assist." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -579,6 +585,7 @@ export function oneNoteManifest(cfg) {
             <OfficeTab id="TabHome">
               <Group id="geminiGroup">
                 <Label resid="Gemini.Group" />
+                <Icon><bt:Image size="16" resid="Icon.16" /><bt:Image size="32" resid="Icon.32" /></Icon>
                 <Control xsi:type="Button" id="openGeminiBtn">
                   <Label resid="Gemini.Open" />
                   <Supertip>
@@ -622,9 +629,9 @@ export function oneNoteManifest(cfg) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=onenote" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
-        <bt:String id="Gemini.Ask" DefaultValue="Ask Gemini about this" />
+        <bt:String id="Gemini.Group" DefaultValue="CIMB Niaga Assist" />
+        <bt:String id="Gemini.Open" DefaultValue="Open CIMB Niaga Assist" />
+        <bt:String id="Gemini.Ask" DefaultValue="Ask CIMB Niaga Assist about this" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="Gemini.Desc" DefaultValue="Capture and synthesize research grounded on your unit." />
@@ -686,8 +693,8 @@ export function taskPaneXmlManifest(cfg, surface) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (${esc(title)})" />
-  <Description DefaultValue="Development ${esc(title)} add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="CIMB Niaga Assist Dev (${esc(title)})" />
+  <Description DefaultValue="Development ${esc(title)} add-in for CIMB Niaga Assist." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -747,11 +754,11 @@ export function taskPaneXmlManifest(cfg, surface) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=${esc(surface)}" />${functionUrl}
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="CIMB Niaga Assist" />
+        <bt:String id="Gemini.Open" DefaultValue="Open CIMB Niaga Assist" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the CIMB Niaga Assist task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>${customFunctionsExtendedOverrides}
@@ -809,8 +816,8 @@ export function multiHostOfficeXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev" />
-  <Description DefaultValue="Gemini Enterprise for Word, Excel, and PowerPoint." />
+  <DisplayName DefaultValue="CIMB Niaga Assist Dev" />
+  <Description DefaultValue="CIMB Niaga Assist for Word, Excel, and PowerPoint." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -846,11 +853,11 @@ export function multiHostOfficeXmlManifest(cfg) {
         <bt:Url id="Functions.Url" DefaultValue="${esc(origin)}/functions.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="CIMB Niaga Assist" />
+        <bt:String id="Gemini.Open" DefaultValue="Open CIMB Niaga Assist" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the CIMB Niaga Assist task pane." />
       </bt:LongStrings>
     </Resources>
     <WebApplicationInfo>
@@ -884,8 +891,8 @@ export function outlookXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (Outlook)" />
-  <Description DefaultValue="Development Outlook add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="CIMB Niaga Assist Dev (Outlook)" />
+  <Description DefaultValue="Development Outlook add-in for CIMB Niaga Assist." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -980,11 +987,11 @@ export function outlookXmlManifest(cfg) {
         <bt:Url id="Commands.Url" DefaultValue="${esc(origin)}/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="CIMB Niaga Assist" />
+        <bt:String id="Gemini.Open" DefaultValue="Open CIMB Niaga Assist" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the CIMB Niaga Assist task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

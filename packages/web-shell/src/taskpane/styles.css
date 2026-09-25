@@ -6,10 +6,10 @@
  *     blurred, never shadowed. A panel is a panel, not a pane.
  *   · structure is drawn with 0.5px hairlines (rgba ink at 40%) and 1–2px ink rules — not with
  *     boxes of tinted fill.
- *   · ONE functional blue (#0057b8) marks the single primary action per view, links and focus.
- *     Red (#bc000c) means stop or destroy — never emphasis. Everything else is ink on paper.
- *   · status is a lamp plus a word — never color alone. blue on, gray holding, red error.
- *   · type is Hanken Grotesk for prose and JetBrains Mono for data: commands, counts, hashes,
+ *   · ONE functional accent (CIMB Niaga red #EC2428) marks the single primary action per view,
+ *     links and focus. Destructive red (#bc000c) is told apart by its word, never by color alone.
+ *   · status is a lamp plus a word — never color alone. ink on, gray holding, red error.
+ *   · type is Noto Sans (CIMB Niaga's typeface) for prose and JetBrains Mono for data: commands, counts, hashes,
  *     provenance. Numerals are tabular. Micro-labels are 11px, letterspaced, lowercase.
  *   · states shift tone only — no size change, no shadow, no movement. Groups collapse with
  *     − / + marks set in mono; no rotating chevrons.
@@ -34,11 +34,11 @@
   --hairline-soft: rgba(27, 28, 28, 0.22);
   --rule: #1b1c1c;
 
-  /* the one functional blue */
-  --blue: #0057b8;
-  --blue-hover: #00408b;
-  --blue-active: #00336f;
-  --blue-ink: #00408b; /* AA for small text */
+  /* the one functional accent: CIMB Niaga red (token names kept so components need no change) */
+  --blue: #ec2428;
+  --blue-hover: #c91d21;
+  --blue-active: #a8181c;
+  --blue-ink: #b3141a; /* AA for small text */
 
   /* stop / destroy only */
   --red: #bc000c;
@@ -46,13 +46,13 @@
   --red-tint: #ffdad6;
 
   /* lamps */
-  --lamp-on: #0057b8;
+  --lamp-on: #1b1c1c; /* ink, so "on" is never confused with the red error lamp */
   --lamp-hold: #c2c6d4;
   --lamp-err: #bc000c;
 
-  /* host accent — unified to the functional blue on every surface (one accent, ADR-Rams) */
-  --host: #0057b8;
-  --link: #00408b;
+  /* host accent — unified to the functional accent on every surface (one accent, ADR-Rams) */
+  --host: #ec2428;
+  --link: #b3141a;
 
   /* inverted plate (ink footer / cmd blocks) */
   --plate: #1b1c1c;
@@ -72,7 +72,7 @@
   --r-chip: 2px;
 
   /* typography */
-  --sans: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, 'Segoe UI', Arial, sans-serif;
+  --sans: 'Noto Sans', 'Helvetica Neue', Helvetica, 'Segoe UI', Arial, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* the host document's own voice — quoted source prose + redlines, never our UI chrome (§02) */
   --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
@@ -111,7 +111,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 ::selection {
-  background: #bfd2ff;
+  background: #fad4d5;
 }
 :focus-visible {
   outline: 2px solid var(--blue);
@@ -3585,4 +3585,19 @@ button.cite:hover {
   .tw-sheet {
     right: max(var(--s5), calc((100% - 720px) / 2));
   }
+}
+
+/* CIMB Niaga mark replaces the "ge" monogram on every brand badge. */
+.av,
+.tw-brand,
+.thread-empty-mark,
+.m.a .ic {
+  background: #ffffff url('/cimb-mark.svg') center / 100% no-repeat;
+  box-shadow: inset 0 0 0 0.5px var(--hairline-soft);
+}
+.av::after,
+.tw-brand::after,
+.thread-empty-mark::after,
+.m.a .ic::after {
+  content: none;
 }

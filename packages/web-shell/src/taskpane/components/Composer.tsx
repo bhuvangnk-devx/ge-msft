@@ -482,7 +482,7 @@ export function Composer({
       )}
       <div className="cb">
         <label className="visually-hidden" htmlFor="ask">
-          Ask Gemini
+          Ask CIMB Niaga Assist{' '}
         </label>
         <textarea
           ref={textareaRef}
@@ -577,7 +577,7 @@ export function Composer({
                 value={format}
                 onChange={(event) => setFormat(event.target.value)}
               >
-                <option value="">Let Gemini choose</option>
+                <option value="">Choose automatically</option>
                 <option>Concise bullets</option>
                 <option>Comparison table</option>
                 <option>Decision brief</option>
