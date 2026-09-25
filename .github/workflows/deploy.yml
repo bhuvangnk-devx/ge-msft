@@ -1,0 +1,105 @@
+name: Deploy
+
+# main -> staging. A v* tag -> production (the production environment requires an approver).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # keyless sign-in to Google Cloud via Workload Identity Federation
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+    env:
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.ARTIFACT_REPO }}/web
+      VITE_GCP_PROJECT: ${{ vars.VITE_GCP_PROJECT }}
+      VITE_GCP_LOCATION: ${{ vars.VITE_GCP_LOCATION }}
+      VITE_GE_ENGINE: ${{ vars.VITE_GE_ENGINE }}
+      VITE_GE_COLLECTION: ${{ vars.VITE_GE_COLLECTION }}
+      VITE_GE_ASSISTANT: ${{ vars.VITE_GE_ASSISTANT }}
+      VITE_WIF_POOL_ID: ${{ vars.VITE_WIF_POOL_ID }}
+      VITE_WIF_PROVIDER_ID: ${{ vars.VITE_WIF_PROVIDER_ID }}
+      VITE_ENTRA_TENANT_ID: ${{ vars.VITE_ENTRA_TENANT_ID }}
+      VITE_ENTRA_CLIENT_ID: ${{ vars.VITE_ENTRA_CLIENT_ID }}
+      VITE_ENTRA_AUTHORITY: ${{ vars.VITE_ENTRA_AUTHORITY }}
+      VITE_WIF_ID_TOKEN_SCOPES: ${{ vars.VITE_WIF_ID_TOKEN_SCOPES }}
+      VITE_GRAPH_SCOPES: ${{ vars.VITE_GRAPH_SCOPES }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      - run: bun install --frozen-lockfile
+
+      - name: Build the web app (settings baked in for this environment)
+        run: |
+          bun run build
+          bun run release:web
+          rm -rf deploy/cloudrun/public
+          cp -R packages/web-shell/dist-web deploy/cloudrun/public
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build, push and deploy by digest
+        id: deploy
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+          docker build -t "$IMAGE:${{ github.sha }}" deploy/cloudrun
+          docker push "$IMAGE:${{ github.sha }}"
+          DIGEST=$(gcloud artifacts docker images describe "$IMAGE:${{ github.sha }}" --format='value(image_summary.digest)')
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" --image "$IMAGE@$DIGEST" \
+            --project "${{ vars.GCP_PROJECT }}" --region "${{ vars.GCP_REGION }}" --port 8080 --quiet
+          URL=$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT }}" --region "${{ vars.GCP_REGION }}" --format='value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deployed to ${{ github.ref_name }}"
+            echo "- Service URL: $URL"
+            echo "- Image: \`$IMAGE@$DIGEST\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test
+        run: |
+          ORIGIN="${{ vars.WEB_ORIGIN || steps.deploy.outputs.url }}"
+          H=$(curl -fsSI "$ORIGIN/taskpane.html")
+          echo "$H"
+          echo "$H" | grep -qi '^cache-control: no-cache'
+          if echo "$H" | grep -qi '^x-frame-options'; then echo "X-Frame-Options breaks Office"; exit 1; fi
+          curl -fsS -o /dev/null "$ORIGIN/auth-redirect.html"
+          curl -fsS -o /dev/null "$ORIGIN/commands.html"
+
+      - name: Generate Office manifests for this address
+        env:
+          GE_DEV_WEB_ORIGIN: ${{ vars.WEB_ORIGIN || steps.deploy.outputs.url }}
+          GE_DEV_APP_ID: ${{ vars.MANIFEST_APP_ID }}
+          GE_DEV_OFFICE_XML_APP_ID: ${{ vars.OFFICE_XML_APP_ID }}
+          GE_DEV_OUTLOOK_APP_ID: ${{ vars.OUTLOOK_APP_ID }}
+          GE_DEV_DEVELOPER_NAME: ${{ vars.PUBLISHER_NAME }}
+          GE_DEV_ENTRA_CLIENT_ID: ${{ vars.VITE_ENTRA_CLIENT_ID }}
+        run: |
+          bun tools/release/manifests-generate.mjs --profile development
+          bun run package:dev
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-manifests-${{ github.ref_name }}
+          path: |
+            dist/package/development/xml
+            dist/package/development/centralized

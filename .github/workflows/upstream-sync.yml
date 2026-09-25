@@ -1,0 +1,54 @@
+name: Upstream sync
+
+# Brings the public repo's latest main into a PR. Never merges or deploys by itself.
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Mondays 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Upstream branch, tag or commit to bring in
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+env:
+  UPSTREAM_URL: https://github.com/vamsiramakrishnan/ge-msft.git
+  SYNC_BRANCH: upstream-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "${{ inputs.ref || 'main' }}"
+          echo "UPSTREAM_SHA=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+      - name: Stop if there is nothing new
+        id: check
+        run: |
+          if git merge-base --is-ancestor "$UPSTREAM_SHA" origin/main; then
+            echo "new=false" >> "$GITHUB_OUTPUT"; echo "Already up to date with upstream."
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Push the upstream commit to the sync branch and open a PR
+        if: steps.check.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push --force origin "$UPSTREAM_SHA:refs/heads/$SYNC_BRANCH"
+          if ! gh pr view "$SYNC_BRANCH" >/dev/null 2>&1; then
+            gh pr create --base main --head "$SYNC_BRANCH" \
+              --title "Upstream sync: ${{ inputs.ref || 'main' }} @ ${UPSTREAM_SHA:0:7}" \
+              --body "Brings upstream \`${UPSTREAM_SHA}\` from $UPSTREAM_URL into main. Resolve any conflicts in this PR, check auth, dependency, manifest and pipeline changes, and keep the CIMB branding. Merge with a merge commit (not squash) so upstream history is kept."
+          fi
+          # PRs opened with the built-in token do not start other workflows, so start the checks explicitly.
+          gh workflow run ci.yml --ref "$SYNC_BRANCH"

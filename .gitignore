@@ -36,3 +36,6 @@ __pycache__/
 
 # local unified package sideload state (Agents Toolkit title IDs)
 .ge-sideload/
+
+# Cloud Run build context: copied from packages/web-shell/dist-web by the deploy workflow
+deploy/cloudrun/public/
