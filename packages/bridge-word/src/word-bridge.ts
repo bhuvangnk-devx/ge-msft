@@ -13,6 +13,9 @@ import type { HostEvent, Unsubscribe } from '@ge/triggers';
 import { buildDocStateSnapshot } from '@ge/content';
 import { WORD_CAPABILITIES } from './capabilities.js';
 import {
+  commentIdFromRef,
+  commentsToRefs,
+  commentToContext,
   paragraphsToBlocks,
   paragraphsToElements,
   searchHitsToContext,
@@ -87,10 +90,11 @@ export class WordBridge implements DocBridge {
   }
 
   async listContext(): Promise<ContextRef[]> {
-    const [selText, bodyText, paragraphs] = await Promise.all([
+    const [selText, bodyText, paragraphs, comments] = await Promise.all([
       this.host.readSelectionText(),
       this.host.readBodyText(),
       this.host.readParagraphs(),
+      this.host.readComments(),
     ]);
     const refs: ContextRef[] = [];
     if (selText.trim()) {
@@ -121,6 +125,8 @@ export class WordBridge implements DocBridge {
         hostRef: { type: 'word.range', anchor },
       });
     }
+    // Existing comment threads, so a reply can target one by its host id (`reply <commentId> …`).
+    refs.push(...commentsToRefs(comments));
     refs.push({
       id: 'word:document',
       kind: 'document',
@@ -135,6 +141,12 @@ export class WordBridge implements DocBridge {
     if (ref.kind === 'selection') {
       const text = await this.host.readSelectionText();
       return wordSelectionToContext(text);
+    }
+    if (ref.kind === 'comment') {
+      const commentId = commentIdFromRef(ref);
+      if (commentId === undefined) return [];
+      const comment = (await this.host.readComments()).find((c) => c.id === commentId);
+      return comment ? commentToContext(comment) : [];
     }
     if (ref.kind === 'paragraph') {
       const paras = await this.host.readParagraphs();
