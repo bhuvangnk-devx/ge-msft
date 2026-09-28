@@ -25,6 +25,11 @@ set 'Daily schedule'!G12 "Wrap Up & Planning"
     expect(extractDirectCommandProgram('set a reminder for lunch')).toBeUndefined();
   });
 
+  it('treats "find and replace …" as a request, not the workspace find command', () => {
+    expect(extractDirectCommandProgram('Find and replace CN-GPT with CNGPT')).toBeUndefined();
+    expect(extractDirectCommandProgram('find /workspace *.md')).toBe('find /workspace *.md');
+  });
+
   it('accepts an explicit cmd fence even when it contains one command', () => {
     expect(
       extractDirectCommandProgram(`

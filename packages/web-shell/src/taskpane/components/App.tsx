@@ -107,6 +107,8 @@ const OFFICE_ACTION_REQUEST_RE =
  */
 const COMMENT_ACTION_RE =
   /\b(?:reply|respond|answer|resolve|address)\b[\s\S]*\b(?:comment|comments|thread)\b/i;
+/** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
+const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
 const WORD_REWRITE_RE =
   /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:rewrite|revise|tighten|edit|replace|improve)\b[\s\S]*\b(?:selection|selected text|paragraph|text|wording|clause|sentence)\b/i;
 const WORD_REVIEW_RE =
@@ -187,7 +189,9 @@ export function shouldUsePlannerForFreeText(
   const raw = inv.raw.trim();
   if (!raw || raw.startsWith('/')) return false;
   if (!hasActuatingIntent(allowedIntents)) return false;
-  return OFFICE_ACTION_REQUEST_RE.test(raw) || COMMENT_ACTION_RE.test(raw);
+  return (
+    OFFICE_ACTION_REQUEST_RE.test(raw) || COMMENT_ACTION_RE.test(raw) || FIND_REPLACE_RE.test(raw)
+  );
 }
 
 /**

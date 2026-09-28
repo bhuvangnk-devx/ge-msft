@@ -5,6 +5,7 @@ import type {
   ActuationResult,
   CapabilityManifest,
   ContextRef,
+  DocStateSelection,
   DocStateSnapshot,
   ResolvedContext,
 } from '@ge/contracts';
@@ -167,13 +168,22 @@ export class WordBridge implements DocBridge {
    * are omitted (no cheap port read); the runtime renders + wraps this as untrusted data.
    */
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
-    const paras = await this.host.readParagraphs();
+    const [paras, selText] = await Promise.all([
+      this.host.readParagraphs(),
+      this.host.readSelectionText(),
+    ]);
     if (paras.length === 0) return undefined;
     this.docStateVersion += 1;
+    // The live selection rides along (as Excel's does), so "rewrite my selection" targets what the
+    // user actually selected instead of a sentence the model picks from the whole document.
+    const selection = selText.trim()
+      ? ({ kind: 'selection', title: 'Selection', preview: selText } satisfies DocStateSelection)
+      : undefined;
     return buildDocStateSnapshot({
       surface: 'word',
       version: this.docStateVersion,
       blocks: paragraphsToBlocks(paras),
+      ...(selection ? { selection } : {}),
     });
   }
 
@@ -216,12 +226,21 @@ export class WordBridge implements DocBridge {
     // The decision — which read-back hit to write on, and degrade to a panel item when none
     // match — lives here (host-free, hence testable). The port runs the search→insert batch and
     // calls back into `chooseAnchorIndex` with the live hit texts, re-resolving at apply-time.
-    const outcome = await this.host.applyTrackedChange(
+    let outcome = await this.host.applyTrackedChange(
       plan.matchText,
       { matchCase: false },
       plan.text,
       (hitTexts) => chooseAnchorIndex([...hitTexts], plan.contextHint),
     );
+    if (outcome.status === 'drift') {
+      // `body.search` can't match over 255 characters or across paragraphs, so a long or
+      // multi-paragraph selection never resolves. When the anchor IS the selected text, write the
+      // tracked change on the selection instead of failing the same way on every retry.
+      const anchor = plan.matchText;
+      outcome = await this.host.applyTrackedChangeToSelection(plan.text, (selected) =>
+        sameTextIgnoringWhitespace(selected, anchor),
+      );
+    }
     if (outcome.status === 'drift') {
       // Anchor drift: degrade to a panel item rather than render a broken edit.
       return {
@@ -937,3 +956,18 @@ function provFlags(
 
 /** Actual dispatch keys; conformance checks these against the advertised capabilities. */
 export const HANDLED_ACTUATIONS: readonly ActuationKind[] = WordBridge.handledActuations;
+
+/**
+ * Paragraph marks come back as `\r` from Word but vanish or become spaces in model text, and the
+ * model may copy the `<doc_state>` entity escapes (`&quot;` …) instead of the characters.
+ */
+function sameTextIgnoringWhitespace(a: string, b: string): boolean {
+  const strip = (s: string): string =>
+    s
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, '');
+  return strip(a).length > 0 && strip(a) === strip(b);
+}

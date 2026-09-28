@@ -475,10 +475,13 @@ function paramsFromInvoke(
         ...(props.title ? { title: props.title } : {}),
       };
       break;
-    case 'find-replace':
+    case 'find-replace': {
+      // Models often borrow suggest's arrow: `/find-replace "old" => "new"`. The arrow is not an
+      // argument — taken literally it became the replacement text.
+      const positional = args.filter((a) => a !== '=>' && a !== '->');
       p.findReplace = {
-        find: props.find ?? args[0] ?? '',
-        replace: props.replace ?? args[1] ?? '',
+        find: props.find ?? positional[0] ?? '',
+        replace: props.replace ?? positional[1] ?? '',
         ...(props.matchCase !== undefined
           ? { matchCase: boolFromProp(props.matchCase, false) }
           : {}),
@@ -486,6 +489,11 @@ function paramsFromInvoke(
           ? { matchWholeWord: boolFromProp(props.matchWholeWord, false) }
           : {}),
       };
+      break;
+    }
+    case 'replace-selection':
+      // Models often write the new text positionally (`/replace-selection "…"`), without `text=`.
+      if (props.text === undefined && args.length > 0) p.text = args.join(' ');
       break;
     case 'add-attachment':
       p.attachment = {

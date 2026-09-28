@@ -39,6 +39,12 @@ const ANCHOR_PREFIX_CHARS = 64;
 
 /** Per-field hard cap at render time, so one huge field can't blow the prompt budget. */
 const RENDER_FIELD_CHARS = 240;
+/**
+ * The selection is what a "rewrite my selection" task works on, so the model needs all of it: at
+ * 240 characters a two-paragraph selection was cut mid-sentence and every rewrite anchored on a
+ * fragment that matched nothing.
+ */
+const SELECTION_PREVIEW_CHARS = 2000;
 
 /** Code-point-safe truncation (never splits a surrogate pair mid-character). */
 function clip(text: string, n: number): string {
@@ -208,7 +214,8 @@ export function renderDocState(snapshot: DocStateSnapshot): string {
 
   if (snapshot.selection !== undefined) {
     const sel = snapshot.selection;
-    const preview = sel.preview !== undefined ? ` — "${safe(sel.preview)}"` : '';
+    const preview =
+      sel.preview !== undefined ? ` — "${safe(sel.preview, SELECTION_PREVIEW_CHARS)}"` : '';
     lines.push(`selection: [${sel.kind}] "${safe(sel.title)}"${preview}`);
   }
 

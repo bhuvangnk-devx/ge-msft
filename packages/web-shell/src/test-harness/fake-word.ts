@@ -93,6 +93,10 @@ class FakeSearchResult {
   load(_props?: string): this {
     return this;
   }
+  /** WordApi 1.6 `Range.getTrackedChanges` — the simulated body holds no tracked deletions. */
+  getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
+    return { items: [], load: () => undefined };
+  }
   get paragraphs(): { getFirstOrNullObject(): FakeParagraphProxy } {
     const containing = this.seed.paragraphs.find((p) =>
       p.text.toLowerCase().includes(this.text.toLowerCase()),

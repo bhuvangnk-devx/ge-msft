@@ -1324,6 +1324,107 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 2)).toBe(true);
   });
 
+  it('stops sending the selection in <doc_state> once the task has changed the document', async () => {
+    class SelectionBridge extends ComposeBridge {
+      captureDocState(): Promise<DocStateSnapshot | undefined> {
+        return Promise.resolve({
+          ...fakeSnapshot(),
+          selection: { kind: 'selection', title: 'Selection', preview: 'Rewrite me please' },
+        });
+      }
+    }
+    const bridge = new SelectionBridge();
+    const { fetch, bodies } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit });
+
+    await collectLoop(session.runCommands('rewrite my selection', { approvePlan: () => true }));
+    expect(bridge.applied).toHaveLength(1);
+    const sent = (i: number): string => JSON.stringify(bodies[i]);
+    expect(sent(0)).toContain('Rewrite me please'); // before the write: the user's selection
+    expect(sent(1)).toContain('doc_state'); // the snapshot is still sent after the write…
+    expect(sent(1)).not.toContain('Rewrite me please'); // …without the selection, so no second rewrite
+  });
+
+  it('finishes when the model answers in prose after a change has landed (no re-prompt loop)', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch, bodies } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      'Done — I replaced it across the document.',
+      '```cmd\nset A2 2\n```', // must never be requested
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('replace', { approvePlan: () => true }));
+    expect(bridge.applied).toHaveLength(1);
+    expect(bodies).toHaveLength(2);
+    expect(events.some((e) => e.type === 'no-fence')).toBe(false);
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('a clean failure retried successfully by a same-kind write does not mark the task incomplete', async () => {
+    class FlakyBridge extends ComposeBridge {
+      private calls = 0;
+      override actuate(request: ActuationRequest): Promise<ActuationResult> {
+        this.calls += 1;
+        if (this.calls === 1) {
+          return Promise.resolve({
+            ok: false,
+            changeId: request.changeId,
+            kind: request.kind,
+            error: { code: 'no_hits', message: 'nothing matched' },
+          });
+        }
+        return super.actuate(request);
+      }
+    }
+    const bridge = new FlakyBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nset A1 2\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('refuses to re-apply a write identical to one that already landed in the task', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nset A1 1\n```', // the model "retries" a write that already succeeded
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(bridge.applied).toHaveLength(1);
+    const refused = events.find(
+      (e) => e.type === 'command' && 'compiled' in e && 'error' in e.compiled && e.turn === 2,
+    ) as Extract<CommandLoopEvent, { type: 'command' }> | undefined;
+    expect(refused?.compiled).toMatchObject({ error: expect.stringContaining('already applied') });
+  });
+
+  it('`inspect selection` / `inspect [selection]` resolve the live selection ref', async () => {
+    const bridge = new FakeBridge();
+    const { fetch, bodies } = scriptedFetch([
+      '```cmd\ninspect selection\ninspect [selection]\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('look at my selection'));
+    const resultTurn = JSON.stringify(bodies[1]);
+    // Both spellings resolved through the bridge to the selection's text (twice, one per command).
+    expect(resultTurn.split('The SLA is 99.5%.').length - 1).toBeGreaterThanOrEqual(2);
+  });
+
   it('no approver ⇒ the whole plan is blocked (fail-closed); nothing actuates', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);

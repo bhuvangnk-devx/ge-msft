@@ -143,6 +143,26 @@ describe('compileCommand', () => {
     expect(normalizeCommentId('{3f2a}')).toBe('{3f2a}');
   });
 
+  it('ignores a suggest-style arrow in positional /find-replace', () => {
+    const c = compileCommand(
+      { verb: 'invoke', kind: 'find-replace', props: {}, args: ['CN-GPT', '=>', 'CNGPT'] } as never,
+      { surface: 'word', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({
+      request: { params: { findReplace: { find: 'CN-GPT', replace: 'CNGPT' } } },
+    });
+  });
+
+  it('takes positional text for /replace-selection when text= is missing', () => {
+    const c = compileCommand(
+      { verb: 'invoke', kind: 'replace-selection', props: {}, args: ['Short new text.'] } as never,
+      { surface: 'word', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({
+      request: { kind: 'replace-selection', params: { text: 'Short new text.' } },
+    });
+  });
+
   it('compiles `reply` → comment-reply with a commentId target (Zod-valid, changeId minted once)', () => {
     const ids: string[] = [];
     const mintOnce = () => {

@@ -97,6 +97,9 @@ describe('Word stale-anchor degrade (full-stack interplay)', () => {
     const anchored = sim.seed.paragraphs.find((p) => p.text.includes(ANCHOR));
     if (!anchored) throw new Error('expected the anchored paragraph to be present at preview-time');
     anchored.text = 'This revision removes the service-level commitment entirely.';
+    // The selection sat on that text, so it now holds the coauthor's wording too (real Word keeps the
+    // two in step; the fake tracks them separately).
+    sim.seed.selectionText = anchored.text;
 
     // ── APPLY: approve the plan. The bridge re-resolves at apply-time and finds nothing. ──
     await ui!.act(() => ui!.controller.approvePlan());

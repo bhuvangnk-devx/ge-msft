@@ -72,7 +72,11 @@ function isNakedDirectEntry(entry: ProgramEntry): boolean {
   if (isProgramExpr(entry)) return true;
   if (!isProgramCommand(entry)) return false;
   // `/summarize @this` and friends are composer intents, not direct CLI specialized invocations.
-  return entry.verb !== 'invoke';
+  if (entry.verb === 'invoke') return false;
+  // `find` takes a workspace path. "Find and replace X with Y" also parses (path "and"), so a typed
+  // `find` runs directly only when its first argument looks like a path; otherwise it is prose.
+  if (entry.verb === 'find') return /^[/.~]/.test(entry.path);
+  return true;
 }
 
 function isActionableEntry(entry: ProgramEntry): boolean {
