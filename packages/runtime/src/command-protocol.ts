@@ -495,13 +495,18 @@ function paramsFromInvoke(
       // Models often write the new text positionally (`/replace-selection "…"`), without `text=`.
       if (props.text === undefined && args.length > 0) p.text = args.join(' ');
       break;
-    case 'add-attachment':
+    case 'add-attachment': {
+      // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
+      // produce base64 itself (it reliably writes the text, not the encoding).
+      const text = props.text ?? props.content;
+      const base64 = props.base64 ?? (text !== undefined ? utf8ToBase64(text) : undefined);
       p.attachment = {
         ...(props.name ? { name: props.name } : {}),
-        ...(props.base64 ? { base64: props.base64 } : {}),
+        ...(base64 ? { base64 } : {}),
         ...(props.uri ? { uri: props.uri } : {}),
       };
       break;
+    }
     case 'set-recipients':
       p.mail = {
         to: addressList(props.to),
@@ -1242,4 +1247,11 @@ export function normalizeCommentId(raw: string): string {
     if (id.toLowerCase().startsWith(prefix)) return id.slice(prefix.length).trim();
   }
   return id;
+}
+
+/** UTF-8 text → base64, without `Buffer` (this runs in the task pane). */
+function utf8ToBase64(text: string): string {
+  let binary = '';
+  for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
