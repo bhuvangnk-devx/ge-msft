@@ -12,6 +12,7 @@ import { ContextTray } from './ContextTray.js';
 import { SkillsPanel } from './SkillsPanel.js';
 import { ActionLibrary } from './ActionLibrary.js';
 import { ConversationHistoryPanel } from './ConversationHistoryPanel.js';
+import { brand } from '../../brand.js';
 
 export interface ToolbarProps {
   surface: Surface;
@@ -181,7 +182,7 @@ export function Toolbar({
       <div className="tw-identity">
         <span className="tw-brand" aria-hidden="true" />
         <span className="tw-name" title={agentLabel ?? 'Grounded on your research unit'}>
-          Gemini Enterprise
+          {brand.name}
         </span>
         <span className="tw-spacer" />
         <span
@@ -197,7 +198,7 @@ export function Toolbar({
         </span>
       </div>
 
-      <div className="tw-bar" role="toolbar" aria-label="Gemini Enterprise controls">
+      <div className="tw-bar" role="toolbar" aria-label={`${brand.name} controls`}>
         <button
           type="button"
           className={`tw-icon${panel === 'context' ? ' on' : ''}`}
@@ -297,7 +298,7 @@ export function Toolbar({
         >
           <header className="tw-modal-head">
             <div>
-              <span className="eyebrow">Gemini Enterprise</span>
+              <span className="eyebrow">{brand.name}</span>
               <h2 id="tw-modal-title" className="tw-modal-title">
                 {panel ? PANEL_TITLE[panel] : 'Commands'}
               </h2>

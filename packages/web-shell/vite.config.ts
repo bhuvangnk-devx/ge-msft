@@ -1,3 +1,4 @@
+import { brandAssets } from './brand-assets.js';
 import { computeAssets } from './compute-assets.js';
 import { resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
@@ -37,7 +38,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: __dirname,
-    plugins: [computeAssets(), react(), ...(useHttps ? [basicSsl()] : [])],
+    plugins: [computeAssets(), ...brandAssets(), react(), ...(useHttps ? [basicSsl()] : [])],
     server: {
       https: useHttps ? true : undefined,
       port,

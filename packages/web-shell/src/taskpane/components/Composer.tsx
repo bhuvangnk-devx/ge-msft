@@ -8,6 +8,7 @@ import {
   type CommandPaletteSpec,
   type ScopeOption,
 } from '@ge/contracts';
+import { brand } from '../../brand.js';
 
 /** One typed `@`-mention: the ground kind and an optional addressable handle (e.g. a person/doc id). */
 export interface ComposerMention {
@@ -482,7 +483,7 @@ export function Composer({
       )}
       <div className="cb">
         <label className="visually-hidden" htmlFor="ask">
-          Ask Gemini
+          Ask {brand.assistantName}
         </label>
         <textarea
           ref={textareaRef}
@@ -577,7 +578,7 @@ export function Composer({
                 value={format}
                 onChange={(event) => setFormat(event.target.value)}
               >
-                <option value="">Let Gemini choose</option>
+                <option value="">Let {brand.assistantName} choose</option>
                 <option>Concise bullets</option>
                 <option>Comparison table</option>
                 <option>Decision brief</option>

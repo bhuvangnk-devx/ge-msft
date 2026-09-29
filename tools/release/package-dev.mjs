@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { BRAND_ICONS } from '../brand/brand.mjs';
 import {
+  BRAND,
   cleanDir,
   copyDir,
   copyFile,
@@ -29,15 +31,9 @@ const officeXmlManifests = officeXmlSurfaces.map((surface) => ({
 const centralizedOfficeManifest = generatedOfficeXmlManifestPath(profile, 'office');
 const centralizedOutlookManifest = generatedOfficeXmlManifestPath(profile, 'outlook');
 const web = join(repoRoot, 'packages', 'web-shell', 'dist-web');
-const publicDir = join(repoRoot, 'packages', 'web-shell', 'public');
-const requiredIcons = [
-  'icon-color.png',
-  'icon-outline.png',
-  'icon-16.png',
-  'icon-32.png',
-  'icon-64.png',
-  'icon-80.png',
-];
+// The brand's icons (brands/<GE_BRAND>/icons), the same files the web build serves.
+const iconDir = BRAND.iconsDir;
+const requiredIcons = BRAND_ICONS;
 
 if (!existsSync(manifest)) {
   console.error(`Generated development manifest missing: ${manifest}`);
@@ -64,7 +60,7 @@ if (!existsSync(web)) {
   process.exit(1);
 }
 for (const icon of requiredIcons) {
-  const iconPath = join(publicDir, icon);
+  const iconPath = join(iconDir, icon);
   if (!existsSync(iconPath)) {
     console.error(`Development icon missing: ${iconPath}`);
     process.exit(1);
@@ -80,7 +76,7 @@ const webDir = join(outDir, 'web');
 cleanDir(outDir);
 
 copyFile(manifest, join(m365Dir, 'manifest.json'));
-for (const icon of requiredIcons) copyFile(join(publicDir, icon), join(m365Dir, icon));
+for (const icon of requiredIcons) copyFile(join(iconDir, icon), join(m365Dir, icon));
 copyFile(oneNoteManifest, join(oneNoteDir, 'onenote.manifest.xml'));
 for (const { surface, path } of officeXmlManifests) {
   copyFile(path, join(xmlDir, `${surface}.manifest.xml`));

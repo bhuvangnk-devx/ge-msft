@@ -10,7 +10,10 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { loadBrand } from '../brand/brand.mjs';
 
+/** The build's brand (GE_BRAND → brands/<id>/): every user-visible name in the manifests. */
+export const BRAND = loadBrand();
 export const repoRoot = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 export const alphaProfile = 'internal-alpha-word-excel';
 export const devProfile = 'development';
@@ -191,7 +194,7 @@ export function releaseConfig(profile, env = process.env) {
         '22222222-2222-4222-8222-222222222222',
       webDomain: devEnv.GE_DEV_WEB_DOMAIN ?? webUrl.hostname,
       webOrigin,
-      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? 'Gemini Enterprise Dev',
+      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? `${BRAND.name} Dev`,
       websiteUrl: devEnv.GE_DEV_WEBSITE_URL ?? `${webOrigin}/`,
       privacyUrl: devEnv.GE_DEV_PRIVACY_URL ?? `${webOrigin}/privacy`,
       termsUrl: devEnv.GE_DEV_TERMS_URL ?? `${webOrigin}/terms`,
@@ -294,9 +297,9 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
       {
         id: `geminiAsk${suffix}Menu`,
         type: 'menu',
-        label: 'Gemini Enterprise',
+        label: `${BRAND.name}`,
         icons: ribbonIcons(origin),
-        supertip: supertip('Gemini Enterprise', description),
+        supertip: supertip(`${BRAND.name}`, description),
         items: [
           {
             id: `geminiSummarize${suffix}`,
@@ -304,7 +307,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Summarize ${target}`,
             supertip: supertip(
               `Summarize ${target}`,
-              `Summarize the current ${target} in the Gemini pane.`,
+              `Summarize the current ${target} in the ${BRAND.assistantName} pane.`,
             ),
             actionId: 'summarizeSelection',
           },
@@ -314,7 +317,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Explain ${target}`,
             supertip: supertip(
               `Explain ${target}`,
-              `Explain the current ${target} in the Gemini pane.`,
+              `Explain the current ${target} in the ${BRAND.assistantName} pane.`,
             ),
             actionId: 'explainSelection',
           },
@@ -332,9 +335,9 @@ export function alphaManifest(cfg) {
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'Gemini Enterprise', full: 'Gemini Enterprise for Microsoft 365 Alpha' },
+    name: { short: `${BRAND.name}`, full: `${BRAND.fullName} Alpha` },
     description: {
-      short: 'Internal Word and Excel alpha for grounded Gemini Enterprise assistance.',
+      short: `Internal Word and Excel alpha for grounded ${BRAND.name} assistance.`,
       full: 'Internal tenant alpha for Word and Excel only. Changes are reviewable, gated, and require durable provenance.',
     },
     developer: {
@@ -388,16 +391,19 @@ export function alphaManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'Gemini Enterprise',
+                    label: `${BRAND.name}`,
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open Gemini',
+                        label: `Open ${BRAND.assistantName}`,
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open Gemini', 'Open the Gemini Enterprise task pane.'),
+                        supertip: supertip(
+                          `Open ${BRAND.assistantName}`,
+                          `Open the ${BRAND.name} task pane.`,
+                        ),
                       },
                     ],
                   },
@@ -428,9 +434,9 @@ export function developmentManifest(cfg) {
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'Gemini Enterprise Dev', full: 'Gemini Enterprise for Microsoft 365 Dev' },
+    name: { short: `${BRAND.name} Dev`, full: `${BRAND.fullName} Dev` },
     description: {
-      short: 'Development package for Gemini Enterprise across Microsoft Office.',
+      short: `Development package for ${BRAND.name} across Microsoft Office.`,
       full: 'Development sideload package for Word, Excel, PowerPoint, and Outlook. Not a production release artifact.',
     },
     developer: {
@@ -485,16 +491,19 @@ export function developmentManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'Gemini Enterprise',
+                    label: `${BRAND.name}`,
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open Gemini',
+                        label: `Open ${BRAND.assistantName}`,
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open Gemini', 'Open the Gemini Enterprise task pane.'),
+                        supertip: supertip(
+                          `Open ${BRAND.assistantName}`,
+                          `Open the ${BRAND.name} task pane.`,
+                        ),
                       },
                     ],
                   },
@@ -511,13 +520,13 @@ export function developmentManifest(cfg) {
                 origin,
                 'text',
                 'Text',
-                'Summarize or review the current selection in the Gemini pane.',
+                `Summarize or review the current selection in the ${BRAND.assistantName} pane.`,
               ),
               askSelectionMenu(
                 origin,
                 'cell',
                 'Cell',
-                'Summarize or review the current spreadsheet range in the Gemini pane.',
+                `Summarize or review the current spreadsheet range in the ${BRAND.assistantName} pane.`,
               ),
             ],
           },
@@ -556,8 +565,8 @@ export function oneNoteManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (OneNote)" />
-  <Description DefaultValue="Development OneNote add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="${esc(BRAND.name)} Dev (OneNote)" />
+  <Description DefaultValue="Development OneNote add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -622,9 +631,9 @@ export function oneNoteManifest(cfg) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=onenote" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
-        <bt:String id="Gemini.Ask" DefaultValue="Ask Gemini about this" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
+        <bt:String id="Gemini.Ask" DefaultValue="Ask ${esc(BRAND.assistantName)} about this" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="Gemini.Desc" DefaultValue="Capture and synthesize research grounded on your unit." />
@@ -686,8 +695,8 @@ export function taskPaneXmlManifest(cfg, surface) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (${esc(title)})" />
-  <Description DefaultValue="Development ${esc(title)} add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="${esc(BRAND.name)} Dev (${esc(title)})" />
+  <Description DefaultValue="Development ${esc(title)} add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -747,11 +756,11 @@ export function taskPaneXmlManifest(cfg, surface) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=${esc(surface)}" />${functionUrl}
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>${customFunctionsExtendedOverrides}
@@ -809,8 +818,8 @@ export function multiHostOfficeXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev" />
-  <Description DefaultValue="Gemini Enterprise for Word, Excel, and PowerPoint." />
+  <DisplayName DefaultValue="${esc(BRAND.name)} Dev" />
+  <Description DefaultValue="${esc(BRAND.name)} for Word, Excel, and PowerPoint." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -846,11 +855,11 @@ export function multiHostOfficeXmlManifest(cfg) {
         <bt:Url id="Functions.Url" DefaultValue="${esc(origin)}/functions.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
     <WebApplicationInfo>
@@ -884,8 +893,8 @@ export function outlookXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Gemini Enterprise Dev (Outlook)" />
-  <Description DefaultValue="Development Outlook add-in for Gemini Enterprise." />
+  <DisplayName DefaultValue="${esc(BRAND.name)} Dev (Outlook)" />
+  <Description DefaultValue="Development Outlook add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -980,11 +989,11 @@ export function outlookXmlManifest(cfg) {
         <bt:Url id="Commands.Url" DefaultValue="${esc(origin)}/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="Gemini Enterprise" />
-        <bt:String id="Gemini.Open" DefaultValue="Open Gemini" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the Gemini Enterprise task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
