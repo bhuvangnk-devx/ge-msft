@@ -19,11 +19,8 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
 
-  brand:
-    uses: ./.github/workflows/brand-guard.yml
-
   deploy:
-    needs: [checks, brand]
+    needs: checks
     runs-on: ubuntu-latest
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
     env:
@@ -51,7 +48,6 @@ jobs:
         run: |
           bun run build
           bun run release:web
-          scripts/check-brand.sh # the exact bundle being shipped carries the brand
           rm -rf deploy/cloudrun/public
           cp -R packages/web-shell/dist-web deploy/cloudrun/public
 

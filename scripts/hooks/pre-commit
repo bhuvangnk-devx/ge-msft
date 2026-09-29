@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Only while finishing a merge (after resolving conflicts); ordinary commits are not slowed down.
+[ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ] || exit 0
+exec "$(git rev-parse --show-toplevel)/scripts/hooks/brand-check-hook" "merge"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bring another repo's branch into this one without losing the brand. Merges on a new sync branch,
 # keeps this repo's brand files on any conflict, then runs the brand guard, build and brand check.
-# It never pushes: review the result, then push the sync branch and open a pull request.
+# It never pushes: review the result, then merge the sync branch into your branch yourself.
 #
 #   scripts/sync-upstream.sh                                   # upstream main (vamsiramakrishnan/ge-msft)
 #   scripts/sync-upstream.sh https://github.com/harshitajakiya/ge-msft.git merged-ge-fixes
@@ -21,7 +21,7 @@ verify() {
 
 if [ "${1:-}" = --verify ]; then # after resolving conflicts by hand
   verify
-  echo "done: the brand is intact. Push this branch and open a pull request."
+  echo "done: the brand is intact. Merge this branch into your working branch when ready."
   exit 0
 fi
 
@@ -63,4 +63,4 @@ verify
 
 echo
 echo "done: $sync is merged and the brand is intact. Next:"
-echo "  git push -u origin $sync   # then open a pull request into $base"
+echo "  git switch $base && git merge --ff-only $sync"

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Runs before git records a clean merge. A failure stops the merge commit; then either fix the
+# files and run `git commit`, or undo the merge with `git merge --abort`.
+exec "$(git rev-parse --show-toplevel)/scripts/hooks/brand-check-hook" "merge"

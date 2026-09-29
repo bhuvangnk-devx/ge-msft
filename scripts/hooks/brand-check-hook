@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+if "$root/scripts/brand-guard.sh"; then exit 0; fi
+cat >&2 <<MSG
+
+The $1 was stopped because it would change the CNGPT brand.
+  - Put the brand back (keep the brand.* references and the files in brands/), then retry.
+  - During a merge, undo it entirely with: git merge --abort
+  - If the brand change is intended and approved: scripts/brand-guard.sh --update, commit the lock, retry.
+MSG
+exit 1

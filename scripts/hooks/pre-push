@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Last line of defence: nothing with a broken brand leaves this machine.
+exec "$(git rev-parse --show-toplevel)/scripts/hooks/brand-check-hook" "push"
