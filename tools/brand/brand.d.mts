@@ -17,6 +17,7 @@ export interface BrandText {
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];
+export function selectedBrand(): string;
 export function loadBrand(id?: string): Brand;
 export function brandText(brand: Brand): BrandText;
 export function fillBrandTokens(html: string, brand: Brand): string;

@@ -17,7 +17,6 @@ die() { echo "error: $*" >&2; exit 1; }
 need() { for v in "$@"; do [ -n "${!v:-}" ] || die "$v is not set"; done; }
 
 ENVIRONMENT="${ENVIRONMENT:-}"
-export GE_BRAND="${GE_BRAND:-cimb}" # brands/cimb/: CNGPT names, icons and theme
 [ "$ENVIRONMENT" = staging ] || [ "$ENVIRONMENT" = production ] || die "ENVIRONMENT must be staging or production"
 
 # Browser config is public: only these VITE_* keys may reach the bundle (a secret named VITE_* would ship).

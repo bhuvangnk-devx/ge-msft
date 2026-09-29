@@ -5,8 +5,12 @@ font and the colours. Each brand is one folder here, and the build picks one wit
 
 ```bash
 GE_BRAND=acme bun run build     # uses brands/acme/
-bun run build                   # no GE_BRAND: brands/default/, the upstream look
+bun run build                   # brands/current if present, else brands/default/ (the upstream look)
 ```
+
+To make a brand the default for a repository, put its id in `brands/current` (one line, e.g.
+`acme`). Upstream has no `brands/current`, so it always builds the default look, and the file never
+conflicts with upstream updates. `GE_BRAND` still overrides it for a single command.
 
 The web build (`packages/web-shell/brand-assets.ts`) and the manifest tools (`tools/release`) both
 read the brand through `tools/brand/brand.mjs`, so the task pane and the Office ribbon always agree.

@@ -2,11 +2,11 @@
 # Check that the built web app carries the brand it was built for (GE_BRAND → brands/<id>/), so an
 # upstream update can't quietly bring back the upstream name or icons. Run after the web build.
 #
-#   GE_BRAND=cimb scripts/check-brand.sh
+#   scripts/check-brand.sh              # brand from GE_BRAND, else brands/current, else default
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-brand="${GE_BRAND:-default}"
+brand="${GE_BRAND:-$(cat brands/current 2>/dev/null || echo default)}" # same order as tools/brand/brand.mjs
 out=packages/web-shell/dist-web
 dir="brands/$brand"
 fail() { echo "brand check failed: $*" >&2; exit 1; }

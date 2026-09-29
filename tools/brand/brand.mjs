@@ -7,7 +7,7 @@
  *   theme.css    CSS overrides loaded after the task-pane styles (optional)
  *   assets/      extra files served at /brand/<file>, e.g. a logo theme.css points at (optional)
  *
- * GE_BRAND picks the folder; unset means brands/default/, the upstream look. Code identifiers
+ * GE_BRAND picks the folder, then brands/current, then brands/default/ (the upstream look). Code identifiers
  * (openGemini, Gemini.* resids, GeminiPane) are not brand text and never change.
  */
 import { createHash } from 'node:crypto';
@@ -36,7 +36,17 @@ const HTML_TOKENS = {
   GE_BRAND_FONT_STYLESHEET: 'fontStylesheet',
 };
 
-export function loadBrand(id = process.env.GE_BRAND || 'default') {
+/**
+ * The brand to build: GE_BRAND if set, else the id in brands/current (a repository can pin its own
+ * brand there, so nobody has to type it), else `default`.
+ */
+export function selectedBrand() {
+  if (process.env.GE_BRAND) return process.env.GE_BRAND;
+  const pinned = join(brandsRoot, 'current');
+  return existsSync(pinned) ? readFileSync(pinned, 'utf8').trim() || 'default' : 'default';
+}
+
+export function loadBrand(id = selectedBrand()) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
     throw new Error(`GE_BRAND "${id}" must be lowercase letters, digits and dashes.`);
   }
