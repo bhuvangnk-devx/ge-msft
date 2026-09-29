@@ -153,6 +153,17 @@ class FakeWordHost implements WordHost {
     return Promise.resolve({ status: 'applied', location: 'tracked-change' });
   }
 
+  applyTrackedChangeToSelection(
+    text: string,
+    matches: (selectionText: string) => boolean,
+  ): Promise<TrackedChangeOutcome> {
+    if (!this.selectionText.trim() || !matches(this.selectionText)) {
+      return Promise.resolve({ status: 'drift' });
+    }
+    this.inserts.push({ query: '<selection>', matchCase: false, text, chosen: this.selectionText });
+    return Promise.resolve({ status: 'applied', location: 'tracked-change' });
+  }
+
   addComment(query: string, matchCase: boolean, text: string): Promise<{ ok: boolean }> {
     if (this.commentFails) return Promise.resolve({ ok: false });
     this.addedComments.push({ query, matchCase, text });
@@ -644,6 +655,53 @@ describe('WordBridge orchestration (against a fake host)', () => {
   });
 
   describe('actuate tracked-change', () => {
+    it('falls back to the selection when the anchor is the selected text but search cannot find it', async () => {
+      const host = new FakeWordHost();
+      // A multi-paragraph selection: Word returns paragraph marks as \r; the model's anchor lost them.
+      host.selectionText = 'established in Problem 1.\rBecause the connector is read-only';
+      const res = await new WordBridge(host).actuate({
+        changeId: asChangeId('chg-sel'),
+        kind: 'tracked-change',
+        surface: 'word',
+        params: {
+          target: { matchText: 'established in Problem 1.Because the connector is read-only' },
+          text: 'Shorter.',
+        },
+      });
+      expect(res).toMatchObject({ ok: true, location: 'tracked-change' });
+      expect(host.inserts).toEqual([
+        { query: '<selection>', matchCase: false, text: 'Shorter.', chosen: host.selectionText },
+      ]);
+    });
+
+    it('matches the selection when the anchor carries doc_state quote escapes', async () => {
+      const host = new FakeWordHost();
+      host.selectionText = 'described generically (i.e., "to be requested")';
+      const res = await new WordBridge(host).actuate({
+        changeId: asChangeId('chg-q'),
+        kind: 'tracked-change',
+        surface: 'word',
+        params: {
+          target: { matchText: 'described generically (i.e., &quot;to be requested&quot;)' },
+          text: 'Shorter.',
+        },
+      });
+      expect(res).toMatchObject({ ok: true });
+    });
+
+    it('still reports anchor_drift when the anchor is neither found nor the selection', async () => {
+      const host = new FakeWordHost();
+      host.selectionText = 'something else entirely';
+      const res = await new WordBridge(host).actuate({
+        changeId: asChangeId('chg-sel'),
+        kind: 'tracked-change',
+        surface: 'word',
+        params: { target: { matchText: 'missing text' }, text: 'x' },
+      });
+      expect(res).toMatchObject({ ok: false, error: { code: 'anchor_drift' } });
+      expect(host.inserts).toEqual([]);
+    });
+
     it('applies a matching anchor and returns ok with the location and same changeId', async () => {
       const host = new FakeWordHost();
       host.searchHits.set('99.5%', ['intro 99.5%', 'Availability: 99.5% uptime']);

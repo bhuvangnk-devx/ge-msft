@@ -218,6 +218,17 @@ export interface WordHost {
     choose: ChooseHit,
   ): Promise<TrackedChangeOutcome>;
 
+  /**
+   * Tracked replace on the CURRENT selection — the fallback when a `suggest` anchor is the selected
+   * text but `body.search` cannot find it (over its 255-character limit, or spanning paragraphs).
+   * `matches` confirms, inside the same batch, that the live selection is still that text; otherwise
+   * `drift` and nothing is written.
+   */
+  applyTrackedChangeToSelection(
+    text: string,
+    matches: (selectionText: string) => boolean,
+  ): Promise<TrackedChangeOutcome>;
+
   /** Reply to the comment with `commentId`; optionally resolve it. `gone` if it no longer exists. */
   replyToComment(commentId: string, reply: string, resolve: boolean): Promise<CommentReplyOutcome>;
 
@@ -393,11 +404,13 @@ export class OfficeWordHost implements WordHost {
         // → WordApi 1.1; reading a result's `paragraphs` is broadly available, but we guard the
         // whole batch in try/catch so an older/quirky host degrades to `[]` rather than throwing.
         results.load('items/text');
-        const paras = results.items.map((r) => r.paragraphs.getFirstOrNullObject());
+        await ctx.sync();
+        const live = await withoutTrackedDeletions(ctx, results.items);
+        const paras = live.map((r) => r.paragraphs.getFirstOrNullObject());
         for (const p of paras) p.load('text');
         await ctx.sync();
 
-        return results.items.slice(0, MAX_SEARCH_HITS).map((r, i) => {
+        return live.slice(0, MAX_SEARCH_HITS).map((r, i) => {
           const para = paras[i];
           const paraText = para && !para.isNullObject ? para.text : undefined;
           const hint =
@@ -558,12 +571,29 @@ export class OfficeWordHost implements WordHost {
       // dependency, and the load-bearing re-resolve that degrades a drifted finding to a panel
       // item rather than editing the wrong range.
       await ctx.sync();
+      const live = await withoutTrackedDeletions(ctx, results.items);
 
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
 
       range.insertText(text, Word.InsertLocation.replace);
+      await ctx.sync();
+      return { status: 'applied', location: 'tracked-change' };
+    });
+  }
+
+  async applyTrackedChangeToSelection(
+    text: string,
+    matches: (selectionText: string) => boolean,
+  ): Promise<TrackedChangeOutcome> {
+    return Word.run(async (ctx) => {
+      const sel = ctx.document.getSelection();
+      sel.load('text');
+      await ctx.sync();
+      if (!sel.text.trim() || !matches(sel.text)) return { status: 'drift' };
+      ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+      sel.insertText(text, Word.InsertLocation.replace);
       await ctx.sync();
       return { status: 'applied', location: 'tracked-change' };
     });
@@ -871,8 +901,13 @@ export class OfficeWordHost implements WordHost {
       results.load('items/text');
       await ctx.sync();
       // Hard blast-radius bound: replace at most MAX_FIND_REPLACEMENTS hits per change.
-      const targets = results.items.slice(0, MAX_FIND_REPLACEMENTS);
-      for (const hit of targets) {
+      const targets = (await withoutTrackedDeletions(ctx, results.items)).slice(
+        0,
+        MAX_FIND_REPLACEMENTS,
+      );
+      // Last hit first: with Track Changes on, an earlier replacement in the same paragraph shifted
+      // the later hits and the text landed mid-word ("th=>e CN-GPT").
+      for (const hit of [...targets].reverse()) {
         hit.insertText(replace, Word.InsertLocation.replace);
       }
       await ctx.sync();
@@ -1015,6 +1050,26 @@ function wordContentControlId(ref: ContextRef): string | undefined {
       'word:content-control:',
     )
   );
+}
+
+/**
+ * The hits that are live text. With Track Changes on, replaced text stays in the body as a tracked
+ * deletion and `body.search` still finds it, so a re-run replaced it again ("GEGE") and a search
+ * reported it as never changed. A hit touching a deletion is dropped. `Range.getTrackedChanges` is
+ * WordApi 1.6; older hosts keep every hit, as before.
+ */
+async function withoutTrackedDeletions(
+  ctx: Word.RequestContext,
+  hits: Word.Range[],
+): Promise<Word.Range[]> {
+  if (hits.length === 0 || !isSet('WordApi', '1.6')) return hits;
+  const changes = hits.map((hit) => {
+    const tracked = hit.getTrackedChanges();
+    tracked.load('items/type');
+    return tracked;
+  });
+  await ctx.sync();
+  return hits.filter((_, i) => !changes[i]!.items.some((change) => change.type === 'Deleted'));
 }
 
 /**

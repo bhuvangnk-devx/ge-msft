@@ -26,6 +26,8 @@ interface InstallOpts {
   searchHits?: Record<string, string[]>;
   /** match text → containing-paragraph text, surfaced via `paragraphs.getFirstOrNullObject()`. */
   contextParas?: Record<string, string | undefined>;
+  /** Hit texts that sit inside a tracked deletion (struck-through, still found by `body.search`). */
+  deletedHits?: string[];
   /** Existing comments for `getComments()` (thread fields are optional; ids are required). */
   comments?: Array<{
     id: string;
@@ -113,6 +115,11 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     load(p?: string): this {
       rec.trace.push(`result.load:${p ?? ''}`);
       return this;
+    }
+    /** WordApi 1.6: a hit listed in `deletedHits` is inside a tracked deletion. */
+    getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
+      const deleted = (opts.deletedHits ?? []).includes(this.text);
+      return { items: deleted ? [{ type: 'Deleted' }] : [], load: () => undefined };
     }
     get paragraphs(): { getFirstOrNullObject(): FakeParagraph } {
       return {
@@ -488,14 +495,15 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
   it('preserves the read-then-write ordering: load + first sync precede the choose-driven insert', async () => {
     const rec = setup({ searchHits: { q: ['only hit'] } });
     await new OfficeWordHost().applyTrackedChange('q', { matchCase: true }, 'new', () => 0);
-    // search → load → sync (read) → insertText → sync (write): two syncs, insert after the first.
+    // search → load → sync (read) → sync (tracked-deletion check) → insertText → sync (write):
+    // the insert still comes after the reads and before the final write sync.
     const firstSync = rec.trace.indexOf('sync');
     const insert = rec.trace.indexOf('insertText');
     const lastSync = rec.trace.lastIndexOf('sync');
     expect(firstSync).toBeGreaterThanOrEqual(0);
     expect(insert).toBeGreaterThan(firstSync);
     expect(lastSync).toBeGreaterThan(insert);
-    expect(rec.syncCount).toBe(2);
+    expect(rec.syncCount).toBe(3);
   });
 
   it('degrades to drift (no write, no second sync) when there are zero hits', async () => {
@@ -587,6 +595,42 @@ describe('OfficeWordHost.persistProvenance (durable custom XML part, gated)', ()
   it('returns ok:false (never throws) when Word.run rejects', async () => {
     setup({ requirements: { WordApi: 4 }, wordRunThrows: true });
     await expect(new OfficeWordHost().persistProvenance('<prov/>')).resolves.toEqual({ ok: false });
+  });
+});
+
+describe('OfficeWordHost.findReplace', () => {
+  it('skips hits inside a tracked deletion, so a re-run cannot replace struck-out text again', async () => {
+    const rec = setup({
+      searchHits: { 'Gemini Enterprise': ['struck-out', 'live'] },
+      deletedHits: ['struck-out'],
+    });
+    const out = await new OfficeWordHost().findReplace('Gemini Enterprise', 'GE', {
+      matchCase: false,
+      matchWholeWord: false,
+    });
+    expect(out).toEqual({ status: 'applied', replacedCount: 1 });
+    expect(rec.inserts.map((i) => i.anchor)).toEqual(['live']);
+  });
+
+  it('reports none when every hit is struck-out text', async () => {
+    setup({ searchHits: { 'Gemini Enterprise': ['struck-out'] }, deletedHits: ['struck-out'] });
+    await expect(
+      new OfficeWordHost().findReplace('Gemini Enterprise', 'GE', {
+        matchCase: false,
+        matchWholeWord: false,
+      }),
+    ).resolves.toEqual({ status: 'none' });
+  });
+
+  it('replaces from the last hit back, so earlier edits cannot shift later hits', async () => {
+    // Distinct read-back texts stand in for three hits in document order.
+    const rec = setup({ searchHits: { 'CN-GPT': ['hit-1', 'hit-2', 'hit-3'] } });
+    const out = await new OfficeWordHost().findReplace('CN-GPT', 'CNGPT', {
+      matchCase: false,
+      matchWholeWord: false,
+    });
+    expect(out).toEqual({ status: 'applied', replacedCount: 3 });
+    expect(rec.inserts.map((i) => i.anchor)).toEqual(['hit-3', 'hit-2', 'hit-1']);
   });
 });
 

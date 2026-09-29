@@ -162,6 +162,16 @@ describe('renderDocState', () => {
     expect(out.endsWith('</doc_state>')).toBe(true);
     expect(out).toContain('title: "SLA"');
     expect(out).toContain('selection: [selection] "Selection" — "monthly"');
+    const long = 'word '.repeat(300).trim(); // ~1,500 chars: a two-paragraph selection
+    const withLong = renderDocState(
+      buildDocStateSnapshot({
+        surface: 'word',
+        version: 1,
+        blocks: [],
+        selection: { kind: 'selection', title: 'Selection', preview: long },
+      }),
+    );
+    expect(withLong).toContain(long); // not cut at the 240-char field limit
     expect(out).toContain('# "Service Levels"');
     expect(out).toContain('## "Availability"');
     expect(out).toContain('- [table] "| Metric | Target |" (2 rows × 2 cols)');
