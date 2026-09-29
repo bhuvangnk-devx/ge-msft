@@ -19,6 +19,7 @@ import { NaaAuthClient } from '../auth-client.js';
 import { composeSession } from '../compose.js';
 import { createApplicationRuntime } from '../runtime-extensions.js';
 import { connectPanelRuntime } from '../panel-runtime.js';
+import { brand } from '../brand.js';
 
 let disposePanelRuntime: (() => void) | undefined;
 import { PanelController } from '../controller.js';
@@ -219,7 +220,7 @@ function msalRedirectUri(): string {
 function renderSignInPrompt(startInteractive: AuthStart): void {
   fatal(
     'Sign in required',
-    'Use your Microsoft 365 account to start CNGPT in this Office document.',
+    `Use your Microsoft 365 account to start ${brand.name} in this Office document.`,
     {
       label: 'Sign in',
       onClick: (button) => {
@@ -261,7 +262,7 @@ function runAuthAttempt(start: AuthStart, button: HTMLButtonElement): void {
   start()
     .catch((err: unknown) => {
       recordAuthDebug('ui.signInUnhandledError', summarizeAuthError(err));
-      fatal('Could not start CNGPT', errorMessage(err));
+      fatal(`Could not start ${brand.name}`, errorMessage(err));
     })
     .finally(() => window.clearTimeout(timeout));
 }
@@ -387,7 +388,7 @@ async function boot(opts: BootOptions = {}): Promise<void> {
     } else if (!opts.interactiveAuth && isRecoverableAuthBootstrapError(err)) {
       renderSignInPrompt(() => boot({ interactiveAuth: true }));
     } else {
-      fatal('Could not start CNGPT', detail);
+      fatal(`Could not start ${brand.name}`, detail);
     }
   }
 }
@@ -505,7 +506,7 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
     } else if (!opts.interactiveAuth && isRecoverableAuthBootstrapError(err)) {
       renderSignInPrompt(() => finishBoot(prepared, { interactiveAuth: true }));
     } else {
-      fatal('Could not start CNGPT', detail);
+      fatal(`Could not start ${brand.name}`, detail);
     }
   }
 }

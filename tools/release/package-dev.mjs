@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { BRAND_ICONS } from '../brand/brand.mjs';
 import {
+  BRAND,
   alphaProfile,
   cimbProdProfile,
   cleanDir,
@@ -50,15 +52,9 @@ const centralizedOutlookManifest = surfaces.includes('outlook')
   ? generatedOfficeXmlManifestPath(profile, 'outlook')
   : null;
 const web = join(repoRoot, 'packages', 'web-shell', 'dist-web');
-const publicDir = join(repoRoot, 'packages', 'web-shell', 'public');
-const requiredIcons = [
-  'icon-color.png',
-  'icon-outline.png',
-  'icon-16.png',
-  'icon-32.png',
-  'icon-64.png',
-  'icon-80.png',
-];
+// The brand's icons (brands/<GE_BRAND>/icons), the same files the web build serves.
+const iconDir = BRAND.iconsDir;
+const requiredIcons = BRAND_ICONS;
 
 const expected = [
   ['manifest', manifest],
@@ -78,7 +74,7 @@ if (!existsSync(web)) {
   process.exit(1);
 }
 for (const icon of requiredIcons) {
-  const iconPath = join(publicDir, icon);
+  const iconPath = join(iconDir, icon);
   if (!existsSync(iconPath)) {
     console.error(`${label} icon missing: ${iconPath}`);
     process.exit(1);
@@ -94,7 +90,7 @@ const webDir = join(outDir, 'web');
 cleanDir(outDir);
 
 copyFile(manifest, join(m365Dir, 'manifest.json'));
-for (const icon of requiredIcons) copyFile(join(publicDir, icon), join(m365Dir, icon));
+for (const icon of requiredIcons) copyFile(join(iconDir, icon), join(m365Dir, icon));
 if (oneNoteManifest) copyFile(oneNoteManifest, join(oneNoteDir, 'onenote.manifest.xml'));
 for (const { surface, path } of officeXmlManifests) {
   copyFile(path, join(xmlDir, `${surface}.manifest.xml`));
@@ -112,7 +108,7 @@ if (commandsChunk) copyFile(commandsChunk, join(webDir, 'assets', 'commands.js')
 
 const releaseNotes = isDev
   ? [
-      `# Gemini Enterprise Development Sideload Package v${rootVersion()}`,
+      `# ${BRAND.name} Development Sideload Package v${rootVersion()}`,
       '',
       'Profile: development',
       'Unified package surfaces: Word, Excel, PowerPoint, Outlook',
@@ -124,7 +120,7 @@ const releaseNotes = isDev
       '',
     ].join('\n')
   : [
-      `# CNGPT Production Package v${rootVersion()}`,
+      `# ${BRAND.name} Production Package v${rootVersion()}`,
       '',
       `Profile: ${profile}`,
       `Apps: ${surfaces.join(', ')}`,

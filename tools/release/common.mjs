@@ -10,7 +10,10 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { loadBrand } from '../brand/brand.mjs';
 
+/** The build's brand (GE_BRAND → brands/<id>/): every user-visible name in the manifests. */
+export const BRAND = loadBrand();
 export const repoRoot = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 export const alphaProfile = 'internal-alpha-word-excel';
 export const devProfile = 'development';
@@ -195,7 +198,7 @@ export function releaseConfig(profile, env = process.env) {
         '22222222-2222-4222-8222-222222222222',
       webDomain: devEnv.GE_DEV_WEB_DOMAIN ?? webUrl.hostname,
       webOrigin,
-      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? 'CNGPT Dev',
+      developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? `${BRAND.name} Dev`,
       websiteUrl: devEnv.GE_DEV_WEBSITE_URL ?? `${webOrigin}/`,
       privacyUrl: devEnv.GE_DEV_PRIVACY_URL ?? `${webOrigin}/privacy`,
       termsUrl: devEnv.GE_DEV_TERMS_URL ?? `${webOrigin}/terms`,
@@ -283,6 +286,8 @@ function prodReleaseConfig(env) {
     err.code = 'BLOCKED_EXTERNAL';
     throw err;
   }
+  // The brand names the production add-in (GE_BRAND → brands/<id>/brand.json).
+  const brand = loadBrand(env.GE_BRAND || undefined);
   const cfg = {
     profile: cimbProdProfile,
     surfaces,
@@ -298,11 +303,11 @@ function prodReleaseConfig(env) {
     privacyUrl: env.GE_PROD_PRIVACY_URL,
     termsUrl: env.GE_PROD_TERMS_URL,
     supportUrl: env.GE_PROD_SUPPORT_URL,
-    displayName: 'CNGPT',
-    fullName: 'CNGPT for Microsoft 365',
+    displayName: brand.name,
+    fullName: brand.fullName,
     description: {
-      short: 'CNGPT across your Microsoft 365 apps.',
-      full: 'CNGPT in Microsoft 365: grounded answers and reviewable, traceable changes, scoped to your identity.',
+      short: `${brand.name} across your Microsoft 365 apps.`,
+      full: `${brand.name} in Microsoft 365: grounded answers and reviewable, traceable changes, scoped to your identity.`,
     },
     xmlDescriptionPrefix: '',
   };
@@ -404,9 +409,9 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
       {
         id: `geminiAsk${suffix}Menu`,
         type: 'menu',
-        label: 'CNGPT',
+        label: `${BRAND.name}`,
         icons: ribbonIcons(origin),
-        supertip: supertip('CNGPT', description),
+        supertip: supertip(`${BRAND.name}`, description),
         items: [
           {
             id: `geminiSummarize${suffix}`,
@@ -414,7 +419,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Summarize ${target}`,
             supertip: supertip(
               `Summarize ${target}`,
-              `Summarize the current ${target} in the CNGPT pane.`,
+              `Summarize the current ${target} in the ${BRAND.assistantName} pane.`,
             ),
             actionId: 'summarizeSelection',
           },
@@ -424,7 +429,7 @@ function askSelectionMenu(origin, entryPoint, suffix, description) {
             label: `Explain ${target}`,
             supertip: supertip(
               `Explain ${target}`,
-              `Explain the current ${target} in the CNGPT pane.`,
+              `Explain the current ${target} in the ${BRAND.assistantName} pane.`,
             ),
             actionId: 'explainSelection',
           },
@@ -442,9 +447,9 @@ export function alphaManifest(cfg) {
     manifestVersion: '1.23',
     id: cfg.appId,
     version: rootVersion(),
-    name: { short: 'CNGPT', full: 'CNGPT for Microsoft 365 Alpha' },
+    name: { short: `${BRAND.name}`, full: `${BRAND.fullName} Alpha` },
     description: {
-      short: 'Internal Word and Excel alpha for grounded CNGPT assistance.',
+      short: `Internal Word and Excel alpha for grounded ${BRAND.name} assistance.`,
       full: 'Internal tenant alpha for Word and Excel only. Changes are reviewable, gated, and require durable provenance.',
     },
     developer: {
@@ -498,16 +503,19 @@ export function alphaManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'CNGPT',
+                    label: `${BRAND.name}`,
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open CNGPT',
+                        label: `Open ${BRAND.assistantName}`,
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open CNGPT', 'Open the CNGPT task pane.'),
+                        supertip: supertip(
+                          `Open ${BRAND.assistantName}`,
+                          `Open the ${BRAND.name} task pane.`,
+                        ),
                       },
                     ],
                   },
@@ -541,11 +549,11 @@ export function developmentManifest(cfg) {
     id: cfg.appId,
     version: rootVersion(),
     name: {
-      short: cfg.displayName ?? 'CNGPT Dev',
-      full: cfg.fullName ?? 'CNGPT for Microsoft 365 Dev',
+      short: cfg.displayName ?? `${BRAND.name} Dev`,
+      full: cfg.fullName ?? `${BRAND.fullName} Dev`,
     },
     description: cfg.description ?? {
-      short: 'Development package for CNGPT across Microsoft Office.',
+      short: `Development package for ${BRAND.name} across Microsoft Office.`,
       full: 'Development sideload package for Word, Excel, PowerPoint, and Outlook. Not a production release artifact.',
     },
     developer: {
@@ -600,16 +608,19 @@ export function developmentManifest(cfg) {
                 groups: [
                   {
                     id: 'geminiGroup',
-                    label: 'CNGPT',
+                    label: `${BRAND.name}`,
                     icons: ribbonIcons(origin),
                     controls: [
                       {
                         id: 'openGeminiBtn',
                         type: 'button',
-                        label: 'Open CNGPT',
+                        label: `Open ${BRAND.assistantName}`,
                         actionId: 'openPanel',
                         icons: ribbonIcons(origin),
-                        supertip: supertip('Open CNGPT', 'Open the CNGPT task pane.'),
+                        supertip: supertip(
+                          `Open ${BRAND.assistantName}`,
+                          `Open the ${BRAND.name} task pane.`,
+                        ),
                       },
                     ],
                   },
@@ -628,13 +639,13 @@ export function developmentManifest(cfg) {
                       origin,
                       'text',
                       'Text',
-                      'Summarize or review the current selection in the CNGPT pane.',
+                      `Summarize or review the current selection in the ${BRAND.assistantName} pane.`,
                     ),
                     askSelectionMenu(
                       origin,
                       'cell',
                       'Cell',
-                      'Summarize or review the current spreadsheet range in the CNGPT pane.',
+                      `Summarize or review the current spreadsheet range in the ${BRAND.assistantName} pane.`,
                     ),
                   ],
                 },
@@ -679,8 +690,8 @@ export function oneNoteManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (OneNote)" />
-  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}OneNote add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? `${BRAND.name} Dev`)} (OneNote)" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}OneNote add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -746,9 +757,9 @@ export function oneNoteManifest(cfg) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=onenote" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="CNGPT" />
-        <bt:String id="Gemini.Open" DefaultValue="Open CNGPT" />
-        <bt:String id="Gemini.Ask" DefaultValue="Ask CNGPT about this" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
+        <bt:String id="Gemini.Ask" DefaultValue="Ask ${esc(BRAND.assistantName)} about this" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="Gemini.Desc" DefaultValue="Capture and synthesize research grounded on your unit." />
@@ -810,8 +821,8 @@ export function taskPaneXmlManifest(cfg, surface) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (${esc(title)})" />
-  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}${esc(title)} add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? `${BRAND.name} Dev`)} (${esc(title)})" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}${esc(title)} add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -871,11 +882,11 @@ export function taskPaneXmlManifest(cfg, surface) {
         <bt:Url id="Taskpane.Url" DefaultValue="${esc(origin)}/taskpane.html?host=${esc(surface)}" />${functionUrl}
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="CNGPT" />
-        <bt:String id="Gemini.Open" DefaultValue="Open CNGPT" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the CNGPT task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>${customFunctionsExtendedOverrides}
@@ -933,8 +944,8 @@ export function multiHostOfficeXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')}" />
-  <Description DefaultValue="CNGPT for Word, Excel, and PowerPoint." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? `${BRAND.name} Dev`)}" />
+  <Description DefaultValue="${esc(BRAND.name)} for Word, Excel, and PowerPoint." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -970,11 +981,11 @@ export function multiHostOfficeXmlManifest(cfg) {
         <bt:Url id="Functions.Url" DefaultValue="${esc(origin)}/functions.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="CNGPT" />
-        <bt:String id="Gemini.Open" DefaultValue="Open CNGPT" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the CNGPT task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
     <WebApplicationInfo>
@@ -1008,8 +1019,8 @@ export function outlookXmlManifest(cfg) {
   <Version>${esc(officeXmlVersion())}</Version>
   <ProviderName>${esc(cfg.developerName)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="${esc(cfg.displayName ?? 'CNGPT Dev')} (Outlook)" />
-  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}Outlook add-in for CNGPT." />
+  <DisplayName DefaultValue="${esc(cfg.displayName ?? `${BRAND.name} Dev`)} (Outlook)" />
+  <Description DefaultValue="${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}Outlook add-in for ${esc(BRAND.name)}." />
   <IconUrl DefaultValue="${esc(origin)}/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="${esc(origin)}/icon-64.png" />
   <SupportUrl DefaultValue="${esc(cfg.supportUrl)}" />
@@ -1104,11 +1115,11 @@ export function outlookXmlManifest(cfg) {
         <bt:Url id="Commands.Url" DefaultValue="${esc(origin)}/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Gemini.Group" DefaultValue="CNGPT" />
-        <bt:String id="Gemini.Open" DefaultValue="Open CNGPT" />
+        <bt:String id="Gemini.Group" DefaultValue="${esc(BRAND.name)}" />
+        <bt:String id="Gemini.Open" DefaultValue="Open ${esc(BRAND.assistantName)}" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Gemini.Desc" DefaultValue="Open the CNGPT task pane." />
+        <bt:String id="Gemini.Desc" DefaultValue="Open the ${esc(BRAND.name)} task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

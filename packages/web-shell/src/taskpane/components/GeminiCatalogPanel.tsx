@@ -6,6 +6,7 @@ import {
   type GeminiCatalogSelection,
   type GeminiCatalogSkill,
 } from '@ge/gemini-client';
+import { brand } from '../../brand.js';
 
 export interface GeminiCatalogPanelProps {
   catalogClient?: DiscoveryCatalogClient;
@@ -96,13 +97,13 @@ export function GeminiCatalogPanel({
     <section
       id="ge-catalog-settings"
       className="catalog"
-      aria-label="Gemini Enterprise catalog"
+      aria-label={`${brand.name} catalog`}
       aria-disabled={disabled}
       data-expanded={expanded ? 'true' : 'false'}
     >
       <div className="catalog-head">
         <div>
-          <div className="eyebrow">Gemini Enterprise catalog</div>
+          <div className="eyebrow">{brand.name} catalog</div>
           <div className="catalog-summary">
             {summary(loadState, skills.length, dataStores.length, catalog?.warnings?.length ?? 0)}
           </div>

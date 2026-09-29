@@ -14,6 +14,7 @@ import type {
   Skill,
   Suggestion,
 } from '../controller.js';
+import { brand } from '../brand.js';
 
 /**
  * Realistic, hand-authored `PanelState` fixtures that exercise EVERY card the panel can render — a
@@ -201,7 +202,7 @@ export const FIXTURE_PROPOSALS: Proposal[] = [
     status: 'pending',
     entityCard: {
       title: 'Northwind Cloud',
-      subtitle: 'Entity · enriched by CNGPT',
+      subtitle: `Entity · enriched by ${brand.name}`,
       rows: [
         { key: 'Contract status', value: 'Active · renews Nov 26' },
         { key: 'SLA', value: '99.5% (below policy)' },

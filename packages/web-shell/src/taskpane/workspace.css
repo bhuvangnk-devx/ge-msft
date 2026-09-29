@@ -39,8 +39,8 @@
   overflow: hidden;
 }
 .smart-chip[data-attached='true'] {
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: #eff5fc;
+  border-color: #bacce0;
 }
 .smart-chip-title {
   display: inline-flex;
@@ -71,14 +71,14 @@
   flex: 0 0 27px;
   height: 27px;
   border: 0;
-  border-left: 1px solid #efc9ca;
+  border-left: 1px solid #d3ddeb;
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
 }
 .smart-chip-remove:hover,
 .smart-chip-title:not(:disabled):hover {
-  background: #fbe0e1;
+  background: #dfebf9;
 }
 .smart-chip button:focus-visible {
   outline-offset: -3px;
@@ -266,7 +266,7 @@
   cursor: pointer;
 }
 .library-run:hover:not(:disabled) {
-  background: #fdf0f0;
+  background: #eff5fc;
   border-color: var(--blue);
 }
 .library-empty {
@@ -366,7 +366,7 @@
 }
 .composer-source-results button[aria-pressed='true'] {
   color: var(--blue-ink);
-  background: #fdf0f0;
+  background: #eff5fc;
 }
 .composer-source-picker p {
   color: var(--ink-2);
@@ -398,7 +398,7 @@
   cursor: pointer;
 }
 .answer-actions button:hover:not(:disabled) {
-  background: #fdf0f0;
+  background: #eff5fc;
 }
 .answer-actions > span {
   font-size: var(--fz-sm);
@@ -505,8 +505,8 @@
 }
 .panel .tw-icon:hover,
 .panel .tw-icon.on {
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: #eff5fc;
+  border-color: #bacce0;
 }
 .panel .scope-option {
   font-size: 11px;
@@ -525,8 +525,8 @@
 }
 .panel .scope-option[data-selected='true'] {
   color: var(--blue-ink);
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: #eff5fc;
+  border-color: #bacce0;
 }
 .panel .smart-chip-title,
 .panel .smart-chip-remove {
@@ -697,7 +697,7 @@
 }
 .analysis-body .analysis-artifact[aria-pressed='true'] {
   border-color: var(--blue);
-  background: #fdf0f0;
+  background: #eff5fc;
 }
 .analysis-section {
   margin-top: 12px;
@@ -750,7 +750,7 @@
 }
 .analysis-body .analysis-findings button {
   border-radius: 16px;
-  background: #fdf0f0;
+  background: #eff5fc;
   padding: 5px 9px;
 }
 .analysis-table-scroll {

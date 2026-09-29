@@ -41,6 +41,7 @@ import { WorkspaceHome } from './WorkspaceHome.js';
 import { Toolbar } from './Toolbar.js';
 import { extractDirectCommandProgram } from '../direct-command.js';
 import { buildInsertArtifactProgram, type InsertableArtifact } from '../insert-artifact.js';
+import { brand } from '../../brand.js';
 
 export interface AppProps {
   controller: PanelController;
@@ -538,7 +539,7 @@ export function App({
       />
 
       <footer className="pf" aria-label="Provenance">
-        <span>CNGPT</span>
+        <span>{brand.name}</span>
         <span className="pf-lamp">Review changes before applying</span>
       </footer>
     </div>
