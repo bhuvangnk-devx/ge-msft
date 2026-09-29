@@ -26,6 +26,7 @@ the Microsoft 365 admin center when the name, icons, commands, permissions, doma
 | Variable | Example | Notes |
 | --- | --- | --- |
 | `ENVIRONMENT` | `staging` / `production` | Picks the manifest profile |
+| `GE_BRAND` | `cimb` | Optional; the release script defaults to `cimb` (`brands/cimb/`) |
 | `GCP_PROJECT`, `GCP_REGION` | `cimb-cngpt-prod`, `asia-southeast2` | Region must match data residency |
 | `ALLOWED_REGIONS` | `asia-southeast2` | Optional; the build fails outside this list |
 | `ARTIFACT_REPO`, `CLOUD_RUN_SERVICE` | `cngpt`, `cngpt-web` | |

@@ -1,0 +1,78 @@
+/* CNGPT (CIMB Niaga) theme: loaded after the task-pane styles, so these rules win.
+ * Generated from the colour and font changes CIMB had made directly in styles.css and
+ * workspace.css; upstream keeps its own look in those files. */
+
+:root {
+  --blue: #ec2428;
+  --blue-hover: #c91d21;
+  --blue-active: #a8181c;
+  --blue-ink: #b3141a;
+  --lamp-on: #1b1c1c;
+  --host: #ec2428;
+  --link: #b3141a;
+  --sans: 'Noto Sans', 'Helvetica Neue', Helvetica, 'Segoe UI', Arial, sans-serif;
+}
+
+::selection {
+  background: #fad4d5;
+}
+
+.av,
+.tw-brand,
+.thread-empty-mark,
+.m.a .ic {
+  background: #ffffff url('/brand/mark.png') center / contain no-repeat;
+  box-shadow: inset 0 0 0 0.5px var(--hairline-soft);
+}
+
+.av::after,
+.tw-brand::after,
+.thread-empty-mark::after,
+.m.a .ic::after {
+  content: none;
+}
+
+.smart-chip[data-attached='true'] {
+  background: #fdf0f0;
+  border-color: #f2b8ba;
+}
+
+.smart-chip-remove {
+  border-left: 1px solid #efc9ca;
+}
+
+.smart-chip-remove:hover,
+.smart-chip-title:not(:disabled):hover {
+  background: #fbe0e1;
+}
+
+.library-run:hover:not(:disabled) {
+  background: #fdf0f0;
+}
+
+.composer-source-results button[aria-pressed='true'] {
+  background: #fdf0f0;
+}
+
+.answer-actions button:hover:not(:disabled) {
+  background: #fdf0f0;
+}
+
+.panel .tw-icon:hover,
+.panel .tw-icon.on {
+  background: #fdf0f0;
+  border-color: #f2b8ba;
+}
+
+.panel .scope-option[data-selected='true'] {
+  background: #fdf0f0;
+  border-color: #f2b8ba;
+}
+
+.analysis-body .analysis-artifact[aria-pressed='true'] {
+  background: #fdf0f0;
+}
+
+.analysis-body .analysis-findings button {
+  background: #fdf0f0;
+}

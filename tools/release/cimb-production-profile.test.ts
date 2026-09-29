@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BRAND,
   cimbProdProfile,
   developmentManifest,
   multiHostOfficeXmlManifest,
@@ -10,6 +11,7 @@ import {
 } from './common.mjs';
 
 const env = {
+  GE_BRAND: 'cimb',
   GE_PROD_APP_ID: '0c9a3f7e-51d2-4b8e-9f10-2a6b7c8d9e01',
   GE_PROD_OFFICE_XML_APP_ID: '1d8b4e6f-62e3-4c9f-8a21-3b7c8d9e0f12',
   GE_PROD_OUTLOOK_APP_ID: '2e7c5d8a-73f4-4dab-9b32-4c8d9e0f1a23',
@@ -92,14 +94,14 @@ describe('cimb-production release profile', () => {
     ).toThrow(/HTTPS/);
   });
 
-  it('keeps the development naming when no production values are set', () => {
+  it("keeps the build brand's development naming when no production values are set", () => {
     const manifest = developmentManifest({
       webOrigin: 'https://shell.test',
       webDomain: 'shell.test',
       appId: env.GE_PROD_APP_ID,
       entraClientId: env.GE_PROD_ENTRA_CLIENT_ID,
     });
-    expect(manifest.name.short).toBe('CNGPT Dev');
+    expect(manifest.name.short).toBe(`${BRAND.name} Dev`);
     expect(manifest.extensions[0].requirements.scopes).toHaveLength(4);
   });
 });
