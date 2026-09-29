@@ -55,3 +55,4 @@ jobs:
           fi
           # PRs opened with the built-in token do not start other workflows, so start the checks explicitly.
           gh workflow run ci.yml --ref "$SYNC_BRANCH"
+          gh workflow run brand-guard.yml --ref "$SYNC_BRANCH"

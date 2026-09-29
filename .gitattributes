@@ -1,0 +1,5 @@
+# This repository's brand wins every merge (needs: git config merge.ours.driver true;
+# scripts/sync-upstream.sh sets it). GitHub's web merge ignores this, so merge upstream locally.
+brands/cimb/** merge=ours
+brands/current merge=ours
+brands/*.lock merge=ours
