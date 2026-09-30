@@ -2038,6 +2038,35 @@ describe('AssistSession.runCommands — the bounded command loop', () => {
     expect(bridge.applied).toHaveLength(0);
   });
 
+  it('completes when writes capped in one turn are applied in the next', async () => {
+    const bridge = new FakeExcelBridge();
+    const { client } = fakeClient([
+      '```cmd\nset A1 1\nset A2 2\nset A3 3\n```',
+      '```cmd\nset A3 3\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const session = new AssistSession(bridge, client, { unit });
+    await collect(
+      session.runCommands('write three', { approveWrite: () => true, maxWritesPerTurn: 2 }),
+    );
+    expect(bridge.applied).toHaveLength(3);
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('stays incomplete when a capped write is never sent again', async () => {
+    const bridge = new FakeExcelBridge();
+    const { client } = fakeClient([
+      '```cmd\nset A1 1\nset A2 2\nset A3 3\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const session = new AssistSession(bridge, client, { unit });
+    await collect(
+      session.runCommands('write three', { approveWrite: () => true, maxWritesPerTurn: 2 }),
+    );
+    expect(bridge.applied).toHaveLength(2);
+    expect(session.executions.list().at(-1)?.status).not.toBe('completed');
+  });
+
   it('write-one cap: only maxWritesPerTurn writes actuate in one block', async () => {
     const bridge = new FakeExcelBridge();
     const { client } = fakeClient([

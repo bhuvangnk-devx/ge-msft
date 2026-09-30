@@ -209,7 +209,8 @@ export type CommandLoopEvent =
    * best-effort-redacted preview of the unparsed reply, for diagnosability. */
   | { type: 'no-fence'; turn: number; rawSnippet: string }
   /** A per-turn command/write ceiling was hit; extra commands in the block were refused. */
-  | { type: 'capped'; turn: number; reason: string }
+  /** `deferred` names a write held back by the per-turn cap; the model may send it next turn. */
+  | { type: 'capped'; turn: number; reason: string; deferred?: string }
   /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
   | { type: 'done'; turn: number; answer: string }
   /** The loop hit `maxTurns` without `done`. */
@@ -517,10 +518,21 @@ export class AssistSession {
         contextIds.push(id);
         this.context.add(framedRead(entry, id));
       }
+      // Writes held back by the per-turn cap. Each one clears when the model sends it again; any
+      // still pending at the end leaves the task incomplete (never a silently dropped write).
+      const deferred = new Set<string>();
       for await (const event of run()) {
         signal?.throwIfAborted();
         if (event && typeof event === 'object' && 'type' in event) {
-          if (event.type === 'exhausted' || event.type === 'capped') task.status = 'incomplete';
+          const loopEvent = event as unknown as CommandLoopEvent;
+          if (loopEvent.type === 'capped' && loopEvent.deferred !== undefined) {
+            deferred.add(loopEvent.deferred);
+          } else if (loopEvent.type === 'exhausted' || loopEvent.type === 'capped') {
+            task.status = 'incomplete';
+          }
+          if (loopEvent.type === 'command' && deferred.size > 0) {
+            deferred.delete(JSON.stringify(loopEvent.command));
+          }
           if (event.type === 'done') {
             // Command streams contain per-model-turn SSE `done` events too. Only the final
             // command completion reaches the caller, and only after outcome verification.
@@ -533,6 +545,7 @@ export class AssistSession {
       signal?.throwIfAborted();
       // A clean failure (nothing written) that a later same-kind write succeeded on was retried,
       // not left undone. Uncertain or unretried outcomes still mark the task incomplete.
+      if (deferred.size > 0) task.status = 'incomplete';
       const retried = (result: ActuationResult, i: number): boolean =>
         assessActuationResult(result) === 'failed' &&
         task.effects.slice(i + 1).some((later) => later.kind === result.kind && later.ok);
@@ -1935,10 +1948,18 @@ export class AssistSession {
           command.verb === 'invoke'
             ? (command.kind as ActuationKind)
             : WRITE_VERB_TO_KIND[command.verb],
-        error: { code: 'write_cap', message: `write cap (${plan.maxWrites}/turn) reached` },
+        error: {
+          code: 'write_cap',
+          message: `write cap (${plan.maxWrites}/turn) reached — not applied yet; send this command again in your next block`,
+        },
       };
       plan.results[slotIndex] = capped;
-      yield { type: 'capped', turn, reason: `write cap ${plan.maxWrites}/turn` };
+      yield {
+        type: 'capped',
+        turn,
+        reason: `write cap ${plan.maxWrites}/turn`,
+        deferred: JSON.stringify(command),
+      };
       return;
     }
 
