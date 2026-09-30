@@ -159,6 +159,52 @@ def _tokenize_args(rest: str):
     return positional, props
 
 
+def _parse_json_format(rest: str, usage: str):
+    """Mirror the TS parser: flatten a model's JSON format facets into key=value props."""
+    brace = rest.index("{")
+    try:
+        obj = json.loads(rest[brace:])
+    except ValueError:
+        return {"error": "format JSON is malformed (usage: format <range> k=v)"}
+    if not isinstance(obj, dict):
+        return {"error": usage}
+    rng = rest[:brace].strip() or (obj["range"] if isinstance(obj.get("range"), str) else "")
+    if not rng or re.search(r"\s", rng):
+        return {"error": usage}
+    style_value = obj.get("style", obj.get("format"))
+    style = style_value if isinstance(style_value, dict) else obj
+    props = {}
+
+    def field(v, key):
+        return v.get(key) if isinstance(v, dict) else None
+
+    def put(key, v):
+        if isinstance(v, bool):
+            v = "true" if v else "false"
+        elif isinstance(v, (int, float)):
+            v = str(v)
+        if isinstance(v, str) and key not in props:
+            props[key] = v
+
+    def first(*values):
+        return next((v for v in values if v is not None), None)
+
+    for key in ("bold", "italic", "fill", "numberFormat", "fontColor", "borderColor"):
+        put(key, style.get(key))
+    put("bold", field(style.get("font"), "bold"))
+    put("italic", field(style.get("font"), "italic"))
+    put("fontColor", field(style.get("font"), "color"))
+    put("fontColor", style.get("color"))
+    put("fill", field(style.get("fill"), "color"))
+    put("align", first(style.get("horizontalAlignment"), field(style.get("align"), "horizontal"), style.get("align")))
+    put("valign", first(style.get("verticalAlignment"), field(style.get("align"), "vertical")))
+    put("border", first(field(style.get("border"), "style"), style.get("border")))
+    put("borderColor", field(style.get("border"), "color"))
+    if not props:
+        return {"error": usage}
+    return {"verb": "format", "range": rng, "props": props}
+
+
 def _is_effect_expr(value: str) -> bool:
     """Mirror the TS `parseEffectArg` accept-set: an effect-arg EXPRESSION is a bare `$var` or a
     parenthesized pipeline `( ... )`. A literal (anything else) is rejected by `spill`.
@@ -609,6 +655,8 @@ def parse_line(line: str):
 
     if verb == "format":
         usage = "format needs a range and at least one key=value — usage: format <range> k=v ..."
+        if "{" in rest:
+            return _parse_json_format(rest, usage)
         tokens = [t for t in re.split(r"\s+", rest) if t]
         if not tokens:
             return {"error": usage}

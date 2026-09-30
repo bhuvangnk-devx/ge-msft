@@ -5,6 +5,8 @@ import {
   type SourceRef,
 } from '@ge/contracts';
 
+type FormatParams = NonNullable<ActuationRequest['params']['format']>;
+
 /**
  * Pure translation of an actuation into a host plan — testable without Office.js. A
  * `write-cells` is located by an explicit `target.range` (e.g. "Sheet1!A1:B3"); the grid to
@@ -40,6 +42,12 @@ export interface FormatCellsPlan {
   fill?: string;
   /** Excel number-format code, e.g. "$#,##0.00". */
   numberFormat?: string;
+  fontColor?: string;
+  horizontalAlignment?: FormatParams['horizontalAlignment'];
+  verticalAlignment?: FormatParams['verticalAlignment'];
+  /** Line weight applied to every cell edge ("None" clears them). */
+  border?: FormatParams['border'];
+  borderColor?: string;
   /** True iff at least one format facet is set — the bridge degrades a no-op format. */
   hasOps: boolean;
 }
@@ -47,18 +55,24 @@ export interface FormatCellsPlan {
 export function planFormatCells(req: ActuationRequest): FormatCellsPlan {
   const p = req.params;
   const f = p.format ?? {};
-  const hasOps =
-    f.bold !== undefined ||
-    f.italic !== undefined ||
-    f.fill !== undefined ||
-    f.numberFormat !== undefined;
-  return {
-    ...(p.target?.range ? { address: p.target.range } : {}),
+  const facets = {
     ...(f.bold !== undefined ? { bold: f.bold } : {}),
     ...(f.italic !== undefined ? { italic: f.italic } : {}),
     ...(f.fill !== undefined ? { fill: f.fill } : {}),
     ...(f.numberFormat !== undefined ? { numberFormat: f.numberFormat } : {}),
-    hasOps,
+    ...(f.fontColor !== undefined ? { fontColor: f.fontColor } : {}),
+    ...(f.horizontalAlignment !== undefined ? { horizontalAlignment: f.horizontalAlignment } : {}),
+    ...(f.verticalAlignment !== undefined ? { verticalAlignment: f.verticalAlignment } : {}),
+    ...(f.border !== undefined ? { border: f.border } : {}),
+    // A color alone cannot draw a border; it only styles one being drawn.
+    ...(f.border !== undefined && f.borderColor !== undefined
+      ? { borderColor: f.borderColor }
+      : {}),
+  };
+  return {
+    ...(p.target?.range ? { address: p.target.range } : {}),
+    ...facets,
+    hasOps: Object.keys(facets).length > 0,
   };
 }
 

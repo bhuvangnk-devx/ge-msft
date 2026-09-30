@@ -664,8 +664,32 @@ export class ExcelBridge implements DocBridge {
       if (plan.italic !== undefined) range.format.font.italic = plan.italic;
       if (plan.fill !== undefined) range.format.fill.color = plan.fill;
       if (plan.numberFormat !== undefined) {
-        // `numberFormat` is a per-cell grid; a single code broadcasts across the whole range.
-        range.numberFormat = [[plan.numberFormat]];
+        // `numberFormat` is a per-cell grid that must match the range's shape: a 1×1 grid on a
+        // multi-cell range is rejected ("rows or columns … doesn't match"), so size it first.
+        range.load('rowCount,columnCount');
+        await ctx.sync();
+        const code = plan.numberFormat;
+        range.numberFormat = Array.from({ length: range.rowCount }, () =>
+          Array.from({ length: range.columnCount }, () => code),
+        );
+      }
+      // Font color, alignment and borders are ExcelApi 1.1 too (`RangeFont.color`,
+      // `RangeFormat.horizontalAlignment`/`verticalAlignment`, `RangeBorderCollection.getItem`).
+      if (plan.fontColor !== undefined) range.format.font.color = plan.fontColor;
+      if (plan.horizontalAlignment !== undefined)
+        range.format.horizontalAlignment = plan.horizontalAlignment;
+      if (plan.verticalAlignment !== undefined)
+        range.format.verticalAlignment = plan.verticalAlignment;
+      if (plan.border !== undefined) {
+        for (const edge of BORDER_EDGES) {
+          const border = range.format.borders.getItem(edge);
+          if (plan.border === 'None') border.style = 'None';
+          else {
+            border.style = 'Continuous';
+            border.weight = plan.border;
+            if (plan.borderColor !== undefined) border.color = plan.borderColor;
+          }
+        }
       }
       range.load('address');
       await ctx.sync();
@@ -1062,6 +1086,16 @@ function asyncStatus(result: unknown): string {
  * payload at all (an unattributed write — never mistake it for an attributed one), `provenanceDropped`
  * when a present record failed to persist durably. Persisted cleanly ⇒ empty.
  */
+/** Every cell edge, so a bordered range reads as a grid. Inside edges are ignored on a single cell. */
+const BORDER_EDGES = [
+  'EdgeTop',
+  'EdgeBottom',
+  'EdgeLeft',
+  'EdgeRight',
+  'InsideHorizontal',
+  'InsideVertical',
+] as const;
+
 function provFlags(
   req: ActuationRequest,
   dropped: boolean,

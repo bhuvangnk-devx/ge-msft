@@ -49,6 +49,37 @@ describe('planWriteCells (shared grid precedence)', () => {
 });
 
 describe('planFormatCells (ADR-0004 format-cells)', () => {
+  it('maps font color, alignment and borders; a border color alone is not an op', () => {
+    expect(
+      planFormatCells(
+        req(
+          {
+            target: { range: 'A1:H10' },
+            format: {
+              fontColor: '#FFFFFF',
+              horizontalAlignment: 'Center',
+              border: 'Thin',
+              borderColor: '#D3D3D3',
+            },
+          },
+          'format-cells',
+        ),
+      ),
+    ).toEqual({
+      address: 'A1:H10',
+      fontColor: '#FFFFFF',
+      horizontalAlignment: 'Center',
+      border: 'Thin',
+      borderColor: '#D3D3D3',
+      hasOps: true,
+    });
+    expect(
+      planFormatCells(
+        req({ target: { range: 'A1' }, format: { borderColor: '#D3D3D3' } }, 'format-cells'),
+      ).hasOps,
+    ).toBe(false);
+  });
+
   it('maps each present format facet to a host op and flags hasOps', () => {
     const plan = planFormatCells(
       req(

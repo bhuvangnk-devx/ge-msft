@@ -112,7 +112,7 @@ that support it (see [capability-map.md](capability-map.md)).
 | `grid`    | write a cell grid  | Excel       | `grid <range> = "a\tb\nc\td"` — write a rectangular literal TSV grid as one change                    |
 | `suggest` | tracked change     | Word        | `suggest "old text" => "new text"` (anchored on exact text)                                           |
 | `comment` | add a comment      | Word, Excel | `comment <cell> "text"` or `comment "anchor" "text"`                                                  |
-| `format`  | format cells       | Excel       | `format <range> k=v …` — keys: `bold italic fill numberFormat`                                        |
+| `format`  | format cells       | Excel       | `format <range> k=v …` — keys: `bold italic fill numberFormat fontColor align valign border borderColor` |
 | `reply`   | reply to a comment | Word, Excel | `reply <commentId> "text"`                                                                            |
 | `slide`   | insert a slide     | PowerPoint  | `slide "Title" "bullet" …` or `slide "Title" ($rows \| select a,b)`                                   |
 | `page`    | append a page      | OneNote     | `page "Title" "body"`                                                                                 |

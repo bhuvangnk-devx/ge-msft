@@ -56,6 +56,11 @@ function formatPairs(format: ActuationRequest['params']['format']): string {
   if (format.italic !== undefined) parts.push(`italic=${format.italic}`);
   if (format.fill !== undefined) parts.push(`fill=${format.fill}`);
   if (format.numberFormat !== undefined) parts.push(`numberFormat=${quote(format.numberFormat)}`);
+  if (format.fontColor !== undefined) parts.push(`fontColor=${format.fontColor}`);
+  if (format.horizontalAlignment !== undefined) parts.push(`align=${format.horizontalAlignment}`);
+  if (format.verticalAlignment !== undefined) parts.push(`valign=${format.verticalAlignment}`);
+  if (format.border !== undefined) parts.push(`border=${format.border}`);
+  if (format.borderColor !== undefined) parts.push(`borderColor=${format.borderColor}`);
   return parts.join(' ');
 }
 

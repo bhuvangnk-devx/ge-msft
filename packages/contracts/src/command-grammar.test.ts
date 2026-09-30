@@ -766,6 +766,47 @@ describe('command-grammar — format (k=v pairs, values with # $ , . %)', () => 
     });
   });
 
+  it('flattens a model-written JSON style after the range', () => {
+    expect(
+      parseCommandLine(
+        'format Sheet1!A1:H1 {"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#1F4E78"},"horizontalAlignment":"Center"}',
+      ),
+    ).toEqual({
+      verb: 'format',
+      range: 'Sheet1!A1:H1',
+      props: { bold: 'true', fontColor: '#FFFFFF', fill: '#1F4E78', align: 'Center' },
+    });
+  });
+
+  it('reads the range from a JSON body and accepts shorthand facets', () => {
+    expect(
+      parseCommandLine(
+        'format {"range":"Sheet1!A1:H10","style":{"border":{"color":"#D3D3D3","style":"thin"},"align":{"horizontal":"center","vertical":"center"}}}',
+      ),
+    ).toEqual({
+      verb: 'format',
+      range: 'Sheet1!A1:H10',
+      props: { align: 'center', valign: 'center', border: 'thin', borderColor: '#D3D3D3' },
+    });
+    expect(parseCommandLine('format A1:H10 {"border":"thin","fill":"#F2F2F2"}')).toEqual({
+      verb: 'format',
+      range: 'A1:H10',
+      props: { fill: '#F2F2F2', border: 'thin' },
+    });
+  });
+
+  it('errors on malformed or facet-less format JSON', () => {
+    expect(parseCommandLine('format A1 {"bold":')).toMatchObject({
+      error: expect.stringContaining('malformed'),
+    });
+    expect(parseCommandLine('format A1 {"wibble":1}')).toMatchObject({
+      error: expect.stringContaining('key=value'),
+    });
+    expect(parseCommandLine('format {"style":{"bold":true}}')).toMatchObject({
+      error: expect.stringContaining('key=value'),
+    });
+  });
+
   it('errors on a format with no props or a bare key (no =)', () => {
     expect(parseCommandLine('format Sales!A16:C16')).toMatchObject({
       error: expect.stringContaining('key=value'),

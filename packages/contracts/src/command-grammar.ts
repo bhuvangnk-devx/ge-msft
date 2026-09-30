@@ -968,6 +968,8 @@ function parseComment(rest: string): ParsedCommand | CommandParseError {
  */
 function parseFormat(rest: string): ParsedCommand | CommandParseError {
   const usage = 'format needs a range and at least one key=value — usage: format <range> k=v ...';
+  // Models often write the style as JSON (`format {"range":…,"style":{…}}`); flatten it.
+  if (rest.includes('{')) return parseJsonFormat(rest, usage);
   const { positional, props } = tokenizeArgs(rest);
   if (positional.length === 0) return { error: usage };
 
@@ -980,6 +982,56 @@ function parseFormat(rest: string): ParsedCommand | CommandParseError {
   }
   if (Object.keys(props).length === 0) return { error: usage };
 
+  return { verb: 'format', range, props };
+}
+
+/**
+ * A model-written JSON format — `format A1:H1 {"font":{"bold":true},…}` or
+ * `format {"range":"A1:H1","style":{…}}` — flattened to the same `key=value` props the plain form
+ * produces. Mirrors `_parse_json_format` in skill/…/parse_commands.py; keep the two in step.
+ */
+function parseJsonFormat(rest: string, usage: string): ParsedCommand | CommandParseError {
+  const brace = rest.indexOf('{');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rest.slice(brace));
+  } catch {
+    return { error: 'format JSON is malformed (usage: format <range> k=v)' };
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { error: usage };
+  }
+  const obj = parsed as Record<string, unknown>;
+  const range =
+    rest.slice(0, brace).trim() || (typeof obj.range === 'string' ? obj.range.trim() : '');
+  if (!range || /\s/.test(range)) return { error: usage };
+  const styleValue = obj.style ?? obj.format;
+  const style = (
+    typeof styleValue === 'object' && styleValue !== null ? styleValue : obj
+  ) as Record<string, unknown>;
+
+  const props: Record<string, string> = {};
+  const field = (v: unknown, key: string): unknown =>
+    typeof v === 'object' && v !== null ? (v as Record<string, unknown>)[key] : undefined;
+  const put = (key: string, v: unknown): void => {
+    const text = typeof v === 'boolean' ? String(v) : typeof v === 'number' ? String(v) : v;
+    if (typeof text === 'string' && !(key in props)) props[key] = text;
+  };
+  const first = (...values: unknown[]): unknown => values.find((v) => v !== undefined);
+
+  for (const key of ['bold', 'italic', 'fill', 'numberFormat', 'fontColor', 'borderColor']) {
+    put(key, style[key]);
+  }
+  put('bold', field(style.font, 'bold'));
+  put('italic', field(style.font, 'italic'));
+  put('fontColor', field(style.font, 'color'));
+  put('fontColor', style.color);
+  put('fill', field(style.fill, 'color'));
+  put('align', first(style.horizontalAlignment, field(style.align, 'horizontal'), style.align));
+  put('valign', first(style.verticalAlignment, field(style.align, 'vertical')));
+  put('border', first(field(style.border, 'style'), style.border));
+  put('borderColor', field(style.border, 'color'));
+  if (Object.keys(props).length === 0) return { error: usage };
   return { verb: 'format', range, props };
 }
 

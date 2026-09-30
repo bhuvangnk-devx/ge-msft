@@ -259,6 +259,8 @@ interface PlanState {
    * skill call expands into — so expansion can't exceed the cap (security finding). */
   budget: number;
   done: boolean;
+  /** `done` arrived in the same block as writes: finish only if every one of them lands. */
+  doneAfterWrites?: boolean;
   finishVerified?: boolean;
 }
 
@@ -520,7 +522,14 @@ export class AssistSession {
       for await (const event of run()) {
         signal?.throwIfAborted();
         if (event && typeof event === 'object' && 'type' in event) {
-          if (event.type === 'exhausted' || event.type === 'capped') task.status = 'incomplete';
+          // A write held back by the per-turn cap is recorded as a failed effect (see the cap below),
+          // so a later retry can complete the task; other caps and exhaustion end it incomplete.
+          if (
+            event.type === 'exhausted' ||
+            (event.type === 'capped' &&
+              !String((event as { reason?: unknown }).reason ?? '').startsWith('write cap'))
+          )
+            task.status = 'incomplete';
           if (event.type === 'done') {
             // Command streams contain per-model-turn SSE `done` events too. Only the final
             // command completion reaches the caller, and only after outcome verification.
@@ -531,11 +540,12 @@ export class AssistSession {
         yield event;
       }
       signal?.throwIfAborted();
-      // A clean failure (nothing written) that a later same-kind write succeeded on was retried,
-      // not left undone. Uncertain or unretried outcomes still mark the task incomplete.
+      // A clean failure (nothing written) is not undone work when a same-kind write in this task
+      // succeeded — a retry that fixed it, or a redundant follow-up attempt that matched nothing.
+      // Uncertain outcomes, and failures of a kind that never succeeded, still mark it incomplete.
       const retried = (result: ActuationResult, i: number): boolean =>
         assessActuationResult(result) === 'failed' &&
-        task.effects.slice(i + 1).some((later) => later.kind === result.kind && later.ok);
+        task.effects.some((other, j) => j !== i && other.kind === result.kind && other.ok);
       task.status = task.effects.some(
         (result, i) =>
           !['verified', 'unverified'].includes(assessActuationResult(result)) &&
@@ -1562,6 +1572,19 @@ export class AssistSession {
       ))
         yield ev;
     }
+    // A batched `done` completes the task only when every result in this block succeeded; a
+    // failed or capped write keeps the loop going so the model sees the receipt.
+    if (
+      plan.doneAfterWrites &&
+      plan.results.every(
+        (result) =>
+          result == null ||
+          typeof result !== 'object' ||
+          !('error' in result) ||
+          result.error == null,
+      )
+    )
+      plan.done = true;
 
     if (plan.finishVerified) {
       const errors = plan.results.some(
@@ -1760,10 +1783,19 @@ export class AssistSession {
 
     // Control + reads run inline (pure / non-actuating), exactly as ADR-0004.
     if (command.verb === 'done') {
-      if (plan.planSlots.length > 0) {
+      // A done after lines that failed would end the task on errors the model never saw (every
+      // `format` rejected, then "0 changes"). Keep going so it can read them and correct.
+      if (plan.results.some((r) => typeof r === 'object' && r !== null && 'error' in r)) {
         plan.results.push({
           error:
-            'done cannot be batched with a write command; wait for the write result, then emit a block containing only done.',
+            'done ignored: earlier commands in this block failed — read their errors, fix them, and continue.',
+        });
+        return;
+      }
+      if (plan.planSlots.length > 0) {
+        plan.doneAfterWrites = true;
+        plan.results.push({
+          note: 'done takes effect only if every write in this block lands; otherwise review the results and continue.',
         });
         return;
       }
@@ -1896,6 +1928,7 @@ export class AssistSession {
         error: { code: 'write_cap', message: `write cap (${plan.maxWrites}/turn) reached` },
       };
       plan.results[slotIndex] = capped;
+      this.task?.effects.push(structuredClone(capped));
       yield { type: 'capped', turn, reason: `write cap ${plan.maxWrites}/turn` };
       return;
     }

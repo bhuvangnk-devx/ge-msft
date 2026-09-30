@@ -108,6 +108,43 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles font color, alignment and borders case-insensitively', () => {
+    const c = compileCommand(
+      {
+        verb: 'format',
+        range: 'A1:H10',
+        props: {
+          fontColor: '#FFFFFF',
+          align: 'center',
+          valign: 'middle',
+          border: 'thin',
+          borderColor: '#D3D3D3',
+        },
+      },
+      { surface: 'excel', mintChangeId: mint },
+    );
+    expect(c).toMatchObject({
+      request: {
+        params: {
+          format: {
+            fontColor: '#FFFFFF',
+            horizontalAlignment: 'Center',
+            verticalAlignment: 'Center',
+            border: 'Thin',
+            borderColor: '#D3D3D3',
+          },
+        },
+      },
+    });
+    if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+    expect(
+      compileCommand(
+        { verb: 'format', range: 'A1', props: { align: 'sideways' } },
+        { surface: 'excel', mintChangeId: mint },
+      ),
+    ).toMatchObject({ error: expect.stringContaining('no recognized property') });
+  });
+
   it('ignores unknown format keys but errors when NO recognized prop is present', () => {
     const ok = compileCommand(
       { verb: 'format', range: 'A1', props: { bold: 'true', wibble: 'x' } },

@@ -231,7 +231,7 @@ export function compileCommand(
       const format = formatFromProps(cmd.props);
       if (!format) {
         return {
-          error: `format has no recognized property — supported: bold, italic, fill, numberFormat`,
+          error: `format has no recognized property — supported: bold, italic, fill, numberFormat, fontColor, align, valign, border, borderColor`,
         };
       }
       return compileWrite(WRITE_VERB_TO_KIND.format, ctx, {
@@ -876,7 +876,8 @@ type FormatParams = NonNullable<ActuationRequest['params']['format']>;
 
 /**
  * Convert the parser's raw `key=value` strings into typed `format` params: `bold`/`italic` →
- * boolean (`"true"`/`"false"`), `fill`/`numberFormat` → string. Unknown keys are ignored;
+ * boolean (`"true"`/`"false"`), colors/`numberFormat` → string, alignment/border → the schema's
+ * enum spelling (case-insensitive; an unmatched value is ignored). Unknown keys are ignored;
  * returns `undefined` when NO recognized prop is present (→ a corrective error upstream).
  */
 function formatFromProps(props: Record<string, string>): FormatParams | undefined {
@@ -900,11 +901,60 @@ function formatFromProps(props: Record<string, string>): FormatParams | undefine
         format.numberFormat = value;
         recognized = true;
         break;
+      case 'fontColor':
+      case 'color':
+        format.fontColor = value;
+        recognized = true;
+        break;
+      case 'align':
+      case 'horizontalAlignment': {
+        const align = pickCase(value, ['General', 'Left', 'Center', 'Right'] as const);
+        if (align) {
+          format.horizontalAlignment = align;
+          recognized = true;
+        }
+        break;
+      }
+      case 'valign':
+      case 'verticalAlignment': {
+        const valign = pickCase(value === 'middle' ? 'center' : value, [
+          'Top',
+          'Center',
+          'Bottom',
+        ] as const);
+        if (valign) {
+          format.verticalAlignment = valign;
+          recognized = true;
+        }
+        break;
+      }
+      case 'border': {
+        const border = pickCase(value === 'true' ? 'thin' : value, [
+          'None',
+          'Thin',
+          'Medium',
+          'Thick',
+        ] as const);
+        if (border) {
+          format.border = border;
+          recognized = true;
+        }
+        break;
+      }
+      case 'borderColor':
+        format.borderColor = value;
+        recognized = true;
+        break;
       default:
         break; // ignore unknown keys
     }
   }
   return recognized ? format : undefined;
+}
+
+/** Case-insensitive match of `value` against an enum's canonical spellings. */
+function pickCase<T extends string>(value: string, options: readonly T[]): T | undefined {
+  return options.find((option) => option.toLowerCase() === value.trim().toLowerCase());
 }
 
 /** Build + Zod-validate an `ActuationRequest` for a write verb. */

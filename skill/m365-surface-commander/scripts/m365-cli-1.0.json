@@ -2219,7 +2219,11 @@
         "Excel.Range.format.font.bold",
         "Excel.Range.format.font.italic",
         "Excel.Range.format.fill.color",
-        "Excel.Range.numberFormat"
+        "Excel.Range.numberFormat",
+        "Excel.Range.format.font.color",
+        "Excel.Range.format.horizontalAlignment",
+        "Excel.Range.format.verticalAlignment",
+        "Excel.Range.format.borders"
       ],
       "requirementSets": [
         {
@@ -2243,7 +2247,8 @@
         "Emit one format command for the affected range."
       ],
       "examples": [
-        "format Sales!A1:C1 bold=true fill=#FFF2CC"
+        "format Sales!A1:C1 bold=true fill=#1F4E78 fontColor=#FFFFFF align=center",
+        "format Sales!A1:C9 border=thin borderColor=#D3D3D3"
       ],
       "preview": [
         "affected range",

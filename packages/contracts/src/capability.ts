@@ -189,6 +189,12 @@ export const ActuationParamsSchema = z.object({
       italic: z.boolean().optional(),
       fill: z.string().optional(), // background color, e.g. "#FFF2CC"
       numberFormat: z.string().optional(), // e.g. "$#,##0.00"
+      fontColor: z.string().optional(), // e.g. "#FFFFFF"
+      horizontalAlignment: z.enum(['General', 'Left', 'Center', 'Right']).optional(),
+      verticalAlignment: z.enum(['Top', 'Center', 'Bottom']).optional(),
+      /** Line weight on every cell edge; "None" clears them. */
+      border: z.enum(['None', 'Thin', 'Medium', 'Thick']).optional(),
+      borderColor: z.string().optional(), // styles the border being drawn
     })
     .optional(),
   /** create-table (ADR-0007): promote `range` to a native Table. */

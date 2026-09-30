@@ -186,9 +186,26 @@ class FakeRange {
     this.pendingFormulas = value;
   }
   numberFormat: unknown[][] = [];
+  private readonly borderEdges = new Map<
+    string,
+    { style?: string; weight?: string; color?: string }
+  >();
   readonly format = {
-    font: { bold: undefined as boolean | undefined, italic: undefined as boolean | undefined },
+    font: {
+      bold: undefined as boolean | undefined,
+      italic: undefined as boolean | undefined,
+      color: undefined as string | undefined,
+    },
     fill: { color: undefined as string | undefined },
+    horizontalAlignment: undefined as string | undefined,
+    verticalAlignment: undefined as string | undefined,
+    borders: {
+      getItem: (edge: string): { style?: string; weight?: string; color?: string } => {
+        const border = this.borderEdges.get(edge) ?? {};
+        this.borderEdges.set(edge, border);
+        return border;
+      },
+    },
   };
 
   constructor(
@@ -279,6 +296,14 @@ class FakeRange {
       ...(this.format.font.italic !== undefined ? { italic: this.format.font.italic } : {}),
       ...(this.format.fill.color !== undefined ? { fill: this.format.fill.color } : {}),
       ...(nf !== undefined ? { numberFormat: String(nf) } : {}),
+      ...(this.format.font.color !== undefined ? { fontColor: this.format.font.color } : {}),
+      ...(this.format.horizontalAlignment !== undefined
+        ? { horizontalAlignment: this.format.horizontalAlignment }
+        : {}),
+      ...(this.format.verticalAlignment !== undefined
+        ? { verticalAlignment: this.format.verticalAlignment }
+        : {}),
+      ...(this.borderEdges.size > 0 ? { borders: Object.fromEntries(this.borderEdges) } : {}),
     };
     if (Object.keys(facets).length > 0) {
       const addr = `${this.sheetName}!${this.a1}`;
@@ -1579,6 +1604,88 @@ describe('ExcelBridge.actuate format-cells', () => {
       fill: '#FFF2CC',
       numberFormat: '$#,##0.00',
     });
+  });
+
+  it('applies font color, alignment and a thin border on every cell edge', async () => {
+    active = installExcel(salesSeed());
+    const res = await new ExcelBridge().actuate(
+      formatCells({
+        target: { range: 'Sales!A1:C4' },
+        format: {
+          fontColor: '#FFFFFF',
+          horizontalAlignment: 'Center',
+          verticalAlignment: 'Center',
+          border: 'Thin',
+          borderColor: '#D3D3D3',
+        },
+      }),
+    );
+    expect(res).toMatchObject({ ok: true });
+    const applied = active.seed.formats.get('Sales!A1:C4') as Record<string, unknown>;
+    expect(applied).toMatchObject({
+      fontColor: '#FFFFFF',
+      horizontalAlignment: 'Center',
+      verticalAlignment: 'Center',
+    });
+    const edge = { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' };
+    expect(applied.borders).toEqual({
+      EdgeTop: edge,
+      EdgeBottom: edge,
+      EdgeLeft: edge,
+      EdgeRight: edge,
+      InsideHorizontal: edge,
+      InsideVertical: edge,
+    });
+  });
+
+  it('sizes numberFormat to the whole range (a 1×1 grid is rejected on a multi-cell range)', async () => {
+    active = installExcel(salesSeed());
+    let written: unknown[][] | undefined;
+    const run = (
+      globalThis as unknown as { Excel: { run: (cb: (ctx: unknown) => unknown) => unknown } }
+    ).Excel.run;
+    (globalThis as unknown as { Excel: { run: unknown } }).Excel.run = (
+      cb: (ctx: unknown) => unknown,
+    ) =>
+      run((ctx: unknown) => {
+        const c = ctx as {
+          workbook: { worksheets: { getItem(n: string): { getRange(a: string): unknown } } };
+        };
+        const getItem = c.workbook.worksheets.getItem.bind(c.workbook.worksheets);
+        c.workbook.worksheets.getItem = (n: string) => {
+          const sheet = getItem(n);
+          const getRange = sheet.getRange.bind(sheet);
+          sheet.getRange = (a: string) => {
+            const range = getRange(a) as { numberFormat: unknown[][] };
+            return new Proxy(range, {
+              set(target, prop, value) {
+                if (prop === 'numberFormat') written = value as unknown[][];
+                return Reflect.set(target, prop, value);
+              },
+            });
+          };
+          return sheet;
+        };
+        return cb(ctx);
+      });
+    await new ExcelBridge().actuate(
+      formatCells({ target: { range: 'Sales!A1:C4' }, format: { numberFormat: '$#,##0.00' } }),
+    );
+    expect(written).toHaveLength(4);
+    expect(written?.every((row) => row.length === 3 && row.every((c) => c === '$#,##0.00'))).toBe(
+      true,
+    );
+  });
+
+  it('border=None clears every edge', async () => {
+    active = installExcel(salesSeed());
+    await new ExcelBridge().actuate(
+      formatCells({ target: { range: 'Sales!A1:C4' }, format: { border: 'None' } }),
+    );
+    const applied = active.seed.formats.get('Sales!A1:C4') as { borders: Record<string, unknown> };
+    expect(
+      Object.values(applied.borders).every((b) => (b as { style?: string }).style === 'None'),
+    ).toBe(true);
   });
 
   it('rejects with no_anchor when no target.range', async () => {
