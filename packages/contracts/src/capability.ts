@@ -189,6 +189,21 @@ export const ActuationParamsSchema = z.object({
       italic: z.boolean().optional(),
       fill: z.string().optional(), // background color, e.g. "#FFF2CC"
       numberFormat: z.string().optional(), // e.g. "$#,##0.00"
+      fontColor: z
+        .string()
+        .regex(/^#[0-9A-F]{6}$/)
+        .optional(),
+      fontSize: z.number().min(6).max(96).optional(),
+      align: z.enum(['left', 'center', 'right', 'justify']).optional(),
+      wrap: z.boolean().optional(),
+      /** Applied to all six edges (outside and inside); `none` clears them. */
+      border: z.enum(['thin', 'medium', 'thick', 'none']).optional(),
+      borderColor: z
+        .string()
+        .regex(/^#[0-9A-F]{6}$/)
+        .optional(),
+      /** Fit the range's column widths to their content. */
+      autofit: z.literal(true).optional(),
     })
     .optional(),
   /** create-table (ADR-0007): promote `range` to a native Table. */

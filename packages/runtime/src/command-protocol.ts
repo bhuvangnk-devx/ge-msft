@@ -1,6 +1,7 @@
 import {
   ActuationRequestSchema,
   COMMAND_HELP,
+  FORMAT_KEYS_USAGE,
   WRITE_VERB_TO_KIND,
   grammarFor,
   registryEntryForKindAndSurface,
@@ -229,11 +230,7 @@ export function compileCommand(
       });
     case 'format': {
       const format = formatFromProps(cmd.props);
-      if (!format) {
-        return {
-          error: `format has no recognized property — supported: bold, italic, fill, numberFormat`,
-        };
-      }
+      if ('error' in format) return format;
       return compileWrite(WRITE_VERB_TO_KIND.format, ctx, {
         target: { range: cmd.range },
         format,
@@ -948,37 +945,76 @@ function conditionalRuleFromProps(
 /** Recognized format-cells props. */
 type FormatParams = NonNullable<ActuationRequest['params']['format']>;
 
+const HEX = /^#[0-9A-F]{6}$/;
+const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
+const BORDERS = ['thin', 'medium', 'thick', 'none'] as const;
+
 /**
- * Convert the parser's raw `key=value` strings into typed `format` params: `bold`/`italic` →
- * boolean (`"true"`/`"false"`), `fill`/`numberFormat` → string. Unknown keys are ignored;
- * returns `undefined` when NO recognized prop is present (→ a corrective error upstream).
+ * Convert the parser's raw `key=value` strings into typed `format` params. An unknown key or a
+ * value the host can't apply is a corrective error naming what IS allowed — never silently
+ * dropped, so a "formatted" receipt can't hide a facet that was never applied.
  */
-function formatFromProps(props: Record<string, string>): FormatParams | undefined {
+function formatFromProps(props: Record<string, string>): FormatParams | { error: string } {
   const format: FormatParams = {};
-  let recognized = false;
+  const flag = (key: string, value: string): boolean | { error: string } =>
+    value === 'true' || value === 'false'
+      ? value === 'true'
+      : { error: `format ${key} must be true or false, got "${value}"` };
+  const color = (key: string, value: string): string | { error: string } => {
+    const upper = value.toUpperCase();
+    return HEX.test(upper)
+      ? upper
+      : { error: `format ${key} must be a color like #RRGGBB (e.g. #1F4E79), got "${value}"` };
+  };
   for (const [key, value] of Object.entries(props)) {
+    let parsed: unknown;
     switch (key) {
       case 'bold':
-        format.bold = value === 'true';
-        recognized = true;
-        break;
       case 'italic':
-        format.italic = value === 'true';
-        recognized = true;
+      case 'wrap':
+        parsed = flag(key, value);
         break;
       case 'fill':
-        format.fill = value;
-        recognized = true;
+      case 'fontColor':
+      case 'borderColor':
+        parsed = color(key, value);
+        break;
+      case 'fontSize': {
+        const size = Number(value);
+        parsed =
+          Number.isFinite(size) && size >= 6 && size <= 96
+            ? size
+            : { error: `format fontSize must be a number between 6 and 96, got "${value}"` };
+        break;
+      }
+      case 'align':
+        parsed = (ALIGNS as readonly string[]).includes(value)
+          ? value
+          : { error: `format align must be one of ${ALIGNS.join(', ')}, got "${value}"` };
+        break;
+      case 'border':
+        parsed = (BORDERS as readonly string[]).includes(value)
+          ? value
+          : { error: `format border must be one of ${BORDERS.join(', ')}, got "${value}"` };
+        break;
+      case 'autofit':
+        parsed =
+          value === 'true'
+            ? true
+            : { error: `format autofit only takes true (fits column widths), got "${value}"` };
         break;
       case 'numberFormat':
-        format.numberFormat = value;
-        recognized = true;
+        parsed = value;
         break;
       default:
-        break; // ignore unknown keys
+        return { error: `unknown format key "${key}" — supported: ${FORMAT_KEYS_USAGE}` };
     }
+    if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) {
+      return parsed as { error: string };
+    }
+    (format as Record<string, unknown>)[key] = parsed;
   }
-  return recognized ? format : undefined;
+  return format;
 }
 
 /** Build + Zod-validate an `ActuationRequest` for a write verb. */

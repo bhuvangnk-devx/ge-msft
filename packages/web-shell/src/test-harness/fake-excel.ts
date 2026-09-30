@@ -97,6 +97,12 @@ export interface RangeFormatSeed {
   italic?: boolean;
   fill?: string;
   numberFormat?: string;
+  fontColor?: string;
+  fontSize?: number;
+  horizontalAlignment?: string;
+  wrapText?: boolean;
+  borders?: Record<string, Record<string, string>>;
+  autofit?: boolean;
 }
 
 /** Find a sheet by name in the seed (throws on a typo so a mis-seeded test fails loudly). */
@@ -174,9 +180,27 @@ class FakeRange {
     this.pendingFormulas = value;
   }
   numberFormat: unknown[][] = [];
+  private readonly edges = new Map<string, Record<string, string>>();
+  private autofitted = false;
   readonly format = {
-    font: { bold: undefined as boolean | undefined, italic: undefined as boolean | undefined },
+    font: {
+      bold: undefined as boolean | undefined,
+      italic: undefined as boolean | undefined,
+      color: undefined as string | undefined,
+      size: undefined as number | undefined,
+    },
     fill: { color: undefined as string | undefined },
+    horizontalAlignment: undefined as string | undefined,
+    wrapText: undefined as boolean | undefined,
+    borders: {
+      getItem: (edge: string): Record<string, string> => {
+        if (!this.edges.has(edge)) this.edges.set(edge, {});
+        return this.edges.get(edge)!;
+      },
+    },
+    autofitColumns: (): void => {
+      this.autofitted = true;
+    },
   };
 
   /**
@@ -304,6 +328,14 @@ class FakeRange {
       ...(this.format.font.italic !== undefined ? { italic: this.format.font.italic } : {}),
       ...(this.format.fill.color !== undefined ? { fill: this.format.fill.color } : {}),
       ...(numberFormat !== undefined ? { numberFormat: String(numberFormat) } : {}),
+      ...(this.format.font.color !== undefined ? { fontColor: this.format.font.color } : {}),
+      ...(this.format.font.size !== undefined ? { fontSize: this.format.font.size } : {}),
+      ...(this.format.horizontalAlignment !== undefined
+        ? { horizontalAlignment: this.format.horizontalAlignment }
+        : {}),
+      ...(this.format.wrapText !== undefined ? { wrapText: this.format.wrapText } : {}),
+      ...(this.edges.size > 0 ? { borders: Object.fromEntries(this.edges) } : {}),
+      ...(this.autofitted ? { autofit: true } : {}),
     };
     if (Object.keys(facets).length === 0) return;
     const prev = this.seed.formats.get(this._address) ?? {};

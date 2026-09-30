@@ -40,26 +40,42 @@ export interface FormatCellsPlan {
   fill?: string;
   /** Excel number-format code, e.g. "$#,##0.00". */
   numberFormat?: string;
+  fontColor?: string;
+  fontSize?: number;
+  /** Office.js `HorizontalAlignment` value. */
+  horizontalAlignment?: 'Left' | 'Center' | 'Right' | 'Justify';
+  wrapText?: boolean;
+  /** Applied to all six edges; `None` clears them. */
+  borderWeight?: 'Thin' | 'Medium' | 'Thick' | 'None';
+  borderColor?: string;
+  autofit?: boolean;
   /** True iff at least one format facet is set — the bridge degrades a no-op format. */
   hasOps: boolean;
 }
 
+const HORIZONTAL = { left: 'Left', center: 'Center', right: 'Right', justify: 'Justify' } as const;
+const WEIGHT = { thin: 'Thin', medium: 'Medium', thick: 'Thick', none: 'None' } as const;
+
 export function planFormatCells(req: ActuationRequest): FormatCellsPlan {
   const p = req.params;
   const f = p.format ?? {};
-  const hasOps =
-    f.bold !== undefined ||
-    f.italic !== undefined ||
-    f.fill !== undefined ||
-    f.numberFormat !== undefined;
-  return {
+  const plan: FormatCellsPlan = {
     ...(p.target?.range ? { address: p.target.range } : {}),
     ...(f.bold !== undefined ? { bold: f.bold } : {}),
     ...(f.italic !== undefined ? { italic: f.italic } : {}),
     ...(f.fill !== undefined ? { fill: f.fill } : {}),
     ...(f.numberFormat !== undefined ? { numberFormat: f.numberFormat } : {}),
-    hasOps,
+    ...(f.fontColor !== undefined ? { fontColor: f.fontColor } : {}),
+    ...(f.fontSize !== undefined ? { fontSize: f.fontSize } : {}),
+    ...(f.align !== undefined ? { horizontalAlignment: HORIZONTAL[f.align] } : {}),
+    ...(f.wrap !== undefined ? { wrapText: f.wrap } : {}),
+    ...(f.border !== undefined ? { borderWeight: WEIGHT[f.border] } : {}),
+    ...(f.borderColor !== undefined ? { borderColor: f.borderColor } : {}),
+    ...(f.autofit ? { autofit: true } : {}),
+    hasOps: false,
   };
+  plan.hasOps = Object.keys(plan).some((k) => k !== 'address' && k !== 'hasOps');
+  return plan;
 }
 
 /**

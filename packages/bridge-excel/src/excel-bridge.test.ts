@@ -186,9 +186,27 @@ class FakeRange {
     this.pendingFormulas = value;
   }
   numberFormat: unknown[][] = [];
+  private readonly edges = new Map<string, Record<string, string>>();
+  private autofitted = false;
   readonly format = {
-    font: { bold: undefined as boolean | undefined, italic: undefined as boolean | undefined },
+    font: {
+      bold: undefined as boolean | undefined,
+      italic: undefined as boolean | undefined,
+      color: undefined as string | undefined,
+      size: undefined as number | undefined,
+    },
     fill: { color: undefined as string | undefined },
+    horizontalAlignment: undefined as string | undefined,
+    wrapText: undefined as boolean | undefined,
+    borders: {
+      getItem: (edge: string): Record<string, string> => {
+        if (!this.edges.has(edge)) this.edges.set(edge, {});
+        return this.edges.get(edge)!;
+      },
+    },
+    autofitColumns: (): void => {
+      this.autofitted = true;
+    },
   };
 
   constructor(
@@ -279,6 +297,14 @@ class FakeRange {
       ...(this.format.font.italic !== undefined ? { italic: this.format.font.italic } : {}),
       ...(this.format.fill.color !== undefined ? { fill: this.format.fill.color } : {}),
       ...(nf !== undefined ? { numberFormat: String(nf) } : {}),
+      ...(this.format.font.color !== undefined ? { fontColor: this.format.font.color } : {}),
+      ...(this.format.font.size !== undefined ? { fontSize: this.format.font.size } : {}),
+      ...(this.format.horizontalAlignment !== undefined
+        ? { horizontalAlignment: this.format.horizontalAlignment }
+        : {}),
+      ...(this.format.wrapText !== undefined ? { wrapText: this.format.wrapText } : {}),
+      ...(this.edges.size > 0 ? { borders: Object.fromEntries(this.edges) } : {}),
+      ...(this.autofitted ? { autofit: true } : {}),
     };
     if (Object.keys(facets).length > 0) {
       const addr = `${this.sheetName}!${this.a1}`;
@@ -1579,6 +1605,54 @@ describe('ExcelBridge.actuate format-cells', () => {
       fill: '#FFF2CC',
       numberFormat: '$#,##0.00',
     });
+  });
+
+  it('applies font color and size, alignment, wrap, all six borders and autofit', async () => {
+    active = installExcel(salesSeed());
+    const res = await new ExcelBridge().actuate(
+      formatCells(
+        {
+          target: { range: 'Sales!A1:C3' },
+          format: {
+            fontColor: '#FFFFFF',
+            fontSize: 12,
+            align: 'center',
+            wrap: true,
+            border: 'thin',
+            borderColor: '#D3D3D3',
+            autofit: true,
+          },
+        },
+        'chg-fmt-2',
+      ),
+    );
+    expect(res).toMatchObject({ ok: true, location: 'Sales!A1:C3' });
+    expect(active.seed.formats.get('Sales!A1:C3')).toEqual({
+      fontColor: '#FFFFFF',
+      fontSize: 12,
+      horizontalAlignment: 'Center',
+      wrapText: true,
+      borders: {
+        EdgeTop: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+        EdgeBottom: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+        EdgeLeft: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+        EdgeRight: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+        InsideHorizontal: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+        InsideVertical: { style: 'Continuous', weight: 'Thin', color: '#D3D3D3' },
+      },
+      autofit: true,
+    });
+  });
+
+  it('border=none clears every edge', async () => {
+    active = installExcel(salesSeed());
+    const res = await new ExcelBridge().actuate(
+      formatCells({ target: { range: 'Sales!A1:C3' }, format: { border: 'none' } }, 'chg-fmt-3'),
+    );
+    expect(res).toMatchObject({ ok: true });
+    const borders = active.seed.formats.get('Sales!A1:C3')?.borders as Record<string, unknown>;
+    expect(Object.values(borders)).toHaveLength(6);
+    for (const edge of Object.values(borders)) expect(edge).toEqual({ style: 'None' });
   });
 
   it('rejects with no_anchor when no target.range', async () => {

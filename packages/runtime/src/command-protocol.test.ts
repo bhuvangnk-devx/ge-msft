@@ -108,18 +108,75 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
-  it('ignores unknown format keys but errors when NO recognized prop is present', () => {
-    const ok = compileCommand(
-      { verb: 'format', range: 'A1', props: { bold: 'true', wibble: 'x' } },
-      { surface: 'excel', mintChangeId: mint },
-    );
-    expect(ok).toMatchObject({ kind: 'write', request: { params: { format: { bold: true } } } });
+  it('rejects an unknown format key, naming every supported key, instead of dropping it', () => {
+    const cases: Array<Record<string, string>> = [{ bold: 'true', wibble: 'x' }, { wibble: 'x' }];
+    for (const props of cases) {
+      const bad = compileCommand(
+        { verb: 'format', range: 'A1', props },
+        { surface: 'excel', mintChangeId: mint },
+      );
+      expect(bad).toMatchObject({ error: expect.stringContaining('unknown format key "wibble"') });
+      if ('error' in bad) {
+        for (const key of ['fontColor', 'fontSize', 'align', 'border', 'wrap', 'autofit']) {
+          expect(bad.error).toContain(key);
+        }
+      }
+    }
+  });
 
-    const bad = compileCommand(
-      { verb: 'format', range: 'A1', props: { wibble: 'x' } },
+  it('compiles font color, size, alignment, wrap, borders and autofit', () => {
+    const c = compileCommand(
+      {
+        verb: 'format',
+        range: 'Sheet1!A1:H1',
+        props: {
+          fontColor: '#ffffff',
+          fontSize: '12',
+          align: 'center',
+          wrap: 'true',
+          border: 'thin',
+          borderColor: '#D3D3D3',
+          autofit: 'true',
+        },
+      },
       { surface: 'excel', mintChangeId: mint },
     );
-    expect(bad).toMatchObject({ error: expect.stringContaining('recognized property') });
+    expect(c).toMatchObject({
+      kind: 'write',
+      request: {
+        kind: 'format-cells',
+        params: {
+          format: {
+            fontColor: '#FFFFFF',
+            fontSize: 12,
+            align: 'center',
+            wrap: true,
+            border: 'thin',
+            borderColor: '#D3D3D3',
+            autofit: true,
+          },
+        },
+      },
+    });
+    if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
+  it('rejects format values the host cannot apply, with the allowed values', () => {
+    const cases: Array<[Record<string, string>, string]> = [
+      [{ align: 'middle' }, 'left, center, right, justify'],
+      [{ fontColor: 'white' }, '#RRGGBB'],
+      [{ fill: 'blue' }, '#RRGGBB'],
+      [{ border: 'dotted' }, 'thin, medium, thick, none'],
+      [{ fontSize: 'big' }, 'between 6 and 96'],
+      [{ bold: 'yes' }, 'true or false'],
+    ];
+    for (const [props, expected] of cases) {
+      const bad = compileCommand(
+        { verb: 'format', range: 'A1', props },
+        { surface: 'excel', mintChangeId: mint },
+      );
+      expect(bad).toMatchObject({ error: expect.stringContaining(expected) });
+    }
   });
 
   it('normalizes a quoted or ref-prefixed reply id to the bare host comment id', () => {
@@ -995,6 +1052,29 @@ describe('renderGrammarPrompt', () => {
       ],
     });
     expect(prompt).toContain('chart <column|bar|line|pie|scatter|area>');
+  });
+
+  it('lists every format key, their values and how to quote spaces', () => {
+    const prompt = renderGrammarPrompt({
+      ...excelManifest,
+      actuations: [
+        ...excelManifest.actuations,
+        { kind: 'format-cells', surface: 'excel', title: 'Format cells', reversible: false },
+      ],
+    });
+    for (const text of [
+      'fontColor=#RRGGBB',
+      'fontSize=6-96',
+      'align=left|center|right|justify',
+      'border=thin|medium|thick|none',
+      'borderColor=#RRGGBB',
+      'wrap=true|false',
+      'autofit=true',
+      'numberFormat="',
+      'not JSON',
+    ]) {
+      expect(prompt).toContain(text);
+    }
   });
 
   it('advertises suggest for Word and not set', () => {

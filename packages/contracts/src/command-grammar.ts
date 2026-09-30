@@ -960,6 +960,12 @@ function parseComment(rest: string): ParsedCommand | CommandParseError {
   return { verb: 'comment', selector, text: body.value };
 }
 
+/** Every `format` key and the values it takes — shown to the model and in corrective errors. */
+export const FORMAT_KEYS_USAGE =
+  'bold=true|false italic=true|false fill=#RRGGBB fontColor=#RRGGBB fontSize=6-96 ' +
+  'align=left|center|right|justify wrap=true|false border=thin|medium|thick|none ' +
+  'borderColor=#RRGGBB autofit=true numberFormat="<Excel code>" (quote any value with spaces)';
+
 /**
  * `format <range> k=v k=v ...` — first token is the A1/NamedRange; the rest are `key=value`
  * pairs, each split on the FIRST `=` only so values may carry `# $ , . %` unquoted
@@ -968,6 +974,15 @@ function parseComment(rest: string): ParsedCommand | CommandParseError {
  */
 function parseFormat(rest: string): ParsedCommand | CommandParseError {
   const usage = 'format needs a range and at least one key=value — usage: format <range> k=v ...';
+  const json = rest.indexOf('{');
+  if (json >= 0) {
+    const range = rest.slice(0, json).trim() || '<range>';
+    return {
+      error:
+        `format takes key=value pairs, not JSON — e.g. format ${range} bold=true fontColor=#FFFFFF ` +
+        `fill=#1F4E79 align=center. Keys: ${FORMAT_KEYS_USAGE}`,
+    };
+  }
   const { positional, props } = tokenizeArgs(rest);
   if (positional.length === 0) return { error: usage };
 
@@ -1898,7 +1913,9 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
       return {
         verb: 'format',
         usage: 'format <range> k=v ...',
-        hint: 'format a range, e.g. format Sales!A16:C16 bold=true fill=#FFF2CC numberFormat=$#,##0.00',
+        hint:
+          `format a range with key=value pairs, not JSON. Keys: ${FORMAT_KEYS_USAGE}. ` +
+          'e.g. format Sales!A1:H1 bold=true fontColor=#FFFFFF fill=#1F4E79 align=center border=thin',
       };
     case 'reply':
       return {

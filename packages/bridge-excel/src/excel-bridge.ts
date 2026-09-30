@@ -47,6 +47,16 @@ import {
 } from './actuate-plan.js';
 import { provenanceRecord } from './provenance-record.js';
 
+/** Outside and inside edges, so `border=` draws a full grid over the range. */
+const BORDER_EDGES = [
+  'EdgeTop',
+  'EdgeBottom',
+  'EdgeLeft',
+  'EdgeRight',
+  'InsideHorizontal',
+  'InsideVertical',
+] as const;
+
 /**
  * The Excel `DocBridge`. The ONLY place Office.js (`Excel.run`) is touched. Reads via the
  * native object model (selected range, used range) and maps the grid to a native table block;
@@ -667,6 +677,26 @@ export class ExcelBridge implements DocBridge {
         // `numberFormat` is a per-cell grid; a single code broadcasts across the whole range.
         range.numberFormat = [[plan.numberFormat]];
       }
+      // Font color/size, alignment, wrap and borders are ExcelApi 1.1; autofitColumns is 1.2.
+      if (plan.fontColor !== undefined) range.format.font.color = plan.fontColor;
+      if (plan.fontSize !== undefined) range.format.font.size = plan.fontSize;
+      if (plan.horizontalAlignment !== undefined) {
+        range.format.horizontalAlignment = plan.horizontalAlignment;
+      }
+      if (plan.wrapText !== undefined) range.format.wrapText = plan.wrapText;
+      if (plan.borderWeight !== undefined || plan.borderColor !== undefined) {
+        for (const edge of BORDER_EDGES) {
+          const border = range.format.borders.getItem(edge);
+          if (plan.borderWeight === 'None') {
+            border.style = 'None';
+            continue;
+          }
+          border.style = 'Continuous';
+          if (plan.borderWeight !== undefined) border.weight = plan.borderWeight;
+          if (plan.borderColor !== undefined) border.color = plan.borderColor;
+        }
+      }
+      if (plan.autofit) range.format.autofitColumns();
       range.load('address');
       await ctx.sync();
       return { ok: true, changeId: req.changeId, kind: req.kind, location: range.address };

@@ -777,6 +777,16 @@ describe('command-grammar — format (k=v pairs, values with # $ , . %)', () => 
       error: expect.stringContaining('key=value'),
     });
   });
+
+  it('answers a JSON-style format with the key=value form to use instead', () => {
+    const res = parseCommandLine(
+      'format Sheet1!A1:H1 {"font": {"bold": true, "color": "#FFFFFF"}, "fill": "#1F4E79"}',
+    );
+    expect(res).toMatchObject({ error: expect.stringContaining('not JSON') });
+    if ('error' in res) {
+      expect(res.error).toContain('format Sheet1!A1:H1 bold=true fontColor=#FFFFFF');
+    }
+  });
 });
 
 describe('command-grammar — reply (ADR-0006 comment-reply)', () => {
