@@ -19,10 +19,19 @@ import {
   writeJson,
 } from './common.mjs';
 import { dirname, join } from 'node:path';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 
 const args = parseArgs();
 const profile = profileFromArgs(args);
+
+// Clear this profile's previous output first, so a failed run can't leave stale manifests behind
+// that look current.
+const manifestsDir = join(repoRoot, 'dist', 'manifests');
+if (existsSync(manifestsDir)) {
+  for (const file of readdirSync(manifestsDir)) {
+    if (file.startsWith(`${profile}.`)) rmSync(join(manifestsDir, file));
+  }
+}
 
 try {
   const cfg = releaseConfig(profile);

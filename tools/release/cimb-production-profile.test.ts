@@ -65,6 +65,15 @@ describe('cimb-production release profile', () => {
     expect(oneNoteManifest(cfg)).toContain('<DisplayName DefaultValue="CNGPT (OneNote)" />');
   });
 
+  it("uses the web build's Entra app when GE_PROD_ENTRA_CLIENT_ID is not set", () => {
+    const { GE_PROD_ENTRA_CLIENT_ID, ...rest } = env;
+    const cfg = releaseConfig(cimbProdProfile, {
+      ...rest,
+      VITE_ENTRA_CLIENT_ID: GE_PROD_ENTRA_CLIENT_ID,
+    });
+    expect(cfg.entraClientId).toBe(GE_PROD_ENTRA_CLIENT_ID);
+  });
+
   it('rejects unknown apps, placeholder ids, reused ids and localhost', () => {
     expect(() =>
       releaseConfig(cimbProdProfile, { ...env, GE_PROD_SURFACES: 'word,teams' }),

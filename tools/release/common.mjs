@@ -206,7 +206,15 @@ export function releaseConfig(profile, env = process.env) {
     };
   }
 
-  if (profile === cimbProdProfile) return prodReleaseConfig(env);
+  if (profile === cimbProdProfile) {
+    // Like development, GE_PROD_* may live in packages/web-shell/.env; exported variables win. An
+    // explicit env (tests) is used as given.
+    const prodEnv =
+      env === process.env
+        ? { ...parseDotEnv(join(repoRoot, 'packages', 'web-shell', '.env')), ...env }
+        : env;
+    return prodReleaseConfig(prodEnv);
+  }
 
   const required = [
     'GE_ALPHA_APP_ID',
@@ -253,7 +261,12 @@ function isReleaseGuid(value) {
   return GUID.test(v) && !DEV_GUIDS.has(v) && !DEV_FALLBACK_GUIDS.has(v);
 }
 
-function prodReleaseConfig(env) {
+function prodReleaseConfig(rawEnv) {
+  // The manifest must name the same Entra app the web build signs in with, so default to it.
+  const env = {
+    ...rawEnv,
+    GE_PROD_ENTRA_CLIENT_ID: rawEnv.GE_PROD_ENTRA_CLIENT_ID || rawEnv.VITE_ENTRA_CLIENT_ID,
+  };
   const keys = [
     'APP_ID',
     'ENTRA_CLIENT_ID',
@@ -680,7 +693,7 @@ export function oneNoteManifest(cfg) {
   const origin = cfg.webOrigin;
   const esc = xmlEscape;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- Development OneNote manifest. OneNote ships separately from the unified M365 package. -->
+<!-- ${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}OneNote manifest. OneNote ships separately from the unified M365 package. -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
@@ -812,7 +825,7 @@ export function taskPaneXmlManifest(cfg, surface) {
       : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- Development ${esc(title)} XML manifest for Office web Upload Add-in testing. -->
+<!-- ${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}${esc(title)} XML manifest for Office web Upload Add-in testing. -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
@@ -1009,7 +1022,7 @@ export function outlookXmlManifest(cfg) {
   const esc = xmlEscape;
   const id = cfg.outlookAppId ?? '88888888-8888-4888-8888-888888888888';
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- Development Outlook XML manifest for Outlook web Upload Add-in testing. -->
+<!-- ${esc(cfg.xmlDescriptionPrefix ?? 'Development ')}Outlook XML manifest for Outlook web Upload Add-in testing. -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
