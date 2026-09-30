@@ -20,7 +20,7 @@ read the brand through `tools/brand/brand.mjs`, so the task pane and the Office 
 | File | Required | What it does |
 | --- | --- | --- |
 | `brand.json` | Yes | `name` (header, errors, ribbon), `assistantName` ("Ask …", "Let … choose"), `fullName` (page titles), `fontStylesheet` (a Google Fonts URL) |
-| `icons/` | Yes | `icon-16.png`, `icon-32.png`, `icon-64.png`, `icon-80.png`, `icon-color.png` (192×192), `icon-outline.png` (32×32, white on transparent) |
+| `icons/` | Yes | `icon-16.png`, `icon-32.png`, `icon-80.png` (ribbon, exact sizes), `icon-64.png` (the XML manifests' high-resolution icon; can be larger, e.g. 256×256, so it stays sharp on Retina screens), `icon-color.png` (192×192), `icon-outline.png` (32×32, white on transparent) |
 | `theme.css` | No | CSS loaded after the task-pane styles; override the `:root` colour tokens and any rules you need |
 | `assets/` | No | Extra files served at `/brand/<file>`, for example a logo that `theme.css` points at |
 
