@@ -495,6 +495,10 @@ function paramsFromInvoke(
       // Models often write the new text positionally (`/replace-selection "…"`), without `text=`.
       if (props.text === undefined && args.length > 0) p.text = args.join(' ');
       break;
+    case 'insert-ooxml':
+      // Same slip: `/insert-ooxml "<w:p>…</w:p>"` without `ooxml=`.
+      if (props.ooxml === undefined && args.length > 0) p.ooxml = args.join(' ');
+      break;
     case 'add-attachment': {
       // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
       // produce base64 itself (it reliably writes the text, not the encoding).
