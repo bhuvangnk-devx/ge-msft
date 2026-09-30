@@ -52,7 +52,7 @@ interface InstallOpts {
   /** Seed the live selection text for readSelectionText. */
   selectionText?: string;
   /** Seed the body paragraphs for readBodyText / readParagraphs. */
-  paragraphs?: Array<{ text: string; styleBuiltIn: string }>;
+  paragraphs?: Array<{ text: string; styleBuiltIn: string; reviewedText?: string }>;
   /** Make `Office...addHandlerAsync` throw (selection observation unavailable). */
   addHandlerThrows?: boolean;
   /** Make `Office...removeHandlerAsync` throw (host already tore the handler down). */
@@ -241,7 +241,11 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     },
     get paragraphs(): { items: Array<{ text: string; styleBuiltIn: string }>; load(): unknown } {
       return {
-        items: (opts.paragraphs ?? []).map((p) => ({ ...p })),
+        items: (opts.paragraphs ?? []).map((p) => ({
+          ...p,
+          // WordApi 1.4: the text with tracked changes applied (deletions gone).
+          getReviewedText: () => ({ value: p.reviewedText ?? p.text }),
+        })),
         load() {
           return this;
         },
@@ -393,6 +397,20 @@ describe('OfficeWordHost reads', () => {
       ],
     });
     await expect(new OfficeWordHost().readBodyText()).resolves.toBe('Heading\nBody line.');
+  });
+
+  it('readParagraphs reads the reviewed text, so struck-out tracked deletions are not reported', async () => {
+    setup({
+      paragraphs: [
+        {
+          text: 'native GEGemini Enterprise (GE) capabilities',
+          reviewedText: 'native GE (GE) capabilities',
+          styleBuiltIn: 'Normal',
+        },
+      ],
+    });
+    const paras = await new OfficeWordHost().readParagraphs();
+    expect(paras.map((p) => p.text)).toEqual(['native GE (GE) capabilities']);
   });
 
   it('readParagraphs returns only non-empty paragraphs with their built-in style', async () => {

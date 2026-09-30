@@ -674,14 +674,23 @@ export class ExcelBridge implements DocBridge {
       if (plan.italic !== undefined) range.format.font.italic = plan.italic;
       if (plan.fill !== undefined) range.format.fill.color = plan.fill;
       if (plan.numberFormat !== undefined) {
-        // `numberFormat` is a per-cell grid; a single code broadcasts across the whole range.
-        range.numberFormat = [[plan.numberFormat]];
+        // `numberFormat` is a per-cell grid that must match the range's shape: a 1×1 grid on a
+        // multi-cell range is rejected ("rows or columns … doesn't match"), so size it first.
+        range.load('rowCount,columnCount');
+        await ctx.sync();
+        const code = plan.numberFormat;
+        range.numberFormat = Array.from({ length: range.rowCount }, () =>
+          Array.from({ length: range.columnCount }, () => code),
+        );
       }
       // Font color/size, alignment, wrap and borders are ExcelApi 1.1; autofitColumns is 1.2.
       if (plan.fontColor !== undefined) range.format.font.color = plan.fontColor;
       if (plan.fontSize !== undefined) range.format.font.size = plan.fontSize;
       if (plan.horizontalAlignment !== undefined) {
         range.format.horizontalAlignment = plan.horizontalAlignment;
+      }
+      if (plan.verticalAlignment !== undefined) {
+        range.format.verticalAlignment = plan.verticalAlignment;
       }
       if (plan.wrapText !== undefined) range.format.wrapText = plan.wrapText;
       if (plan.borderWeight !== undefined || plan.borderColor !== undefined) {

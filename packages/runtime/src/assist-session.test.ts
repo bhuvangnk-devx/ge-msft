@@ -1404,7 +1404,7 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(bridge.applied).toHaveLength(3);
   });
 
-  it('does not accept done batched after a write in the same command block', async () => {
+  it('completes a done batched after writes once every write lands', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([
       '```cmd\nchart bar \'Project schedule\'!B5:D30 title="Task Progress"\ndone\n```',
@@ -1430,8 +1430,44 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
       },
     });
     expect(bridge.applied).toHaveLength(1);
+    expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 1)).toBe(true);
+    expect(events.some((e) => e.type === 'error')).toBe(false);
+  });
+
+  it('ignores done batched after lines that failed, so the model sees the errors and retries', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch, bodies } = scriptedFetch([
+      '```cmd\nformat A1 {"bold":\ndone\n```', // malformed JSON format, then done
+      '```cmd\nset A1 1\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('format', { approvePlan: () => true }));
+    expect(bodies.length).toBeGreaterThan(1); // turn 1's done did not end the task
+    expect(JSON.stringify(bodies[1])).toContain('done was ignored');
+    expect(bridge.applied).toHaveLength(1);
+    expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 3)).toBe(true);
+  });
+
+  it('keeps going when a write batched with done does not land', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\nset A2 2\ndone\n```',
+      '```cmd\nset A2 2\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(
+      session.runCommands('two writes', { approvePlan: () => true, maxWritesPerTurn: 1 }),
+    );
+
+    expect(bridge.applied).toHaveLength(2); // A2 was capped in turn 1, then retried in turn 2
     expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 1)).toBe(false);
-    expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 2)).toBe(true);
+    expect(events.some((e) => e.type === 'done' && 'turn' in e && e.turn === 3)).toBe(true);
   });
 
   it('stops sending the selection in <doc_state> once the task has changed the document', async () => {
@@ -1470,6 +1506,35 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(bridge.applied).toHaveLength(1);
     expect(bodies).toHaveLength(2);
     expect(events.some((e) => e.type === 'no-fence')).toBe(false);
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('a redundant follow-up that matches nothing after a success does not mark the task incomplete', async () => {
+    class AfterwardsBridge extends ComposeBridge {
+      private calls = 0;
+      override actuate(request: ActuationRequest): Promise<ActuationResult> {
+        this.calls += 1;
+        if (this.calls === 2) {
+          return Promise.resolve({
+            ok: false,
+            changeId: request.changeId,
+            kind: request.kind,
+            error: { code: 'no_hits', message: 'nothing matched' },
+          });
+        }
+        return super.actuate(request);
+      }
+    }
+    const bridge = new AfterwardsBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nset A2 2\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
     expect(session.executions.list().at(-1)?.status).toBe('completed');
   });
 

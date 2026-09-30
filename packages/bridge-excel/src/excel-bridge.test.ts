@@ -197,6 +197,7 @@ class FakeRange {
     },
     fill: { color: undefined as string | undefined },
     horizontalAlignment: undefined as string | undefined,
+    verticalAlignment: undefined as string | undefined,
     wrapText: undefined as boolean | undefined,
     borders: {
       getItem: (edge: string): Record<string, string> => {
@@ -301,6 +302,9 @@ class FakeRange {
       ...(this.format.font.size !== undefined ? { fontSize: this.format.font.size } : {}),
       ...(this.format.horizontalAlignment !== undefined
         ? { horizontalAlignment: this.format.horizontalAlignment }
+        : {}),
+      ...(this.format.verticalAlignment !== undefined
+        ? { verticalAlignment: this.format.verticalAlignment }
         : {}),
       ...(this.format.wrapText !== undefined ? { wrapText: this.format.wrapText } : {}),
       ...(this.edges.size > 0 ? { borders: Object.fromEntries(this.edges) } : {}),
@@ -1653,6 +1657,15 @@ describe('ExcelBridge.actuate format-cells', () => {
     const borders = active.seed.formats.get('Sales!A1:C3')?.borders as Record<string, unknown>;
     expect(Object.values(borders)).toHaveLength(6);
     for (const edge of Object.values(borders)) expect(edge).toEqual({ style: 'None' });
+  });
+
+  it('applies vertical alignment', async () => {
+    active = installExcel(salesSeed());
+    const res = await new ExcelBridge().actuate(
+      formatCells({ target: { range: 'Sales!A1:C3' }, format: { valign: 'center' } }, 'chg-fmt-4'),
+    );
+    expect(res).toMatchObject({ ok: true });
+    expect(active.seed.formats.get('Sales!A1:C3')).toEqual({ verticalAlignment: 'Center' });
   });
 
   it('rejects with no_anchor when no target.range', async () => {

@@ -767,6 +767,64 @@ describe('command-grammar — format (k=v pairs, values with # $ , . %)', () => 
     });
   });
 
+  it('keeps escaped quotes inside a double-quoted value (OOXML attributes)', () => {
+    const xml = '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr></w:p>';
+    const escaped = xml.replace(/"/g, '\\"');
+    expect(parseCommandLine(`/insert-ooxml ooxml="${escaped}"`)).toEqual({
+      verb: 'invoke',
+      kind: 'insert-ooxml',
+      props: { ooxml: xml },
+      args: [],
+    });
+    expect(parseCommandLine(`/insert-ooxml "${escaped}"`)).toEqual({
+      verb: 'invoke',
+      kind: 'insert-ooxml',
+      props: {},
+      args: [xml],
+    });
+  });
+
+  it('flattens a model-written JSON style after the range', () => {
+    expect(
+      parseCommandLine(
+        'format Sheet1!A1:H1 {"font":{"bold":true,"color":"#FFFFFF"},"fill":{"color":"#1F4E78"},"horizontalAlignment":"Center"}',
+      ),
+    ).toEqual({
+      verb: 'format',
+      range: 'Sheet1!A1:H1',
+      props: { bold: 'true', fontColor: '#FFFFFF', fill: '#1F4E78', align: 'Center' },
+    });
+  });
+
+  it('reads the range from a JSON body and accepts shorthand facets', () => {
+    expect(
+      parseCommandLine(
+        'format {"range":"Sheet1!A1:H10","style":{"border":{"color":"#D3D3D3","style":"thin"},"align":{"horizontal":"center","vertical":"center"}}}',
+      ),
+    ).toEqual({
+      verb: 'format',
+      range: 'Sheet1!A1:H10',
+      props: { align: 'center', valign: 'center', border: 'thin', borderColor: '#D3D3D3' },
+    });
+    expect(parseCommandLine('format A1:H10 {"border":"thin","fill":"#F2F2F2"}')).toEqual({
+      verb: 'format',
+      range: 'A1:H10',
+      props: { fill: '#F2F2F2', border: 'thin' },
+    });
+  });
+
+  it('errors on malformed or facet-less format JSON', () => {
+    expect(parseCommandLine('format A1 {"bold":')).toMatchObject({
+      error: expect.stringContaining('malformed'),
+    });
+    expect(parseCommandLine('format A1 {"wibble":1}')).toMatchObject({
+      error: expect.stringContaining('key=value'),
+    });
+    expect(parseCommandLine('format {"style":{"bold":true}}')).toMatchObject({
+      error: expect.stringContaining('key=value'),
+    });
+  });
+
   it('errors on a format with no props or a bare key (no =)', () => {
     expect(parseCommandLine('format Sales!A16:C16')).toMatchObject({
       error: expect.stringContaining('key=value'),
@@ -779,14 +837,23 @@ describe('command-grammar — format (k=v pairs, values with # $ , . %)', () => 
     });
   });
 
-  it('answers a JSON-style format with the key=value form to use instead', () => {
-    const res = parseCommandLine(
-      'format Sheet1!A1:H1 {"font": {"bold": true, "color": "#FFFFFF"}, "fill": "#1F4E79"}',
-    );
+  it('flattens a JSON-style format into key=value props', () => {
+    expect(
+      parseCommandLine(
+        'format Sheet1!A1:H1 {"font": {"bold": true, "color": "#FFFFFF"}, "fill": "#1F4E79"}',
+      ),
+    ).toMatchObject({
+      verb: 'format',
+      range: 'Sheet1!A1:H1',
+      props: { bold: 'true', fontColor: '#FFFFFF', fill: '#1F4E79' },
+    });
+  });
+
+  it('answers unreadable format JSON with the key=value form to use instead', () => {
+    const res = parseCommandLine('format Sheet1!A1:H1 {"wibble": 1}');
     expect(res).toMatchObject({ error: expect.stringContaining('not JSON') });
-    if ('error' in res) {
+    if ('error' in res)
       expect(res.error).toContain('format Sheet1!A1:H1 bold=true fontColor=#FFFFFF');
-    }
   });
 });
 

@@ -963,7 +963,7 @@ function parseComment(rest: string): ParsedCommand | CommandParseError {
 /** Every `format` key and the values it takes — shown to the model and in corrective errors. */
 export const FORMAT_KEYS_USAGE =
   'bold=true|false italic=true|false fill=#RRGGBB fontColor=#RRGGBB fontSize=6-96 ' +
-  'align=left|center|right|justify wrap=true|false border=thin|medium|thick|none ' +
+  'align=left|center|right|justify valign=top|center|bottom wrap=true|false border=thin|medium|thick|none ' +
   'borderColor=#RRGGBB autofit=true numberFormat="<Excel code>" (quote any value with spaces)';
 
 /**
@@ -974,12 +974,17 @@ export const FORMAT_KEYS_USAGE =
  */
 function parseFormat(rest: string): ParsedCommand | CommandParseError {
   const usage = 'format needs a range and at least one key=value — usage: format <range> k=v ...';
+  // Models sometimes write the style as JSON (`format <range> {"bold":true,…}`): flatten it into
+  // key=value props, and fall back to the key=value guidance if it can't be read.
   const json = rest.indexOf('{');
   if (json >= 0) {
+    const flattened = parseJsonFormat(rest, usage);
+    if (!('error' in flattened)) return flattened;
     const range = rest.slice(0, json).trim() || '<range>';
     return {
       error:
-        `format takes key=value pairs, not JSON — e.g. format ${range} bold=true fontColor=#FFFFFF ` +
+        `format JSON couldn't be read (malformed, or no format keys) — use key=value pairs, not JSON — ` +
+        `e.g. format ${range} bold=true fontColor=#FFFFFF ` +
         `fill=#1F4E79 align=center. Keys: ${FORMAT_KEYS_USAGE}`,
     };
   }
@@ -995,6 +1000,56 @@ function parseFormat(rest: string): ParsedCommand | CommandParseError {
   }
   if (Object.keys(props).length === 0) return { error: usage };
 
+  return { verb: 'format', range, props };
+}
+
+/**
+ * A model-written JSON format — `format A1:H1 {"font":{"bold":true},…}` or
+ * `format {"range":"A1:H1","style":{…}}` — flattened to the same `key=value` props the plain form
+ * produces. Mirrors `_parse_json_format` in skill/…/parse_commands.py; keep the two in step.
+ */
+function parseJsonFormat(rest: string, usage: string): ParsedCommand | CommandParseError {
+  const brace = rest.indexOf('{');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rest.slice(brace));
+  } catch {
+    return { error: 'format JSON is malformed (usage: format <range> k=v)' };
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { error: usage };
+  }
+  const obj = parsed as Record<string, unknown>;
+  const range =
+    rest.slice(0, brace).trim() || (typeof obj.range === 'string' ? obj.range.trim() : '');
+  if (!range || /\s/.test(range)) return { error: usage };
+  const styleValue = obj.style ?? obj.format;
+  const style = (
+    typeof styleValue === 'object' && styleValue !== null ? styleValue : obj
+  ) as Record<string, unknown>;
+
+  const props: Record<string, string> = {};
+  const field = (v: unknown, key: string): unknown =>
+    typeof v === 'object' && v !== null ? (v as Record<string, unknown>)[key] : undefined;
+  const put = (key: string, v: unknown): void => {
+    const text = typeof v === 'boolean' ? String(v) : typeof v === 'number' ? String(v) : v;
+    if (typeof text === 'string' && !(key in props)) props[key] = text;
+  };
+  const first = (...values: unknown[]): unknown => values.find((v) => v !== undefined);
+
+  for (const key of ['bold', 'italic', 'fill', 'numberFormat', 'fontColor', 'borderColor']) {
+    put(key, style[key]);
+  }
+  put('bold', field(style.font, 'bold'));
+  put('italic', field(style.font, 'italic'));
+  put('fontColor', field(style.font, 'color'));
+  put('fontColor', style.color);
+  put('fill', field(style.fill, 'color'));
+  put('align', first(style.horizontalAlignment, field(style.align, 'horizontal'), style.align));
+  put('valign', first(style.verticalAlignment, field(style.align, 'vertical')));
+  put('border', first(field(style.border, 'style'), style.border));
+  put('borderColor', field(style.border, 'color'));
+  if (Object.keys(props).length === 0) return { error: usage };
   return { verb: 'format', range, props };
 }
 
@@ -1031,12 +1086,16 @@ function unquoteSetValue(value: string): string {
 function tokenizeArgs(rest: string): { positional: string[]; props: Record<string, string> } {
   const positional: string[] = [];
   const props: Record<string, string> = {};
-  const re = /(\w[\w-]*)="([^"]*)"|(\w[\w-]*)=(\S+)|"([^"]*)"|'([^']*)'(\S*)|(\S+)/g;
+  // Double-quoted values honour `\"` and `\\` escapes, so a quoted value can carry quotes — an
+  // OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was otherwise cut at the first one.
+  const re =
+    /(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|'([^']*)'(\S*)|(\S+)/g;
+  const unescape = (s: string): string => s.replace(/\\(["\\])/g, '$1');
   let m: RegExpExecArray | null;
   while ((m = re.exec(rest)) !== null) {
-    if (m[1] !== undefined) props[m[1]] = m[2]!;
+    if (m[1] !== undefined) props[m[1]] = unescape(m[2]!);
     else if (m[3] !== undefined) props[m[3]] = m[4]!;
-    else if (m[5] !== undefined) positional.push(m[5]);
+    else if (m[5] !== undefined) positional.push(unescape(m[5]));
     else if (m[6] !== undefined) positional.push(`'${m[6]}'${m[7] ?? ''}`);
     else positional.push(m[8]!);
   }

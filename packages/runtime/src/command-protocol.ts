@@ -492,6 +492,10 @@ function paramsFromInvoke(
       // Models often write the new text positionally (`/replace-selection "…"`), without `text=`.
       if (props.text === undefined && args.length > 0) p.text = args.join(' ');
       break;
+    case 'insert-ooxml':
+      // Same slip: `/insert-ooxml "<w:p>…</w:p>"` without `ooxml=`.
+      if (props.ooxml === undefined && args.length > 0) p.ooxml = args.join(' ');
+      break;
     case 'add-attachment': {
       // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
       // produce base64 itself (it reliably writes the text, not the encoding).
@@ -948,11 +952,20 @@ type FormatParams = NonNullable<ActuationRequest['params']['format']>;
 const HEX = /^#[0-9A-F]{6}$/;
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
 const BORDERS = ['thin', 'medium', 'thick', 'none'] as const;
+const VALIGNS = ['top', 'center', 'bottom'] as const;
+/** Other names models use for the same keys (Office.js spelling, `color`). */
+const FORMAT_KEY_ALIASES: Record<string, string> = {
+  horizontalAlignment: 'align',
+  verticalAlignment: 'valign',
+  color: 'fontColor',
+};
 
 /**
- * Convert the parser's raw `key=value` strings into typed `format` params. An unknown key or a
- * value the host can't apply is a corrective error naming what IS allowed — never silently
- * dropped, so a "formatted" receipt can't hide a facet that was never applied.
+ * Convert the parser's raw `key=value` strings into typed `format` params. Office.js names
+ * (`horizontalAlignment`, `verticalAlignment`) and `color` are accepted as aliases, and alignment and
+ * border values in any case (`Center`, `Thin`; `middle` means center). An unknown key or a value the
+ * host can't apply is still a corrective error naming what IS allowed — never silently dropped, so
+ * a "formatted" receipt can't hide a facet that was never applied.
  */
 function formatFromProps(props: Record<string, string>): FormatParams | { error: string } {
   const format: FormatParams = {};
@@ -966,7 +979,15 @@ function formatFromProps(props: Record<string, string>): FormatParams | { error:
       ? upper
       : { error: `format ${key} must be a color like #RRGGBB (e.g. #1F4E79), got "${value}"` };
   };
-  for (const [key, value] of Object.entries(props)) {
+  for (const [rawKey, rawValue] of Object.entries(props)) {
+    const key = FORMAT_KEY_ALIASES[rawKey] ?? rawKey;
+    const lower = rawValue.toLowerCase();
+    const value =
+      key === 'align' || key === 'valign' || key === 'border'
+        ? key === 'valign' && lower === 'middle'
+          ? 'center'
+          : lower
+        : rawValue;
     let parsed: unknown;
     switch (key) {
       case 'bold':
@@ -992,6 +1013,11 @@ function formatFromProps(props: Record<string, string>): FormatParams | { error:
           ? value
           : { error: `format align must be one of ${ALIGNS.join(', ')}, got "${value}"` };
         break;
+      case 'valign':
+        parsed = (VALIGNS as readonly string[]).includes(value)
+          ? value
+          : { error: `format valign must be one of ${VALIGNS.join(', ')}, got "${rawValue}"` };
+        break;
       case 'border':
         parsed = (BORDERS as readonly string[]).includes(value)
           ? value
@@ -1007,7 +1033,7 @@ function formatFromProps(props: Record<string, string>): FormatParams | { error:
         parsed = value;
         break;
       default:
-        return { error: `unknown format key "${key}" — supported: ${FORMAT_KEYS_USAGE}` };
+        return { error: `unknown format key "${rawKey}" — supported: ${FORMAT_KEYS_USAGE}` };
     }
     if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) {
       return parsed as { error: string };

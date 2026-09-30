@@ -108,6 +108,43 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('accepts Office.js key names and any-case values as aliases', () => {
+    const c = compileCommand(
+      {
+        verb: 'format',
+        range: 'A1:H10',
+        props: {
+          color: '#FFFFFF',
+          horizontalAlignment: 'Center',
+          verticalAlignment: 'middle',
+          border: 'Thin',
+          borderColor: '#d3d3d3',
+        },
+      },
+      { surface: 'excel', mintChangeId: mint },
+    );
+    expect(c).toMatchObject({
+      request: {
+        params: {
+          format: {
+            fontColor: '#FFFFFF',
+            align: 'center',
+            valign: 'center',
+            border: 'thin',
+            borderColor: '#D3D3D3',
+          },
+        },
+      },
+    });
+    if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+    expect(
+      compileCommand(
+        { verb: 'format', range: 'A1', props: { align: 'sideways' } },
+        { surface: 'excel', mintChangeId: mint },
+      ),
+    ).toMatchObject({ error: expect.stringContaining('format align must be one of') });
+  });
+
   it('rejects an unknown format key, naming every supported key, instead of dropping it', () => {
     const cases: Array<Record<string, string>> = [{ bold: 'true', wibble: 'x' }, { wibble: 'x' }];
     for (const props of cases) {
@@ -208,6 +245,14 @@ describe('compileCommand', () => {
     expect(c).toMatchObject({
       request: { params: { findReplace: { find: 'CN-GPT', replace: 'CNGPT' } } },
     });
+  });
+
+  it('takes positional OOXML for /insert-ooxml when ooxml= is missing', () => {
+    const c = compileCommand(
+      { verb: 'invoke', kind: 'insert-ooxml', props: {}, args: ['<w:p/>'] } as never,
+      { surface: 'word', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({ request: { kind: 'insert-ooxml', params: { ooxml: '<w:p/>' } } });
   });
 
   it('takes positional text for /replace-selection when text= is missing', () => {
@@ -1406,7 +1451,7 @@ describe('AssistSession.runCommands — done after failed commands', () => {
   it('does not finish on a done batched after failed commands; the errors go back to the model', async () => {
     const bridge = new FakeExcelBridge();
     const { client, queries } = fakeClient([
-      '```cmd\nformat Sales!A1:C1 {"font": {"bold": true}, "fill": "#1F4E79"}\ndone\n```',
+      '```cmd\nformat Sales!A1:C1 {"wibble": 1}\ndone\n```',
       '```cmd\ndone\n```',
     ]);
     const session = new AssistSession(bridge, client, { unit });

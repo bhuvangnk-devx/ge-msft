@@ -44,6 +44,8 @@ export interface FormatCellsPlan {
   fontSize?: number;
   /** Office.js `HorizontalAlignment` value. */
   horizontalAlignment?: 'Left' | 'Center' | 'Right' | 'Justify';
+  /** Office.js `VerticalAlignment` value. */
+  verticalAlignment?: 'Top' | 'Center' | 'Bottom';
   wrapText?: boolean;
   /** Applied to all six edges; `None` clears them. */
   borderWeight?: 'Thin' | 'Medium' | 'Thick' | 'None';
@@ -54,6 +56,7 @@ export interface FormatCellsPlan {
 }
 
 const HORIZONTAL = { left: 'Left', center: 'Center', right: 'Right', justify: 'Justify' } as const;
+const VERTICAL = { top: 'Top', center: 'Center', bottom: 'Bottom' } as const;
 const WEIGHT = { thin: 'Thin', medium: 'Medium', thick: 'Thick', none: 'None' } as const;
 
 export function planFormatCells(req: ActuationRequest): FormatCellsPlan {
@@ -68,6 +71,7 @@ export function planFormatCells(req: ActuationRequest): FormatCellsPlan {
     ...(f.fontColor !== undefined ? { fontColor: f.fontColor } : {}),
     ...(f.fontSize !== undefined ? { fontSize: f.fontSize } : {}),
     ...(f.align !== undefined ? { horizontalAlignment: HORIZONTAL[f.align] } : {}),
+    ...(f.valign !== undefined ? { verticalAlignment: VERTICAL[f.valign] } : {}),
     ...(f.wrap !== undefined ? { wrapText: f.wrap } : {}),
     ...(f.border !== undefined ? { borderWeight: WEIGHT[f.border] } : {}),
     ...(f.borderColor !== undefined ? { borderColor: f.borderColor } : {}),

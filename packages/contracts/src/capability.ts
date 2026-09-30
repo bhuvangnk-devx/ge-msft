@@ -195,6 +195,7 @@ export const ActuationParamsSchema = z.object({
         .optional(),
       fontSize: z.number().min(6).max(96).optional(),
       align: z.enum(['left', 'center', 'right', 'justify']).optional(),
+      valign: z.enum(['top', 'center', 'bottom']).optional(),
       wrap: z.boolean().optional(),
       /** Applied to all six edges (outside and inside); `none` clears them. */
       border: z.enum(['thin', 'medium', 'thick', 'none']).optional(),

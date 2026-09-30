@@ -388,9 +388,10 @@ export class OfficeWordHost implements WordHost {
       const paras = ctx.document.body.paragraphs;
       paras.load('items/text,items/styleBuiltIn');
       await ctx.sync();
+      const texts = await reviewedTexts(ctx, paras.items);
       return paras.items
-        .filter((p) => p.text.trim().length > 0)
-        .map((p) => ({ text: p.text, styleBuiltIn: String(p.styleBuiltIn) }));
+        .map((p, i) => ({ text: texts[i] ?? p.text, styleBuiltIn: String(p.styleBuiltIn) }))
+        .filter((p) => p.text.trim().length > 0);
     });
   }
 
@@ -1050,6 +1051,27 @@ function wordContentControlId(ref: ContextRef): string | undefined {
       'word:content-control:',
     )
   );
+}
+
+/**
+ * Each paragraph's text as it reads now, without tracked deletions. `Paragraph.text` keeps the
+ * struck-out original next to its replacement ("GEGemini Enterprise"), so after a tracked edit the
+ * model read its own change as broken and kept "fixing" it. `getReviewedText` is WordApi 1.4; an
+ * older host, or a failed read, keeps the plain text.
+ */
+async function reviewedTexts(
+  ctx: Word.RequestContext,
+  paragraphs: Word.Paragraph[],
+): Promise<Array<string | undefined>> {
+  if (paragraphs.length === 0 || !isSet('WordApi', '1.4')) return [];
+  if (!paragraphs.every((p) => typeof p.getReviewedText === 'function')) return [];
+  try {
+    const reviewed = paragraphs.map((p) => p.getReviewedText('Current'));
+    await ctx.sync();
+    return reviewed.map((r) => r.value);
+  } catch {
+    return [];
+  }
 }
 
 /**

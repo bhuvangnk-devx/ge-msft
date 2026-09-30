@@ -260,6 +260,8 @@ interface PlanState {
    * skill call expands into — so expansion can't exceed the cap (security finding). */
   budget: number;
   done: boolean;
+  /** `done` arrived in the same block as writes: finish only if every one of them lands. */
+  doneAfterWrites?: boolean;
   finishVerified?: boolean;
 }
 
@@ -548,7 +550,7 @@ export class AssistSession {
       if (deferred.size > 0) task.status = 'incomplete';
       const retried = (result: ActuationResult, i: number): boolean =>
         assessActuationResult(result) === 'failed' &&
-        task.effects.slice(i + 1).some((later) => later.kind === result.kind && later.ok);
+        task.effects.some((other, j) => j !== i && other.kind === result.kind && other.ok);
       task.status = task.effects.some(
         (result, i) =>
           !['verified', 'unverified'].includes(assessActuationResult(result)) &&
@@ -1607,6 +1609,19 @@ export class AssistSession {
       ))
         yield ev;
     }
+    // A batched `done` completes the task only when every result in this block succeeded; a
+    // failed or capped write keeps the loop going so the model sees the receipt.
+    if (
+      plan.doneAfterWrites &&
+      plan.results.every(
+        (result) =>
+          result == null ||
+          typeof result !== 'object' ||
+          !('error' in result) ||
+          result.error == null,
+      )
+    )
+      plan.done = true;
 
     if (plan.finishVerified) {
       const errors = plan.results.some(
@@ -1806,9 +1821,9 @@ export class AssistSession {
     // Control + reads run inline (pure / non-actuating), exactly as ADR-0004.
     if (command.verb === 'done') {
       if (plan.planSlots.length > 0) {
+        plan.doneAfterWrites = true;
         plan.results.push({
-          error:
-            'done cannot be batched with a write command; wait for the write result, then emit a block containing only done.',
+          note: 'done takes effect only if every write in this block lands; otherwise review the results and continue.',
         });
         return;
       }

@@ -56,6 +56,14 @@ function formatPairs(format: ActuationRequest['params']['format']): string {
   if (format.italic !== undefined) parts.push(`italic=${format.italic}`);
   if (format.fill !== undefined) parts.push(`fill=${format.fill}`);
   if (format.numberFormat !== undefined) parts.push(`numberFormat=${quote(format.numberFormat)}`);
+  if (format.fontColor !== undefined) parts.push(`fontColor=${format.fontColor}`);
+  if (format.fontSize !== undefined) parts.push(`fontSize=${format.fontSize}`);
+  if (format.align !== undefined) parts.push(`align=${format.align}`);
+  if (format.valign !== undefined) parts.push(`valign=${format.valign}`);
+  if (format.wrap !== undefined) parts.push(`wrap=${format.wrap}`);
+  if (format.border !== undefined) parts.push(`border=${format.border}`);
+  if (format.borderColor !== undefined) parts.push(`borderColor=${format.borderColor}`);
+  if (format.autofit) parts.push('autofit=true');
   return parts.join(' ');
 }
 
