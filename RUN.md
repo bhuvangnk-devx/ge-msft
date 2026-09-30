@@ -43,6 +43,8 @@ bun run manifests:generate --profile development   # → dist/manifests/
 bun run manifests:validate --profile development   # check them
 bun run package:dev                                # zips → dist/release/*.zip
 ```
+For the production manifest, use `--profile cimb-production` and `bun run package:cimb` instead (see
+[section 6](#6-production-manifest-the-cimb-production-profile)).
 
 ### 6. Optional: full checks before sharing
 ```bash
@@ -138,7 +140,93 @@ cp packages/web-shell/.env.example packages/web-shell/.env
 
 ---
 
-## 6. Install and test the add-in
+## 6. Production manifest: the `cimb-production` profile
+
+The **development** profile is for testing: it's named "CNGPT Dev", includes every app, and accepts
+placeholder IDs and localhost. The **`cimb-production`** profile builds the manifest real users get:
+
+| | Development (`--profile development`) | Production (`--profile cimb-production`) |
+| --- | --- | --- |
+| Name in Office | CNGPT Dev | CNGPT |
+| Apps | Word, Excel, PowerPoint, Outlook, OneNote | Only those in `GE_PROD_SURFACES` (default Word, Excel, PowerPoint, Outlook) |
+| App IDs | `GE_DEV_*_APP_ID` (placeholders allowed) | `GE_PROD_*_APP_ID` (real, permanent, required) |
+| Checks | Loose | Fails on placeholder or reused IDs, localhost, IP addresses, `http://`, missing values |
+| Output | `dist/package/development/` | `dist/package/cimb-production/`, `dist/release/cimb-production-*.zip` |
+
+The two use **different app IDs**, so "CNGPT Dev" and "CNGPT" can be installed side by side.
+
+### Settings to add
+
+Put these in `packages/web-shell/.env` (on a laptop) or in the CI environment (in CI). Exported
+variables override `.env`.
+
+| Setting | Required | Example | Notes |
+| --- | --- | --- | --- |
+| `GE_PROD_WEB_DOMAIN` | Yes | `cngpt.cimbniaga.co.id` | Host of the production web app, no `https://`. Must be the address in Entra (section 4) |
+| `GE_PROD_APP_ID` | Yes | `a1b2…` (a GUID) | Identity of the unified package (`m365/`) |
+| `GE_PROD_OFFICE_XML_APP_ID` | Yes | GUID | Identity of `centralized/office.manifest.xml` (Word, Excel, PowerPoint) |
+| `GE_PROD_OUTLOOK_APP_ID` | Yes | GUID | Identity of `centralized/outlook.manifest.xml` |
+| `GE_PROD_DEVELOPER_NAME` | Yes | `PT Bank CIMB Niaga Tbk` | Publisher shown in Office and the admin center |
+| `GE_PROD_WEBSITE_URL` | Yes | `https://…` | Real CIMB page, HTTPS only |
+| `GE_PROD_PRIVACY_URL` | Yes | `https://…` | Real privacy page, HTTPS only |
+| `GE_PROD_TERMS_URL` | Yes | `https://…` | Real terms page, HTTPS only |
+| `GE_PROD_SUPPORT_URL` | Yes | `https://…` | Real help/support page, HTTPS only |
+| `GE_PROD_ENTRA_CLIENT_ID` | No | GUID | Defaults to `VITE_ENTRA_CLIENT_ID`. Leave it unset unless production uses a different Entra app |
+| `GE_PROD_SURFACES` | No | `word,excel,powerpoint,outlook` | Which apps to include. Add `onenote` later (see below) |
+| `GE_PROD_ONENOTE_APP_ID` | Only with OneNote | GUID | Identity of the separate OneNote manifest |
+
+### App IDs: how to handle them
+
+An app ID is how Office recognizes the add-in. It's **not** a secret, and it's **not** the Entra client
+ID. It's an identity you create yourself.
+
+1. **Generate each one once:**
+   ```bash
+   uuidgen | tr A-Z a-z
+   ```
+   Run it once per ID: three IDs, or four with OneNote.
+2. **Never change them.** If an ID changes, Office treats the add-in as brand new: users get a second
+   copy, and the old one has to be removed by hand.
+3. **Keep them all different,** from each other and from the `GE_DEV_*` IDs. The build fails if two
+   match.
+4. **Store them where they won't be lost.** `.env` isn't committed to Git, so record the production
+   IDs in the team's secrets store or the CI variables as well. A new laptop or CI runner must use the
+   **same** IDs.
+5. **Changing the domain later doesn't change the IDs.** Keep the IDs; only regenerate the manifest.
+
+### Commands
+
+```bash
+bun run release:web                                          # build the web app first
+bun run manifests:generate --profile cimb-production         # → dist/manifests/cimb-production.*
+bun run manifests:validate --profile cimb-production         # checks every production rule
+bun run package:cimb                                         # → dist/release/cimb-production-*.zip
+```
+
+Each run first deletes that profile's previous files, so a failed run never leaves old manifests
+behind. If a value is missing or invalid, the command stops and names it (for example
+`Missing production manifest configuration: GE_PROD_APP_ID`).
+
+### What to upload
+
+| File | Upload where | Covers |
+| --- | --- | --- |
+| `dist/release/cimb-production-m365-v<version>.zip` | M365 admin center → Integrated apps (one upload) | All the apps in `GE_PROD_SURFACES` |
+| `dist/package/cimb-production/centralized/office.manifest.xml` and `outlook.manifest.xml` | M365 admin center → Office add-in → upload `.xml` | Word, Excel and PowerPoint in one file; Outlook in its own |
+
+Use **one** of the two, not both. Before the first production upload:
+- the production domain has all three Entra redirect URIs (section 4);
+- the web app at that domain has been built with the production `VITE_*` values.
+
+### Adding OneNote later
+
+Set `GE_PROD_SURFACES=word,excel,powerpoint,outlook,onenote` and add a new `GE_PROD_ONENOTE_APP_ID`.
+The build then also writes `dist/package/cimb-production/onenote/onenote.manifest.xml`. OneNote only
+accepts the classic XML format, so it's uploaded separately.
+
+---
+
+## 7. Install and test the add-in
 
 Before uploading, remove any previously uploaded copies to avoid GUID collisions in Office cache.
 
@@ -172,7 +260,7 @@ For rolling out to groups or the entire tenant:
 
 ---
 
-## 7. What to redo when things change
+## 8. What to redo when things change
 
 | What changed | Actions required |
 | --- | --- |
@@ -180,10 +268,12 @@ For rolling out to groups or the entire tenant:
 | `.env` values (`VITE_*`) | `bun run release:web` → CI/CD deploys to Cloud Run (values are baked in at build time) |
 | Web origin / domain | Rebuild web app → Regenerate manifests (`manifests:generate`) → Update Entra redirect URIs → Re-upload manifests |
 | Manifest or ribbon UI | `bun run manifests:generate --profile development` → Re-upload manifests |
+| Production domain | Rebuild with production values → set `GE_PROD_WEB_DOMAIN` → `manifests:generate --profile cimb-production` + `package:cimb` → add the domain's 3 redirect URIs in Entra → re-upload. Keep the `GE_PROD_*_APP_ID` values |
+| Production apps (e.g. add OneNote) | Update `GE_PROD_SURFACES` (and add `GE_PROD_ONENOTE_APP_ID`) → regenerate → upload the new files |
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Issue | Likely Cause | Resolution |
 | --- | --- | --- |
@@ -193,3 +283,6 @@ For rolling out to groups or the entire tenant:
 | Add-in missing from Outlook's add-in list after deploying | It was deployed or uploaded, but not added to your Outlook yet (admin deployments can take up to 24 hours) | Open [aka.ms/olksideload](https://aka.ms/olksideload) → **My add-ins** → scroll to the bottom → **Add a custom add-in** → **Add from file...** → `dist/package/development/centralized/outlook.manifest.xml`. |
 | Manifest validation fails | Invalid XML or missing icon | Run `bun run manifests:validate --profile development` to inspect errors before uploading. |
 | Old code displays after deploy | Client browser cache | Close task pane, clear Office cache, or reload the frame. |
+| `Missing production manifest configuration: …` | A `GE_PROD_*` value isn't set | Add the named value to `packages/web-shell/.env` or the CI environment (section 6). |
+| `GE_PROD_*_APP_ID must be a non-development GUID` / `must all be different` | A placeholder or reused app ID | Generate a new ID with `uuidgen \| tr A-Z a-z` for that value only. Don't change IDs that are already in use. |
+| Two copies of CNGPT in Office | An app ID changed between uploads | Put the original ID back in `.env`, regenerate, re-upload, and remove the extra copy in the admin center. |
