@@ -85,6 +85,19 @@ describe('compact capability disclosure', () => {
     expect(top2("Add a slide titled 'Q4 plan' with two points")[0]).toBe('slide');
   });
 
+  it('shows the format keys and a concrete key=value example for a formatting task', () => {
+    const bootstrap = renderCommandBootstrap(
+      manifest('excel'),
+      'format the selected range to make it look professional',
+    );
+    expect(bootstrap).toContain('fontColor=#RRGGBB');
+    expect(bootstrap).toContain('align=left|center|right|justify');
+    expect(bootstrap).toContain('border=thin|medium|thick|none');
+    expect(bootstrap).toContain('not JSON');
+    expect(bootstrap).toMatch(/format \S+!A1:\S+ bold=true fontColor=#FFFFFF/);
+    expect(bootstrap).not.toContain('Example: format <range> k=v');
+  });
+
   it('lists the slide signature only on PowerPoint', () => {
     for (const surface of ['excel', 'word', 'outlook', 'onenote', 'teams'] as const) {
       expect(renderCommandBootstrap(manifest(surface))).not.toContain('slide "Title"');

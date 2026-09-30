@@ -1402,6 +1402,23 @@ function loopEvents(events: Array<SseEvent | CommandLoopEvent>): CommandLoopEven
 
 /* ───────────────────────── the loop ───────────────────────────────────── */
 
+describe('AssistSession.runCommands — done after failed commands', () => {
+  it('does not finish on a done batched after failed commands; the errors go back to the model', async () => {
+    const bridge = new FakeExcelBridge();
+    const { client, queries } = fakeClient([
+      '```cmd\nformat Sales!A1:C1 {"font": {"bold": true}, "fill": "#1F4E79"}\ndone\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const session = new AssistSession(bridge, client, { unit });
+
+    await collect(session.runCommands('make the header look professional'));
+
+    expect(queries.length).toBeGreaterThanOrEqual(2);
+    expect(queries[1]).toContain('not JSON');
+    expect(queries[1]).toContain('done was ignored');
+  });
+});
+
 describe('AssistSession.runCommands — the bounded command loop', () => {
   it('read-many: batches all reads in a turn, then terminates on done', async () => {
     const bridge = new FakeExcelBridge();

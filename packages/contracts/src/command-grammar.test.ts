@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CapabilityManifest } from './capability.js';
 import {
+  FORMAT_KEYS_USAGE,
   ParsedCommandSchema,
   WRITE_VERB_TO_KIND,
   extractCommandBlock,
@@ -940,7 +941,9 @@ describe('command-grammar — capability scoping', () => {
     expect(verbs).toContain('comment');
     expect(verbs).toContain('format');
     expect(specs.find((v) => v.verb === 'comment')?.usage).toBe('comment <cell> "text"');
-    expect(specs.find((v) => v.verb === 'format')?.usage).toBe('format <range> k=v ...');
+    expect(specs.find((v) => v.verb === 'format')?.usage).toBe(
+      `format <range> key=value ... (not JSON) — keys: ${FORMAT_KEYS_USAGE}`,
+    );
   });
 
   it('Word advertises comment (quoted-anchor form) but NOT format (no format-cells)', () => {

@@ -1060,6 +1060,8 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     'grep',
     'set',
     'grid',
+    // Without its key list, models invent a JSON payload for `format`.
+    'format',
     'suggest',
     'shape',
     // PowerPoint's primary create verb; without its signature, models reach for the specialized

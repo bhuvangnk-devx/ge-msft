@@ -1121,8 +1121,8 @@
     },
     "format": {
       "command": "format",
-      "useWhen": "you need to format an Excel range",
-      "syntax": "format <range> k=v ...",
+      "useWhen": "you need to format an Excel range: font color/size, fill, alignment, borders, wrap, column widths, number formats",
+      "syntax": "format <range> key=value ... (not JSON) — keys: bold=true|false italic=true|false fill=#RRGGBB fontColor=#RRGGBB fontSize=6-96 align=left|center|right|justify wrap=true|false border=thin|medium|thick|none borderColor=#RRGGBB autofit=true numberFormat=\"<Excel code>\" (quote any value with spaces)",
       "discovery": [
         "outline or list",
         "read/search/inspect/properties the target"
@@ -1133,7 +1133,9 @@
         "Wait for preview, approval, and result before done."
       ],
       "examples": [
-        "format <range> k=v ..."
+        "format Sheet1!A1:H1 bold=true fontColor=#FFFFFF fill=#1F4E79 align=center",
+        "format Sheet1!A1:H10 border=thin borderColor=#D3D3D3 autofit=true",
+        "format Sheet1!G2:G10 numberFormat=\"#,##0.00\" align=right"
       ],
       "doNot": [
         "Do not write before reading.",

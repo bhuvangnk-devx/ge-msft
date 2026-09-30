@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FORMAT_KEYS_USAGE } from './command-grammar.js';
 
 export const CommandHelpEntrySchema = z.object({
   command: z.string(),
@@ -341,7 +342,19 @@ export const COMMAND_HELP = {
     'comment <cell> "text" OR comment "anchor" "text"',
     'you need to attach a comment to one cell or exact content anchor',
   ),
-  format: genericWrite('format', 'format <range> k=v ...', 'you need to format an Excel range'),
+  format: {
+    ...genericWrite(
+      'format',
+      `format <range> key=value ... (not JSON) — keys: ${FORMAT_KEYS_USAGE}`,
+      'you need to format an Excel range: font color/size, fill, alignment, borders, wrap, column widths, number formats',
+    ),
+    // A concrete line first: command cards show the first example free of `<placeholders>`.
+    examples: [
+      'format Sheet1!A1:H1 bold=true fontColor=#FFFFFF fill=#1F4E79 align=center',
+      'format Sheet1!A1:H10 border=thin borderColor=#D3D3D3 autofit=true',
+      'format Sheet1!G2:G10 numberFormat="#,##0.00" align=right',
+    ],
+  },
   reply: genericWrite(
     'reply',
     'reply <commentId> "text"',

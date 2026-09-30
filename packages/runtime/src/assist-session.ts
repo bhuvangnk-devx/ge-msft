@@ -1799,6 +1799,16 @@ export class AssistSession {
         });
         return;
       }
+      // Finishing here would drop the corrections above before the model ever saw them.
+      const failed = plan.results.filter(
+        (r) => typeof r === 'object' && r !== null && 'error' in r,
+      );
+      if (failed.length > 0) {
+        plan.results.push({
+          error: `done was ignored: ${failed.length} command(s) above failed. Fix them using the errors above and retry, or emit a block containing only done to stop.`,
+        });
+        return;
+      }
       plan.done = true;
       return;
     }

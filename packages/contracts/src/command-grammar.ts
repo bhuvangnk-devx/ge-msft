@@ -1912,10 +1912,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'format':
       return {
         verb: 'format',
-        usage: 'format <range> k=v ...',
-        hint:
-          `format a range with key=value pairs, not JSON. Keys: ${FORMAT_KEYS_USAGE}. ` +
-          'e.g. format Sales!A1:H1 bold=true fontColor=#FFFFFF fill=#1F4E79 align=center border=thin',
+        usage: `format <range> key=value ... (not JSON) — keys: ${FORMAT_KEYS_USAGE}`,
+        hint: 'format a range, e.g. format Sales!A1:H1 bold=true fontColor=#FFFFFF fill=#1F4E79 align=center border=thin',
       };
     case 'reply':
       return {
