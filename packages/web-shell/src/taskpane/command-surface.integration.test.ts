@@ -350,7 +350,6 @@ describe('command surface — implicit intent inference', () => {
       "Let's rename the table to Q3 Sales",
       'Could u just fix the typo in the title',
       "I'm trying to insert a table here",
-      'Is it possible to highlight the overdue rows',
       'okay so now I want to delete the last slide',
     ]) {
       expect(plans(raw), raw).toBe(true);
@@ -362,6 +361,7 @@ describe('command surface — implicit intent inference', () => {
       'What does this email want me to reply?',
       'I need help understanding the formulas',
       'Let me think about the slide order',
+      'Is it possible to highlight the overdue rows?',
     ]) {
       expect(plans(raw), raw).toBe(false);
     }

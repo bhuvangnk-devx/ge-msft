@@ -109,7 +109,7 @@ const LEAD_IN =
   String.raw`|(?:i|we)\s+(?:want|need|have|plan|wish|intend)\s+(?:(?:you|u)\s+)?to` +
   String.raw`|(?:i|we)\s+(?:wanna|gotta)` +
   String.raw`|(?:i\s*['’]m|i\s+am|we\s*['’]re|we\s+are)\s+(?:trying|going|looking|hoping)\s+to` +
-  String.raw`|let\s*['’]?s|let\s+me|help\s+me(?:\s+to)?|is\s+it\s+possible\s+to|try\s+to` +
+  String.raw`|let\s*['’]?s|let\s+me|help\s+me(?:\s+to)?|try\s+to` +
   String.raw`)(?:[\s,!.]+|$))*`;
 
 /** A request whose (lead-in-stripped) first word is one of `verbs`, optionally followed by `tail`. */
