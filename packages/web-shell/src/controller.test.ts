@@ -1530,6 +1530,43 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     expect(assist.runTasks[0]).toContain('exclude: the indemnity clause');
   });
 
+  it('stages a chat-labelled plan whose steps change the document as an edit (fix G)', async () => {
+    // Live 2026-09-30, REQ#563: the planner answered "In G12 put a formula that totals G2:G11" with
+    // `intent ask` and the step below; chat then claimed "The formula … has been placed in G12".
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: {
+        intent: 'ask',
+        surface: 'excel',
+        scope: { kind: 'range', ref: 'g12' },
+        ground: [],
+        context: ['inline-preferred'],
+        steps: ['add excel formula in G12 to sum range G2:G11'],
+        excludes: [],
+        clarify: [],
+      },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('In G12 put a formula that totals G2:G11', undefined);
+    expect(assist.asked).toEqual([]); // never answered by chat
+    expect(c.getState().pendingCommandPlan?.plan.intent).toBe('rewrite');
+  });
+
+  it('still answers a chat-labelled plan in chat when its steps change nothing', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, intent: 'ask', steps: ['identify the region with the highest total'] },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('the region with the highest total', undefined);
+    await tick();
+    expect(c.getState().pendingCommandPlan).toBeUndefined();
+  });
+
   it('cancel discards the plan and runs nothing', async () => {
     const assist = new FakeAssist();
     assist.planned = { plan: wordPlan, errors: [], needsClarification: false };
@@ -1618,7 +1655,8 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
   it('a slash write verb the planner calls "chat" still runs the executor, never plain chat', async () => {
     const assist = new FakeAssist();
     assist.planned = {
-      plan: { ...wordPlan, intent: 'ask', surface: 'excel' },
+      // Read-only steps: a change-describing "chat" plan is staged as an edit instead.
+      plan: { ...wordPlan, intent: 'ask', surface: 'excel', steps: ['look at the subscriptions'] },
       errors: [],
       needsClarification: false,
     };
@@ -1637,7 +1675,7 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
   it('a free-text request the planner calls "chat" still goes to chat', async () => {
     const assist = new FakeAssist();
     assist.planned = {
-      plan: { ...wordPlan, intent: 'ask' },
+      plan: { ...wordPlan, intent: 'ask', steps: ['answer from the SLA section'] },
       errors: [],
       needsClarification: false,
     };

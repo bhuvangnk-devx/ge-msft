@@ -121,7 +121,10 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
       const deleted = (opts.deletedHits ?? []).includes(this.text);
       return { items: deleted ? [{ type: 'Deleted' }] : [], load: () => undefined };
     }
-    get paragraphs(): { getFirstOrNullObject(): FakeParagraph } {
+    get paragraphs(): {
+      getFirstOrNullObject(): FakeParagraph;
+      getLast(): { getRange(): { insertOoxml(ooxml: string, location: string): void } };
+    } {
       return {
         getFirstOrNullObject: () =>
           new FakeParagraph(
@@ -129,7 +132,17 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
               ? opts.contextParas?.[this.text]
               : undefined,
           ),
+        getLast: () => ({
+          getRange: () => ({
+            insertOoxml: (ooxml: string, location: string) => {
+              rec.inserts.push({ anchor: `paragraph of ${this.text}`, text: ooxml, location });
+            },
+          }),
+        }),
       };
+    }
+    insertOoxml(ooxml: string, location: string): void {
+      rec.inserts.push({ anchor: this.text, text: ooxml, location });
     }
     insertText(text: string, location: string): void {
       rec.trace.push('insertText');
@@ -142,9 +155,18 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
   }
 
   class FakeResultCollection {
-    items: FakeResult[];
+    private readonly hits: FakeResult[];
+    private readonly createdAt = rec.syncCount;
     constructor(query: string) {
-      this.items = (opts.searchHits?.[query] ?? []).map((t) => new FakeResult(t));
+      this.hits = (opts.searchHits?.[query] ?? []).map((t) => new FakeResult(t));
+    }
+    /** Like Word, `items` is unavailable until a sync: reading it first throws PropertyNotLoaded. */
+    get items(): FakeResult[] {
+      if (rec.syncCount === this.createdAt)
+        throw new Error(
+          "fake-word: The property 'items' is not available. Call load and context.sync() first.",
+        );
+      return this.hits;
     }
     load(p?: string): this {
       rec.trace.push(`results.load:${p ?? ''}`);
@@ -301,7 +323,7 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
       if (opts.wordRunThrows) return Promise.reject(new Error('Word.run unsupported'));
       return cb(ctx);
     },
-    InsertLocation: { replace: 'Replace', start: 'Start', end: 'End' },
+    InsertLocation: { replace: 'Replace', start: 'Start', end: 'End', after: 'After' },
     ChangeTrackingMode: { trackAll: 'TrackAll', off: 'Off' },
     EventSource: { local: 'Local', remote: 'Remote' },
   };
@@ -560,6 +582,39 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
 });
 
 /* ───────────────────────────────── addComment ───────────────────────────── */
+
+describe('OfficeWordHost.insertOoxml (block content goes after the anchor paragraph)', () => {
+  it('inserts a paragraph fragment after the anchor paragraph, not inside the matched sentence', async () => {
+    // Live 2026-10-01: "Summary" landed inside "The Supplier may terminate…".
+    const rec = setup({ searchHits: { 'may terminate': ['may terminate'] } });
+    await new OfficeWordHost().insertOoxml(
+      'may terminate',
+      { matchCase: false },
+      '<w:p><w:r><w:t>Summary</w:t></w:r></w:p>',
+      () => 0,
+    );
+    expect(rec.inserts).toEqual([
+      {
+        anchor: 'paragraph of may terminate',
+        text: '<w:p><w:r><w:t>Summary</w:t></w:r></w:p>',
+        location: 'After',
+      },
+    ]);
+  });
+
+  it('keeps inline content (runs) right after the matched text', async () => {
+    const rec = setup({ searchHits: { term: ['term'] } });
+    await new OfficeWordHost().insertOoxml(
+      'term',
+      { matchCase: false },
+      '<w:r><w:t>x</w:t></w:r>',
+      () => 0,
+    );
+    expect(rec.inserts).toEqual([
+      { anchor: 'term', text: '<w:r><w:t>x</w:t></w:r>', location: 'After' },
+    ]);
+  });
+});
 
 describe('OfficeWordHost.addComment (requirement-set gated, best-effort)', () => {
   it('inserts a comment on the first re-resolved hit when WordApi 1.4 is supported', async () => {

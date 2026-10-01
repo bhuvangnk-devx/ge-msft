@@ -14,7 +14,13 @@ import {
   type AnalysisProgram,
 } from './analysis-program.js';
 import { CommandContextSession } from './command-context-session.js';
-import { approvalClassOf, isReversibleKind, isAnalysisBindingKind } from '@ge/contracts';
+import {
+  approvalClassOf,
+  intentsForManifest,
+  isReversibleKind,
+  isAnalysisBindingKind,
+  VERBS_BY_SURFACE,
+} from '@ge/contracts';
 import type {
   ActuationKind,
   ActuationParams,
@@ -27,6 +33,7 @@ import type {
   ContextKind,
   ContextRef,
   DocFs,
+  DocStateSnapshot,
   ParsedCommand,
   ProvenancePayload,
   ReadVerb,
@@ -61,7 +68,8 @@ import {
   type ProgramEntry,
   type WriteVerb,
 } from '@ge/contracts';
-import { estimateTokens, renderDocState } from '@ge/content';
+import { commandRef, estimateTokens, renderDocState } from '@ge/content';
+import { MAX_REFERENCE_READS, referenceCandidates, searchTerms } from './chat-reads.js';
 import {
   SessionContext,
   StreamAssistClient,
@@ -154,6 +162,8 @@ type StreamOptionsWithGrounding = NonNullable<Parameters<StreamAssistClient['str
 
 /** Default turn bound for the command loop (ADR-0004 §3). */
 const DEFAULT_MAX_TURNS = 12;
+/** Consecutive failing turns allowed after the first before a command task stops as incomplete. */
+const MAX_REPAIR_TURNS = 2;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
 const DEFAULT_MAX_WRITES_PER_TURN = 8;
@@ -222,6 +232,18 @@ export type CommandLoopEvent =
   /** A per-turn command/write ceiling was hit; extra commands in the block were refused. */
   /** `deferred` names a write held back by the per-turn cap; the model may send it next turn. */
   | { type: 'capped'; turn: number; reason: string; deferred?: string }
+  /**
+   * A model-authored program failed dry-run validation: none of its writes ran, `done` was ignored,
+   * and the errors went back to the model for a bounded repair turn.
+   */
+  | {
+      type: 'repair';
+      turn: number;
+      errors: number;
+      withheldWrites: number;
+      /** Inline effects from this program that already landed and must not be re-emitted. */
+      alreadyApplied: string[];
+    }
   /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
   | { type: 'done'; turn: number; answer: string; message?: string }
   /** The loop hit `maxTurns` without `done`. */
@@ -275,7 +297,13 @@ interface PlanState {
   doneMessage?: string;
   /** `done` arrived in the same block as writes: finish only if every one of them lands. */
   doneAfterWrites?: boolean;
+  /** `done` was requested but ignored because earlier lines in the block failed. */
+  doneIgnored?: boolean;
   finishVerified?: boolean;
+  /** Effects that took effect inline during this turn's pass 1 (an approved `share`). */
+  landedInline: string[];
+  /** Host reads executed this turn, whose results the model has not seen yet. */
+  readsThisTurn: number;
 }
 
 /** Max nesting depth for skill-call expansion — bounds recursive/mutually-recursive skills. */
@@ -1001,9 +1029,10 @@ export class AssistSession {
     const ephemeralIds: string[] = [];
 
     // 1. Ambient `<doc_state>` snapshot — fresh each turn (reflects the current document).
+    let snapshot: DocStateSnapshot | undefined;
     if (this.docStateEnabled && this.bridge.captureDocState) {
       try {
-        const snapshot = await this.toolOperation('context:snapshot', {}, () =>
+        snapshot = await this.toolOperation('context:snapshot', {}, () =>
           this.bridge.captureDocState!(),
         );
         if (snapshot) {
@@ -1026,11 +1055,9 @@ export class AssistSession {
     }
 
     // 2. Lazy read-pull — query-relevant working-document slices, bounded to `maxReads`.
-    if (this.lazyReadEnabled && this.bridge.searchDocument && query.trim().length > 0) {
+    if (this.lazyReadEnabled && query.trim().length > 0) {
       try {
-        const reads = await this.toolOperation('context:search', { query }, () =>
-          this.bridge.searchDocument!(query),
-        );
+        const reads = await this.chatReads(query, snapshot);
         for (let i = 0; i < Math.min(reads.length, this.maxReads); i++) {
           const id = `${READ_REF_PREFIX}${i}`;
           ephemeralIds.push(id);
@@ -1038,7 +1065,7 @@ export class AssistSession {
         }
       } catch (err) {
         if (err instanceof HookBlockedError || this.task?.signal?.aborted) throw err;
-        console.warn('[assist] searchDocument failed; skipping lazy reads for this turn', err);
+        console.warn('[assist] lazy document reads failed; skipping them for this turn', err);
       }
     }
 
@@ -1283,6 +1310,7 @@ export class AssistSession {
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
     let pendingNoFenceReprompt = false;
+    let failingTurns = 0;
     let lastTurn = 0;
 
     for (let turn = 1; turn <= maxTurns || pendingNoFenceReprompt; turn++) {
@@ -1339,7 +1367,7 @@ export class AssistSession {
       }
       pendingNoFenceReprompt = false;
 
-      const { results, done, stopped, message } = yield* this.executeProgramTurn(
+      const { results, done, stopped, message, failed } = yield* this.executeProgramTurn(
         entries,
         turn,
         capabilities,
@@ -1352,6 +1380,18 @@ export class AssistSession {
         return;
       }
       if (stopped) return;
+      // Consecutive turns whose program had a failed line, whether or not it staged a write: a model
+      // that keeps repeating one mistake stops here instead of spending every remaining turn.
+      failingTurns = failed ? failingTurns + 1 : 0;
+      if (failingTurns > MAX_REPAIR_TURNS) {
+        if (this.task) this.task.status = 'incomplete';
+        yield {
+          type: 'error',
+          code: 'repair_exhausted',
+          message: `The command program still failed validation after ${MAX_REPAIR_TURNS} correction turns. No write staged by a failing program was applied.`,
+        };
+        return;
+      }
 
       // Feed all outcomes back as a ```result block + a fresh <doc_state> for the next turn.
       this.commandContext.record({ program: turnText, results }, this.task?.metrics);
@@ -1530,7 +1570,14 @@ export class AssistSession {
     turnProvenance: ProvenancePayload | undefined,
   ): AsyncGenerator<
     SseEvent | CommandLoopEvent,
-    { results: unknown[]; done: boolean; stopped?: boolean; message?: string },
+    {
+      results: unknown[];
+      done: boolean;
+      stopped?: boolean;
+      message?: string;
+      repair?: boolean;
+      failed?: boolean;
+    },
     void
   > {
     const maxCommands = opts.maxCommandsPerTurn ?? DEFAULT_MAX_COMMANDS_PER_TURN;
@@ -1543,6 +1590,10 @@ export class AssistSession {
         return { results: [{ error }], done: false, stopped: true };
       }
     }
+    // Bindings as they were before this turn, so a turn sent back for repair leaves none behind and
+    // the corrected program can reuse its names.
+    const composeBefore = new Map(this.composeEnv);
+    const analysisBefore = this.analysisBindings.snapshot();
     // `budget` is the per-turn command cap; `processEntry` decrements it for EVERY processed entry,
     // including a skill call's expanded body, so expansion cannot exceed the cap.
     const plan: PlanState = {
@@ -1552,6 +1603,8 @@ export class AssistSession {
       maxWrites,
       budget: maxCommands,
       done: false,
+      landedInline: [],
+      readsThisTurn: 0,
     };
     if (entries.length > maxCommands) {
       yield {
@@ -1559,15 +1612,40 @@ export class AssistSession {
         turn,
         reason: `command block truncated to ${maxCommands} (got ${entries.length})`,
       };
-      plan.results.push({
-        error: `too many commands in one block; only the first ${maxCommands} ran`,
-      });
+      plan.results.push(
+        advisory({ error: `too many commands in one block; only the first ${maxCommands} ran` }),
+      );
     }
     for (const entry of entries) {
       if (plan.budget <= 0) break;
       for await (const ev of this.processEntry(entry, plan, capabilities, 0, opts, turnProvenance))
         yield ev;
       if (plan.done) break;
+    }
+
+    // A model-authored program is all-or-nothing at dry-run. When any line failed to parse, compile
+    // or read, none of its writes run and a trailing `done` is ignored; the errors go back to the
+    // model for a bounded repair turn. Live 2026-09-30: an invalid line followed by `done` ended the
+    // task before the model ever saw its error. A verified program keeps its own stop rule below,
+    // and a direct or SDK program has no model to repair it.
+    const dryRunErrors = plan.results.filter(isValidationFailure).length;
+    if (
+      dryRunErrors > 0 &&
+      this.task?.mode === 'command' &&
+      !plan.finishVerified &&
+      (plan.planSlots.length > 0 || plan.done || plan.doneIgnored === true)
+    ) {
+      const withheldWrites = plan.planSlots.length;
+      const alreadyApplied = [...plan.landedInline];
+      plan.planSlots = [];
+      this.composeEnv.clear();
+      for (const [name, value] of composeBefore) this.composeEnv.set(name, value);
+      this.analysisBindings.restore(analysisBefore);
+      plan.results.push({
+        error: repairInstruction(dryRunErrors, withheldWrites, alreadyApplied),
+      });
+      yield { type: 'repair', turn, errors: dryRunErrors, withheldWrites, alreadyApplied };
+      return { results: plan.results, done: false, repair: true, failed: true };
     }
 
     // A failed read/derivation cannot leave a verified program applying its remaining prefix.
@@ -1702,6 +1780,7 @@ export class AssistSession {
       done: plan.done,
       ...(plan.done && plan.doneMessage !== undefined ? { message: plan.doneMessage } : {}),
       ...(plan.finishVerified && !plan.done ? { stopped: true } : {}),
+      ...(dryRunErrors > 0 ? { failed: true } : {}),
     };
   }
 
@@ -1736,7 +1815,7 @@ export class AssistSession {
     // skill call — costs one unit, so a skill expansion can never exceed the per-turn cap. When the
     // budget is exhausted the rest of the (expanded) entries are refused, never actuated.
     if (plan.budget <= 0) {
-      plan.results.push({ error: 'per-turn command budget exhausted' });
+      plan.results.push(advisory({ error: 'per-turn command budget exhausted' }));
       yield { type: 'capped', turn, reason: 'command budget exhausted' };
       return;
     }
@@ -1854,6 +1933,19 @@ export class AssistSession {
     // Control + reads run inline (pure / non-actuating), exactly as ADR-0004.
     if (command.verb === 'done') {
       if (command.message !== undefined) plan.doneMessage = command.message;
+      // A done after lines that failed would end the task on errors the model never saw (every
+      // `format` rejected, then "0 changes"). Keep going so it can read them and correct.
+      if (plan.results.some((r) => typeof r === 'object' && r !== null && 'error' in r)) {
+        // The failed lines already count toward repair; this note is not a further failure.
+        plan.doneIgnored = true;
+        plan.results.push(
+          advisory({
+            error:
+              'done ignored: earlier commands in this block failed — read their errors, fix them, and continue.',
+          }),
+        );
+        return;
+      }
       if (plan.planSlots.length > 0) {
         plan.doneAfterWrites = true;
         plan.results.push({
@@ -1861,14 +1953,15 @@ export class AssistSession {
         });
         return;
       }
-      // Finishing here would drop the corrections above before the model ever saw them.
-      const failed = plan.results.filter(
-        (r) => typeof r === 'object' && r !== null && 'error' in r,
-      );
-      if (failed.length > 0) {
-        plan.results.push({
-          error: `done was ignored: ${failed.length} command(s) above failed. Fix them using the errors above and retry, or emit a block containing only done to stop.`,
-        });
+      // A model that reads and says done in one block has not seen what it read (live 2026-09-30:
+      // `read` + `done` ended a Word rewrite with nothing changed). Return the read first.
+      if (plan.readsThisTurn > 0 && this.task?.mode === 'command') {
+        plan.results.push(
+          advisory({
+            error:
+              'done cannot be batched with a read; review the read result, then continue the task or emit a block containing only done.',
+          }),
+        );
         return;
       }
       plan.done = true;
@@ -1889,6 +1982,7 @@ export class AssistSession {
         return;
       }
       const { label, result } = await this.runReadIntent(compiled.intent);
+      plan.readsThisTurn += 1;
       plan.results.push(result);
       yield { type: 'read-result', turn, intentLabel: label, result };
       return;
@@ -1969,7 +2063,7 @@ export class AssistSession {
             workspace: 'error',
             error: `share cap (${plan.maxWrites}/task) reached`,
           };
-          plan.results.push(result);
+          plan.results.push(advisory(result));
           yield { type: 'capped', turn, reason: `share cap ${plan.maxWrites}/task` };
           return;
         }
@@ -1979,7 +2073,13 @@ export class AssistSession {
         approveShare: opts.approveShare,
         turnProvenance,
       });
-      plan.results.push(result);
+      if (compiled.intent.workspace === 'share') {
+        // A share is approved and lands inline, so it is never withheld by a repair. Its outcome,
+        // including a user's denial, is a decision rather than a malformed line: it never triggers
+        // a repair, and a landed one is named so the corrected program does not re-emit it.
+        if (result.workspace === 'share') plan.landedInline.push(label);
+        plan.results.push(advisory(result));
+      } else plan.results.push(result);
       yield { type: 'read-result', turn, intentLabel: label, result };
       return;
     }
@@ -2002,7 +2102,8 @@ export class AssistSession {
           message: `write cap (${plan.maxWrites}/turn) reached — not applied yet; send this command again in your next block`,
         },
       };
-      plan.results[slotIndex] = capped;
+      plan.results[slotIndex] = advisory(capped);
+      this.task?.effects.push(structuredClone(capped));
       yield {
         type: 'capped',
         turn,
@@ -2024,7 +2125,9 @@ export class AssistSession {
       // The same write already landed in this task. Re-applying it doubles the edit (a second
       // reply, "GEGE"); the usual cause is a read that still shows the old text as a tracked change.
       const error = `already applied: this exact ${resolved.request.kind} succeeded earlier in this task — do not repeat it; emit done if the task is complete`;
-      plan.results[slotIndex] = { error };
+      // A decision already made, not a malformed line: it must not withhold the program's other
+      // writes or count toward the repair budget (regression review of fix D, 2026-10-01).
+      plan.results[slotIndex] = advisory({ error });
       yield { type: 'command', turn, command, compiled: { error } };
       return;
     }
@@ -2344,7 +2447,11 @@ export class AssistSession {
     opts: { signal?: AbortSignal; grounding?: ResolvedGrounding },
   ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
     const capabilities = await this.effectiveCapabilities();
-    const protocol = renderPlanPrompt(capabilities.surface);
+    const offered = new Set(intentsForManifest(capabilities));
+    const protocol = renderPlanPrompt(
+      capabilities.surface,
+      VERBS_BY_SURFACE[capabilities.surface].filter((intent) => offered.has(intent)),
+    );
     const docState = await this.renderAmbientDocState(!this.isolateCommands);
     const parts = [protocol];
     if (docState) parts.push(docState);
@@ -2820,6 +2927,70 @@ export class AssistSession {
    * Dispatch a compiled `ReadIntent` to the bridge (ADR-0003 Layer-B). Defensive: a missing
    * capability or a thrown read becomes a corrective `{ error }` result, never a thrown loop.
    */
+  /** The bridge's whole-item context (document, deck, mail item, page), when it lists one. */
+  private async wholeItemRead(): Promise<ResolvedContext[] | undefined> {
+    const refs = await this.toolOperation('context:list', {}, () => this.bridge.listContext());
+    const whole = refs.find((ref) => WHOLE_ITEM_KINDS.has(ref.kind));
+    if (!whole) return undefined;
+    const parts = await this.toolOperation('context:resolve', { ref: whole }, () =>
+      this.bridge.resolveContext(whole),
+    );
+    return parts.length > 0 ? parts : undefined;
+  }
+
+  /**
+   * The document slices a chat turn carries (fix E, docs/COMMAND-RELIABILITY.md): the references the
+   * question names, then matches for the whole question and for its distinctive words, and, when
+   * none of those found anything, the snapshot's addressable tables. Bounded by `maxReads` slices;
+   * each probe is a bridge read, so host content stays data and selectors stay the bridge's.
+   */
+  private async chatReads(query: string, snapshot?: DocStateSnapshot): Promise<ResolvedContext[]> {
+    const out: ResolvedContext[] = [];
+    const seen = new Set<string>();
+    const add = (parts: ResolvedContext[]) => {
+      for (const part of parts) {
+        const key = `${part.ref.id}\u0000${part.value.as === 'text' ? part.value.text : ''}`;
+        if (seen.has(key) || out.length >= this.maxReads) continue;
+        seen.add(key);
+        out.push(part);
+      }
+    };
+    // One probe that fails (a sheet the question names but the workbook lacks) must not discard
+    // the reads already collected; hook blocks and cancellation still stop the turn.
+    const probe = async (name: string, args: unknown, run: () => Promise<ResolvedContext[]>) => {
+      try {
+        add(await this.toolOperation(name, args, run));
+      } catch (err) {
+        if (err instanceof HookBlockedError || this.task?.signal?.aborted) throw err;
+      }
+    };
+    const readRange = this.bridge.readRange?.bind(this.bridge);
+    const search = this.bridge.searchDocument?.bind(this.bridge);
+    if (readRange)
+      for (const selector of referenceCandidates(query))
+        await probe('context:read', { selector }, () => readRange(selector));
+    if (search) {
+      await probe('context:search', { query }, () => search(query));
+      for (const term of searchTerms(query)) {
+        // Each search is several host round-trips on the web; the first word that matches is enough.
+        if (out.length > 0) break;
+        await probe('context:search', { query: term }, () => search(term));
+      }
+    }
+    if (out.length === 0 && readRange && snapshot) {
+      const tables = snapshot.inventory
+        .filter((e) => e.kind === 'table')
+        .map((e) => commandRef(e.id))
+        .filter((ref): ref is string => ref !== undefined)
+        .slice(0, MAX_REFERENCE_READS);
+      for (const selector of tables) {
+        if (out.length >= this.maxReads) break;
+        await probe('context:read', { selector }, () => readRange(selector));
+      }
+    }
+    return out;
+  }
+
   private async runReadIntent(intent: ReadIntent): Promise<{ label: string; result: unknown }> {
     return this.toolOperation(intent.read, intent, () => this.runReadIntentCore(intent));
   }
@@ -2839,8 +3010,12 @@ export class AssistSession {
           };
         }
         case 'range': {
-          // Empty selector ⇒ whole document (Word's `read`): fall back to searchDocument-less capture.
+          // Empty selector ⇒ whole document (Word's `read`). The snapshot is structure only (Word:
+          // headings), so a model that must comment on or rewrite body text searched for it for all
+          // 12 turns (live 2026-09-30). Read the bridge's whole-item context when it offers one.
           if (intent.selector.trim() === '') {
+            const whole = await this.wholeItemRead();
+            if (whole) return { label: 'read', result: readsToData(whole) };
             if (!this.bridge.captureDocState) {
               return { label: 'read', result: { error: 'whole-document read not supported here' } };
             }
@@ -3720,6 +3895,50 @@ function redactedSnippet(text: string): string {
   const cleaned = text.replace(/"[^"]*"/g, '"…"').replace(/'[^']*'/g, "'…'");
   if (cleaned.length <= 200) return cleaned;
   return `${cleaned.slice(0, 100)}…${cleaned.slice(-100)}`;
+}
+
+/** Context kinds that stand for the whole working item, for a selector-less `read`. */
+const WHOLE_ITEM_KINDS = new Set<ContextKind>(['document', 'mail-item', 'page']);
+
+/**
+ * Error results that are policy notes, not failed lines: a cap or budget refusal, or `done` batched
+ * after a write. The rest of the program is still valid, so they never trigger a repair turn.
+ */
+const ADVISORY_RESULTS = new WeakSet<object>();
+
+function advisory<T extends object>(result: T): T {
+  ADVISORY_RESULTS.add(result);
+  return result;
+}
+
+/** A line that failed to parse, compile, resolve or read, as opposed to an advisory. */
+function isValidationFailure(result: unknown): boolean {
+  return (
+    result !== null &&
+    typeof result === 'object' &&
+    'error' in result &&
+    (result as { error: unknown }).error != null &&
+    !ADVISORY_RESULTS.has(result)
+  );
+}
+
+function repairInstruction(
+  errors: number,
+  withheldWrites: number,
+  alreadyApplied: readonly string[],
+): string {
+  const failed = errors === 1 ? '1 command' : `${errors} commands`;
+  const withheld =
+    withheldWrites === 0
+      ? 'No write was staged'
+      : `The ${withheldWrites === 1 ? 'staged write was' : `${withheldWrites} staged writes were`} not applied`;
+  return [
+    `Program not applied: ${failed} failed validation (see the results above). ${withheld}, done was ignored, and this program's let bindings were discarded.`,
+    ...(alreadyApplied.length
+      ? [`Already applied and must not be repeated: ${alreadyApplied.join('; ')}.`]
+      : []),
+    'Fix each failing line using the exact syntax from the write list or help <verb>, then emit the complete corrected program, including any write you still need.',
+  ].join(' ');
 }
 
 function noFenceReprompt(turnHadCodeExecution: boolean): string {

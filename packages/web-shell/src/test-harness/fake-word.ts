@@ -73,12 +73,21 @@ const CHANGE_TRACKING_MODE = { trackAll: 'TrackAll', off: 'Off' } as const;
 class FakeParagraphProxy {
   isNullObject = false;
   text = '';
-  constructor(text: string | undefined) {
+  constructor(
+    text: string | undefined,
+    private readonly seed?: WordSeed,
+    private readonly index = -1,
+  ) {
     if (text === undefined) this.isNullObject = true;
     else this.text = text;
   }
   load(_props?: string): this {
     return this;
+  }
+  /** WordApi 1.3: the following paragraph, or a null object after the last one. */
+  getNextOrNullObject(): FakeParagraphProxy {
+    const next = this.seed?.paragraphs[this.index + 1];
+    return new FakeParagraphProxy(next?.text, this.seed, this.index + 1);
   }
 }
 
@@ -98,10 +107,13 @@ class FakeSearchResult {
     return { items: [], load: () => undefined };
   }
   get paragraphs(): { getFirstOrNullObject(): FakeParagraphProxy } {
-    const containing = this.seed.paragraphs.find((p) =>
+    const index = this.seed.paragraphs.findIndex((p) =>
       p.text.toLowerCase().includes(this.text.toLowerCase()),
     );
-    return { getFirstOrNullObject: () => new FakeParagraphProxy(containing?.text) };
+    const containing = this.seed.paragraphs[index];
+    return {
+      getFirstOrNullObject: () => new FakeParagraphProxy(containing?.text, this.seed, index),
+    };
   }
   /** The tracked-change WRITE: replace the first occurrence of the anchor in the body. */
   insertText(text: string, _location: string): void {
@@ -120,16 +132,28 @@ class FakeSearchResult {
   }
 }
 
+/** Incremented by every `ctx.sync()`; a proxy's loaded properties exist only after one. */
+let syncGeneration = 0;
+
 class FakeSearchResultCollection {
-  items: FakeSearchResult[];
+  private readonly hits: FakeSearchResult[];
+  private readonly createdAt = syncGeneration;
   constructor(seed: WordSeed, query: string, matchCase: boolean) {
     const hay = (s: string): string => (matchCase ? s : s.toLowerCase());
     const needle = matchCase ? query : query.toLowerCase();
     // One hit per paragraph that contains the query (mirrors Office's per-occurrence ranges,
     // collapsed to paragraph granularity — enough for anchor choice + drift).
-    this.items = seed.paragraphs
+    this.hits = seed.paragraphs
       .filter((p) => hay(p.text).includes(needle))
       .map(() => new FakeSearchResult(seed, query));
+  }
+  /** Like Word, `items` is unavailable until a sync: reading it first throws PropertyNotLoaded. */
+  get items(): FakeSearchResult[] {
+    if (syncGeneration === this.createdAt)
+      throw new Error(
+        "fake-word: The property 'items' is not available. Call load and context.sync() first.",
+      );
+    return this.hits;
   }
   load(_props?: string): this {
     return this;
@@ -238,6 +262,7 @@ class FakeWordContext {
     this.document = new FakeWordDocument(seed, office);
   }
   sync(): Promise<void> {
+    syncGeneration += 1;
     return Promise.resolve();
   }
 }

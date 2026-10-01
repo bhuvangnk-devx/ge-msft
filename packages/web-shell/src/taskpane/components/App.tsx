@@ -235,9 +235,12 @@ function hasActuatingIntent(allowedIntents: Iterable<Intent> | undefined): boole
 }
 
 /**
- * Thin router predicate, not an intent classifier. It only decides whether arbitrary free text looks
- * action-like enough to ask the command planner. The planner owns intent selection, exclusions, and
- * clarification; the client keeps only obvious one-shot fast paths such as "create a chart".
+ * Thin router predicate, not an intent classifier. It decides only whether free text goes to the
+ * command planner or straight to chat; the planner owns intent selection, exclusions and
+ * clarification, and can still answer in chat. Questions and chat requests stay in chat (no extra
+ * planner turn); action requests go to the planner: an action verb after any lead-in, a request
+ * for an Office artifact ("show me a bar chart…", "I want a bar chart…") or a value placed in a
+ * cell ("In G12 put a formula…"), which docs/COMMAND-RELIABILITY.md (fix E) found landing in chat.
  */
 export function shouldUsePlannerForFreeText(
   allowedIntents: Iterable<Intent> | undefined,
@@ -250,9 +253,25 @@ export function shouldUsePlannerForFreeText(
   return (
     OFFICE_ACTION_REQUEST_RE.test(raw) ||
     (COMMENT_ACTION_RE.test(raw) && !QUESTION_START_RE.test(raw)) ||
-    FIND_REPLACE_RE.test(raw)
+    FIND_REPLACE_RE.test(raw) ||
+    (!QUESTION_START_RE.test(raw) &&
+      (ARTIFACT_REQUEST_RE.test(raw) ||
+        CELL_WRITE_RE.test(raw) ||
+        (CHART_PHRASE_RE.test(raw) && !raw.endsWith('?'))))
   );
 }
+
+/** "show me / give me / I want / I need / I'd like a|an|the|some … chart|graph|table|slide|formula|pivot". */
+const ARTIFACT_REQUEST_RE =
+  /\b(?:show\s+me|give\s+me|make\s+me|get\s+me|i\s+(?:want|need)|i\s*['’]d\s+like|we\s+(?:want|need))\s+(?:a|an|the|some)\s+(?:[\w-]+\s+){0,3}(?:chart|graph|table|slide|formula|pivot(?:\s+table)?)s?\b/i;
+
+/** A bare request that opens with the chart it wants: "bar chart of Total by Product". */
+const CHART_PHRASE_RE =
+  /^\s*(?:an?\s+)?(?:[\w-]+\s+){0,2}(?:chart|graph)s?\s+(?:of|for|by|showing)\b/i;
+
+/** A value placed in a cell: "In G12 put a formula …", "enter 42 in B5", "put the total in D20". */
+const CELL_WRITE_RE =
+  /^\s*in\s+(?:'[^']+'!|\w+!)?\$?[a-z]{1,3}\$?\d{1,7}\b|\b(?:put|enter|type|place)\b[\s\S]*\b(?:in|into|at)\s+(?:'[^']+'!|\w+!)?\$?[a-z]{1,3}\$?\d{1,7}\b/i;
 
 /**
  * Map ONE typed composer `@`-mention to its {@link GroundingSelection} (Finding #2/#B-wire). The
