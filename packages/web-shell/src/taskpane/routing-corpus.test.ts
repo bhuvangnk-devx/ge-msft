@@ -55,6 +55,8 @@ const QUESTIONS = [
   'Please explain this to me',
   'So what is the conclusion?',
   'Now tell me the total',
+  'How do I reply to a comment?',
+  'What does the comment on the SLA say?',
 ];
 const ACTIONS = [
   'I want to reply to this email',
@@ -66,11 +68,61 @@ const ACTIONS = [
   'Please format the header bold',
   'Rename the sheet to Summary',
   'Delete the last slide',
+  'Reply to the comment on D5 saying I will check',
+  'Can you resolve the comment thread on payment terms?',
   'Fix the typo in the title',
   'Insert a table with Item and Owner',
   "I'd like you to rewrite this paragraph",
   'Help me update the schedule',
   "Let's change the title to FY26",
+];
+/** Indonesian (CIMB users). Same rules as above. */
+const ID_QUESTIONS = [
+  'Apa isi email ini?',
+  'Berapa total pendapatan di sheet ini?',
+  'Bagaimana cara menambah grafik?',
+  'Kenapa grafiknya tidak muncul?',
+  'Mengapa MRR turun bulan ini?',
+  'Siapa yang menulis komentar di D5?',
+  'Kapan tenggat pembayaran?',
+  'Jelaskan model langganan ini',
+  'Tolong jelaskan rumus ini',
+  'Ringkas email ini',
+  'Tolong ringkaskan dokumen ini',
+  'Bisa jelaskan perbedaan Pro dan Basic?',
+  'Saya mau tahu paket mana yang paling laku',
+  'Saya ingin memahami klausul ini',
+  'Pelanggan mana yang tidak aktif?',
+  'Di mana bagian ganti rugi?',
+  'Halo',
+  'Terima kasih!',
+  'Apakah rumus di B5 benar?',
+  'Menurutmu saya harus membalas?',
+  'Isi dokumen ini tentang apa?',
+  'Bagaimana cara membalas komentar?',
+  'Apa yang harus saya tulis di balasan?',
+];
+const ID_ACTIONS = [
+  'Tolong balas email ini',
+  'Balas email ini, bilang saya cek hari Jumat',
+  'Saya mau membalas email ini',
+  'Buatkan grafik pendapatan per paket',
+  'Tolong buat grafik batang dari A1:B8',
+  'Tambahkan slide tentang Q4',
+  'Tambah slide sebagai slide kedua',
+  'Hapus slide terakhir',
+  'Ubah judul menjadi FY26',
+  'Ganti judul tabel jadi Ringkasan',
+  'Tolong perbaiki salah ketik di judul',
+  'Format header menjadi tebal',
+  'Sisipkan tabel dengan kolom Item dan Pemilik',
+  'Bisakah kamu menulis ulang paragraf ini?',
+  'Saya ingin menambahkan komentar di sini',
+  'Urutkan data berdasarkan tanggal',
+  'Isikan kolom D dengan total',
+  'Sorot baris yang terlambat',
+  'Mohon balas komentar tentang termin pembayaran',
+  'Buat draf balasan untuk pelanggan ini',
 ];
 const SURFACES: Surface[] = ['word', 'excel', 'powerpoint', 'outlook', 'onenote'];
 const ALL: Intent[] = [
@@ -91,10 +143,29 @@ const route = (s: Surface, raw: string) => {
   return shouldUsePlannerForFreeText(ALL, inv) ? 'planner' : 'chat';
 };
 describe('free-text routing corpus', () => {
+  it.each(ID_QUESTIONS)('stays in chat on every surface (id): %s', (q) => {
+    for (const surface of SURFACES) expect(route(surface, q), surface).toBe('chat');
+  });
+  it.each(ID_ACTIONS)('leaves chat on at least one surface (id): %s', (a) => {
+    expect(SURFACES.map((surface) => route(surface, a))).not.toEqual(SURFACES.map(() => 'chat'));
+  });
   it.each(QUESTIONS)('stays in chat on every surface: %s', (q) => {
     for (const surface of SURFACES) expect(route(surface, q), surface).toBe('chat');
   });
   it.each(ACTIONS)('leaves chat on at least one surface: %s', (a) => {
     expect(SURFACES.map((surface) => route(surface, a))).not.toEqual(SURFACES.map(() => 'chat'));
+  });
+});
+
+describe('Indonesian fast paths reach the matching intent', () => {
+  it.each([
+    ['excel', 'Buatkan grafik pendapatan per paket', 'intent:visualize'],
+    ['excel', 'Tolong buat diagram batang dari A1:B8', 'intent:visualize'],
+    ['powerpoint', 'Tambahkan slide tentang Q4', 'intent:draft'],
+    ['outlook', 'Buat draf balasan untuk pelanggan ini', 'intent:draft'],
+    ['outlook', 'Tolong balas email ini', 'planner'],
+    ['word', 'Mohon balas komentar tentang termin pembayaran', 'planner'],
+  ] as const)('%s: %s → %s', (surface, raw, expected) => {
+    expect(route(surface, raw)).toBe(expected);
   });
 });

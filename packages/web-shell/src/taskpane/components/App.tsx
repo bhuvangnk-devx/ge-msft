@@ -110,7 +110,23 @@ const LEAD_IN =
   String.raw`|(?:i|we)\s+(?:wanna|gotta)` +
   String.raw`|(?:i\s*['’]m|i\s+am|we\s*['’]re|we\s+are)\s+(?:trying|going|looking|hoping)\s+to` +
   String.raw`|let\s*['’]?s|let\s+me|help\s+me(?:\s+to)?|try\s+to` +
+  // Indonesian (CIMB): "tolong", "mohon", "bisakah kamu", "saya mau/ingin", "bantu saya".
+  String.raw`|tolong|mohon|coba|silah?kan|ayo|bantu(?:\s+saya)?` +
+  String.raw`|(?:bisa|bisakah|dapatkah|boleh|bolehkah)(?:\s+(?:kamu|anda|kau))?` +
+  String.raw`|(?:saya|aku|kami|kita)\s+(?:mau|ingin|pengen|perlu|harus|akan)` +
   String.raw`)(?:[\s,!.]+|$))*`;
+
+/**
+ * Indonesian action verbs in their common forms (base, -kan/-i, me- prefix). Read verbs such as
+ * `jelaskan` (explain) and `ringkas(kan)` (summarize) are deliberately absent: they stay in chat.
+ * Bare `isi` is absent too: it is also the noun "content" ("Isi dokumen ini tentang apa?").
+ */
+const ID_ACTION_VERBS =
+  'balas|balaskan|membalas|tambah|tambahkan|menambah|menambahkan|buat|buatkan|membuat|' +
+  'ubah|mengubah|ganti|mengganti|hapus|menghapus|sisipkan|menyisipkan|masukkan|memasukkan|' +
+  'tulis|tuliskan|menulis|perbaiki|memperbaiki|memformat|urutkan|mengurutkan|isikan|mengisi|' +
+  'tandai|menandai|sorot|menyorot|pindahkan|memindahkan|terapkan|menerapkan|lampirkan|' +
+  'melampirkan|susun|menyusun|mengedit|revisi|merevisi|rapikan|merapikan|warnai|mewarnai';
 
 /** A request whose (lead-in-stripped) first word is one of `verbs`, optionally followed by `tail`. */
 function requestRe(verbs: string, tail = ''): RegExp {
@@ -118,8 +134,8 @@ function requestRe(verbs: string, tail = ''): RegExp {
 }
 
 const EXCEL_CHART_CREATE_RE = requestRe(
-  'create|make|insert|add|build|generate|plot|visuali[sz]e',
-  String.raw`[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b`,
+  'create|make|insert|add|build|generate|plot|visuali[sz]e|' + ID_ACTION_VERBS,
+  String.raw`[\s\S]*\b(?:chart|graph|visuali[sz]ation|grafik|diagram|bagan)\b`,
 );
 const EXCEL_CHART_CONVERT_RE = requestRe(
   'turn|convert',
@@ -129,14 +145,18 @@ const OFFICE_ACTION_REQUEST_RE = requestRe(
   'update|fill|populate|insert|add|attach|apply|place|write|create|make|build|generate|draft|' +
     'rewrite|revise|edit|review|comment|reply|respond|answer|flag|mark|turn|convert|visuali[sz]e|' +
     'change|set|rename|retitle|replace|format|recolou?r|colou?r|move|resize|highlight|remove|' +
-    'delete|fix|correct|sort',
+    'delete|fix|correct|sort|' +
+    ID_ACTION_VERBS,
 );
 /**
  * Answering an existing comment thread is a write (`comment-reply`), however it is phrased —
  * "answer Adele's comment", "can you resolve this thread", "address the comment on the SLA".
  */
 const COMMENT_ACTION_RE =
-  /\b(?:reply|respond|answer|resolve|address)\b[\s\S]*\b(?:comment|comments|thread)\b/i;
+  /\b(?:reply|respond|answer|resolve|address|balas|membalas|selesaikan)\b[\s\S]*\b(?:comment|comments|thread|komentar)\b/i;
+/** A message opening with a question word asks about comments ("How do I reply to a comment?"). */
+const QUESTION_START_RE =
+  /^\s*(?:how|what|why|when|where|who|which|do|does|did|should|bagaimana|apa|apakah|kenapa|mengapa|siapa|kapan|berapa|di\s+mana)\b/i;
 /** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
 const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
 const WORD_REWRITE_RE = requestRe(
@@ -148,12 +168,12 @@ const WORD_REVIEW_RE = requestRe(
   String.raw`[\s\S]*\b(?:issue|issues|risk|risks|gap|gaps|claim|claims|comment|comments)\b`,
 );
 const POWERPOINT_DRAFT_RE = requestRe(
-  'create|make|insert|add|build|generate|draft',
-  String.raw`[\s\S]*\bslides?\b`,
+  'create|make|insert|add|build|generate|draft|' + ID_ACTION_VERBS,
+  String.raw`[\s\S]*\b(?:slides?|salindia)\b`,
 );
 const OUTLOOK_DRAFT_RE = requestRe(
-  'draft|write|compose|create',
-  String.raw`[\s\S]*\b(?:reply|email|mail|message)\b`,
+  'draft|write|compose|create|buat|buatkan|membuat|tulis|tuliskan|menulis|susun|menyusun',
+  String.raw`[\s\S]*\b(?:reply|email|mail|message|balasan|surel|pesan)\b`,
 );
 
 function intentAllowed(intent: Intent, allowedIntents: Iterable<Intent> | undefined): boolean {
@@ -228,7 +248,9 @@ export function shouldUsePlannerForFreeText(
   if (!raw || raw.startsWith('/')) return false;
   if (!hasActuatingIntent(allowedIntents)) return false;
   return (
-    OFFICE_ACTION_REQUEST_RE.test(raw) || COMMENT_ACTION_RE.test(raw) || FIND_REPLACE_RE.test(raw)
+    OFFICE_ACTION_REQUEST_RE.test(raw) ||
+    (COMMENT_ACTION_RE.test(raw) && !QUESTION_START_RE.test(raw)) ||
+    FIND_REPLACE_RE.test(raw)
   );
 }
 
