@@ -64,7 +64,8 @@ artifact.
 - `/format-shape` changes fill, line, text, size, or position on an inspected shape ref. Never infer
   the shape from visible text alone.
 - `/add-table-slide` adds a native table to a slide: `slide=new title="…"` creates a new slide for
-  it; `slide=<id|number|last>` adds it to an existing one. Use it for table-native content instead of
+  it (add `at=N` to make it slide N, as with `slide`); `slide=<id|number|last>` adds it to an
+  existing one. Use it for table-native content instead of
   bullet text when the live grammar exposes it.
 - `/apply-slide-layout` applies a discovered layout name/id to a known slide. List available layouts
   first and fail closed if the host does not expose the requested layout.

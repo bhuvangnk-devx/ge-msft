@@ -769,6 +769,13 @@ export class PowerPointBridge implements DocBridge {
                 'retitle an existing slide use: shape pp:shape:<slide>:title "New title".',
             );
           }
+          if (typeof req.params.target?.slideIndex === 'number') {
+            return slideNotFound(
+              req,
+              'at= is only used with slide=new (it places the slide that command creates). An ' +
+                'existing slide keeps its position.',
+            );
+          }
           const target = await resolveSlideRef(ctx, slideId);
           if ('error' in target) return slideNotFound(req, target.error);
           slideLocation = target.slideId;
@@ -793,13 +800,38 @@ export class PowerPointBridge implements DocBridge {
         added.load('id');
         await ctx.sync();
         const mintedId = added.id;
-        return {
+        const landed: ActuationResult = {
           ok: true,
           changeId: req.changeId,
           kind: req.kind,
           location: `shape:${slideLocation}:${mintedId}`,
           inverse: { op: 'delete-object', objectType: 'shape', name: mintedId },
         };
+        // `slide=new at=N`: the host only appends, so move the finished slide into place.
+        const targetIndex = req.params.target?.slideIndex;
+        if (
+          newSlideIndex !== undefined &&
+          targetIndex !== undefined &&
+          targetIndex < newSlideIndex
+        ) {
+          try {
+            ctx.presentation.slides.getItemAt(newSlideIndex).moveTo(targetIndex);
+            await ctx.sync();
+            newSlideIndex = targetIndex;
+          } catch (error) {
+            return {
+              ...landed,
+              error: {
+                code: 'not_moved',
+                message:
+                  `The table slide was added at the end (slide ${newSlideIndex + 1}) but PowerPoint ` +
+                  `did not confirm moving it to slide ${targetIndex + 1}${hostErrorSuffix(error)}. ` +
+                  'Inspect the deck before trying again.',
+              },
+            };
+          }
+        }
+        return landed;
       });
       if (!result.ok || newSlideIndex === undefined) return result;
       const settledId = await readSlideIdAt(newSlideIndex);

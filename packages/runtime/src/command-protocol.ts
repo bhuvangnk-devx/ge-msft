@@ -579,6 +579,9 @@ function paramsFromInvoke(
         // `title=` names the slide `slide=new` creates (the bridge rejects it for an existing slide).
         p.slide = { title: props.title, bullets: [] };
       }
+      // `at=N` (1-based) places the slide `slide=new` creates; the bridge rejects it otherwise.
+      const at = positiveIntFromProp(props.at);
+      if (at !== undefined) p.target = { ...((p.target ?? {}) as object), slideIndex: at - 1 };
       p.tableGrid = {
         rows: quoted?.rows ?? rowsFromProp(props.rows ?? props.tsv ?? ''),
         hasHeaders: boolFromProp(props.headers, true),

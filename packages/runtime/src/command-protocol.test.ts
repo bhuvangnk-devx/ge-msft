@@ -522,6 +522,16 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles `/add-table-slide slide=new at=2` → target.slideIndex 1', () => {
+    const parsed = parseCommandLine('/add-table-slide slide=new at=2 title="Risks" rows="A\\tB"');
+    if ('error' in parsed) throw new Error(parsed.error);
+    const c = compileCommand(parsed, { surface: 'powerpoint', mintChangeId: mint });
+    expect(c).toMatchObject({
+      kind: 'write',
+      request: { kind: 'add-table-slide', params: { target: { slideId: 'new', slideIndex: 1 } } },
+    });
+  });
+
   it('compiles `/insert-slide deckBase64=…` into an explicit PowerPoint deck artifact import', () => {
     const c = compileCommand(
       {

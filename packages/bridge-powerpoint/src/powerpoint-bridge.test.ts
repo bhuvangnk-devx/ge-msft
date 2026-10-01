@@ -1810,6 +1810,45 @@ describe('PowerPointBridge shape and slide references (tests 48–51)', () => {
     expect(d.addedShapes).toHaveLength(1);
   });
 
+  it('places a slide=new table slide at the requested position (at=2)', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const before = d.slides.map((s) => s.id);
+    const res = await new PowerPointBridge().actuate({
+      changeId: asChangeId('table-at'),
+      kind: 'add-table-slide',
+      surface: 'powerpoint',
+      params: {
+        target: { slideId: 'new', slideIndex: 1 },
+        slide: { title: 'Key risks', bullets: [] },
+        tableGrid: { hasHeaders: true, rows: [['Risk', 'Owner']] },
+      },
+    });
+    expect(res).toMatchObject({ ok: true });
+    expect(res.error).toBeUndefined();
+    expect(d.slides[1]?.shapes[0]?.text).toBe('Key risks');
+    expect(d.slides[0]?.id).toBe(before[0]);
+    // Undo still removes the created slide, now at position 2.
+    expect(res.inverse).toMatchObject({ op: 'delete-object', objectType: 'slide' });
+  });
+
+  it('refuses at= on an existing slide before writing anything', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate({
+      changeId: asChangeId('table-at-existing'),
+      kind: 'add-table-slide',
+      surface: 'powerpoint',
+      params: {
+        target: { slideId: '2', slideIndex: 0 },
+        tableGrid: { hasHeaders: true, rows: [['Risk', 'Owner']] },
+      },
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error?.message).toContain('at= is only used with slide=new');
+    expect(d.addedShapes).toHaveLength(0);
+  });
+
   it('creates a titled slide for /add-table-slide slide=new and puts the table on it', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);

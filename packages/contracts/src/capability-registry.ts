@@ -837,7 +837,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-table-slide',
     title: 'PowerPoint native slide table',
     useWhen:
-      'add a native table (rows and columns) to a new slide (slide=new title="…") or an existing slide, instead of flattening the rows into bullet text',
+      'add a native table (rows and columns) to a new slide (slide=new title="…", at=N to make it slide N) or an existing slide, instead of flattening the rows into bullet text',
     hostApis: ['PowerPoint.ShapeCollection.addTable'],
     requirementSets: [{ name: 'PowerPointApi', minVersion: '1.8' }],
     contextKinds: ['slide', 'table'],
@@ -849,6 +849,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     ],
     examples: [
       '/add-table-slide slide=new title="Key metrics" rows="Metric\\tValue\\nARR\\t$12M" left=72 top=110 width=560 height=200',
+      '/add-table-slide slide=new at=2 title="Key metrics" rows="Metric\\tValue\\nARR\\t$12M"',
     ],
     preview: ['target slide', 'row/column count', 'geometry', 'first rows'],
     inverse: 'delete the inserted table shape by captured shape id',
