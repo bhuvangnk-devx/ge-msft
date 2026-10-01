@@ -29,6 +29,7 @@ import { invocationToSeed, quickActionToInvocation } from './quick-action-seed.j
 import { QuickActionParamForm } from './QuickActionParamForm.js';
 import { ProposalCard } from './ProposalCard.js';
 import { RunSteps } from './RunSteps.js';
+import { ModelSetting } from './ModelSetting.js';
 import { WriteApprovalCard } from './WriteApprovalCard.js';
 import { PlanApprovalCard } from './PlanApprovalCard.js';
 import { ShareApprovalCard } from './ShareApprovalCard.js';
@@ -55,6 +56,12 @@ export interface AppProps {
   allowedIntents?: Iterable<Intent>;
   catalogClient?: DiscoveryCatalogClient;
   onCatalogRouting?: (selection: ReturnType<typeof applyCatalogSelection>) => void;
+  /** The Gemini model in use and the deployment default, for the settings Model field. */
+  model?: {
+    current: string | undefined;
+    defaultModelId: string | undefined;
+    onChange: (modelId: string | undefined) => void;
+  };
 }
 
 const SURFACE_PLACEHOLDER: Readonly<Record<string, string>> = {
@@ -316,6 +323,7 @@ export function App({
   allowedIntents,
   catalogClient,
   onCatalogRouting,
+  model,
 }: AppProps): JSX.Element {
   const state = usePanelState(controller);
   const [composerDraft, setComposerDraft] = useState<{ id: number; text: string }>();
@@ -451,15 +459,27 @@ export function App({
         skills={state.skills ?? []}
         conversations={state.conversations}
         primaryActionIds={primaryActionIds}
-        hasSettings={Boolean(catalogClient)}
+        hasSettings={Boolean(catalogClient) || Boolean(model)}
         settingsPanel={
-          <GeminiCatalogPanel
-            catalogClient={catalogClient}
-            disabled={actionBlocked}
-            onApply={(selection: GeminiCatalogSelection) => {
-              onCatalogRouting?.(applyCatalogSelection(selection));
-            }}
-          />
+          <>
+            {model ? (
+              <ModelSetting
+                current={model.current}
+                defaultModelId={model.defaultModelId}
+                disabled={actionBlocked}
+                onChange={model.onChange}
+              />
+            ) : null}
+            {catalogClient ? (
+              <GeminiCatalogPanel
+                catalogClient={catalogClient}
+                disabled={actionBlocked}
+                onApply={(selection: GeminiCatalogSelection) => {
+                  onCatalogRouting?.(applyCatalogSelection(selection));
+                }}
+              />
+            ) : null}
+          </>
         }
         onToggleChip={onToggle}
         onRevealChip={(id) => void controller.reveal(id)}

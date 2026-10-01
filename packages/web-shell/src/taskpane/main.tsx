@@ -490,6 +490,7 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
         allowedIntents={allowedIntents}
         catalogClient={catalogClient}
         onCatalogRouting={(routing) => client.configureRouting(routing)}
+        model={modelSetting(client, config.modelId)}
       />,
     );
     listenForAskSelectionSeeds(prepared.surface, controller);
@@ -674,4 +675,37 @@ if (office?.onReady) {
   office.onReady(() => void boot());
 } else {
   void boot();
+}
+
+/** Browser-local (per viewer) model choice; survives reloads, never shared or sent anywhere. */
+const MODEL_STORAGE_KEY = 'cngpt.modelId';
+
+/**
+ * The settings Model field: start from the viewer's saved choice, else the deployment default
+ * (`VITE_GE_MODEL_ID`, else gemini-3.8-flash), and apply changes to later turns.
+ */
+function modelSetting(
+  client: { setModelId(modelId: string | undefined): void; readonly modelId: string | undefined },
+  defaultModelId: string | undefined,
+): NonNullable<Parameters<typeof App>[0]['model']> {
+  let saved: string | undefined;
+  try {
+    saved = localStorage.getItem(MODEL_STORAGE_KEY) ?? undefined;
+  } catch {
+    /* storage blocked: use the default */
+  }
+  if (saved) client.setModelId(saved);
+  return {
+    current: client.modelId,
+    defaultModelId,
+    onChange: (modelId) => {
+      client.setModelId(modelId ?? defaultModelId);
+      try {
+        if (modelId) localStorage.setItem(MODEL_STORAGE_KEY, modelId);
+        else localStorage.removeItem(MODEL_STORAGE_KEY);
+      } catch {
+        /* storage blocked: the choice lasts for this session only */
+      }
+    },
+  };
 }

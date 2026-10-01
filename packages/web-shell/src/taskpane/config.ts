@@ -331,13 +331,27 @@ export function wifFromEnv(env: RawEnv): WifConfig {
   };
 }
 
+/** The model CNGPT asks for when `VITE_GE_MODEL_ID` is blank (verified live 2026-10-01). */
+export const DEFAULT_MODEL_ID = 'gemini-3.8-flash';
+
+/**
+ * The model id from env: the value, or {@link DEFAULT_MODEL_ID} when blank. `engine-default` sends
+ * no model id, so the Gemini Enterprise assistant's own default model answers.
+ */
+export function modelIdFromEnv(value: string | undefined): string | undefined {
+  const v = value?.trim();
+  if (!v) return DEFAULT_MODEL_ID;
+  return v.toLowerCase() === 'engine-default' ? undefined : v;
+}
+
 export function shellConfigFromEnv(env: RawEnv): ShellConfig {
   const parsed = parseEnv(env);
+  const modelId = modelIdFromEnv(parsed.VITE_GE_MODEL_ID);
   return {
     assistant: assistantFromEnv(env),
     ...(widgetFromEnv(env) ? { widget: widgetFromEnv(env) } : {}),
     wif: wifFromEnv(env),
-    ...(parsed.VITE_GE_MODEL_ID ? { modelId: parsed.VITE_GE_MODEL_ID } : {}),
+    ...(modelId ? { modelId } : {}),
     ...(parsed.VITE_GE_SKILL_IDS?.length ? { skills: skillsFromEnv(env) } : {}),
     ...(parsed.VITE_GE_SKILL_IDS?.length ? { skillMentions: skillMentionsFromEnv(env) } : {}),
     ...(parsed.VITE_GE_COMMAND_PLANNER_SKILL ? { plannerSkills: plannerSkillsFromEnv(env) } : {}),

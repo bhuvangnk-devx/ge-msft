@@ -16,6 +16,8 @@ import {
   warmUpSkillsFromEnv,
   widgetFromEnv,
   type RawEnv,
+  DEFAULT_MODEL_ID,
+  modelIdFromEnv,
 } from './config.js';
 
 const SHA_A = 'a'.repeat(64);
@@ -278,5 +280,15 @@ describe('config from env', () => {
       VITE_PROXY_URL: 'http://localhost:8080',
     };
     expect(shellConfigFromEnv(dev).proxyUrl).toBe('http://localhost:8080');
+  });
+});
+
+describe('modelIdFromEnv', () => {
+  it('defaults to gemini-3.8-flash, honours an override, and engine-default sends none', () => {
+    expect(DEFAULT_MODEL_ID).toBe('gemini-3.8-flash');
+    expect(modelIdFromEnv(undefined)).toBe('gemini-3.8-flash');
+    expect(modelIdFromEnv('  ')).toBe('gemini-3.8-flash');
+    expect(modelIdFromEnv('gemini-2.5-pro')).toBe('gemini-2.5-pro');
+    expect(modelIdFromEnv('engine-default')).toBeUndefined();
   });
 });
