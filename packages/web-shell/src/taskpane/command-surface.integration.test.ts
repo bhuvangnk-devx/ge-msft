@@ -337,6 +337,50 @@ describe('command surface — implicit intent inference', () => {
     ).toBe(true);
   });
 
+  it('sees the action verb behind a polite or first-person lead-in', () => {
+    const plans = (raw: string) =>
+      shouldUsePlannerForFreeText(['draft', 'rewrite'], { ...base, raw, instruction: raw });
+    for (const raw of [
+      'I want to reply to this email',
+      'I want you to reply saying I will check',
+      "I'd like to add a slide about Q4",
+      'I’d like you to format the header bold',
+      'We need to update the totals in column D',
+      'Hi, can you please help me reply to this',
+      "Let's rename the table to Q3 Sales",
+      'Could u just fix the typo in the title',
+      "I'm trying to insert a table here",
+      'Is it possible to highlight the overdue rows',
+      'okay so now I want to delete the last slide',
+    ]) {
+      expect(plans(raw), raw).toBe(true);
+    }
+    for (const raw of [
+      'I want to know how to reply to this email',
+      'I would like to understand why the update failed',
+      'Can you explain how to add a chart?',
+      'What does this email want me to reply?',
+      'I need help understanding the formulas',
+      'Let me think about the slide order',
+    ]) {
+      expect(plans(raw), raw).toBe(false);
+    }
+    expect(
+      inferImplicitIntent('excel', ['visualize'], {
+        ...base,
+        raw: 'I want to create a bar chart from A1:B8',
+        instruction: 'I want to create a bar chart from A1:B8',
+      }),
+    ).toBe('visualize');
+    expect(
+      inferImplicitIntent('outlook', ['draft'], {
+        ...base,
+        raw: "I'd like you to draft a reply to this customer",
+        instruction: "I'd like you to draft a reply to this customer",
+      }),
+    ).toBe('draft');
+  });
+
   it('promotes only clear imperative write requests on Word, PowerPoint, and Outlook', () => {
     expect(
       inferImplicitIntent('word', ['rewrite', 'review'], {

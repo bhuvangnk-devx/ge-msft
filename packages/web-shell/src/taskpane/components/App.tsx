@@ -96,12 +96,41 @@ export function isComplexInstruction(instruction: string): boolean {
   return t.split(/\s+/).length >= 12 || CONSTRAINT_MARKERS.test(t);
 }
 
-const EXCEL_CHART_CREATE_RE =
-  /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:create|make|insert|add|build|generate|plot|visuali[sz]e)\b[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b/i;
-const EXCEL_CHART_CONVERT_RE =
-  /^\s*(?:please\s+)?(?:turn|convert)\b[\s\S]*\b(?:into|to)\b[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b/i;
-const OFFICE_ACTION_REQUEST_RE =
-  /^\s*(?:(?:ok(?:ay)?|yes|yeah|yep|sure|alright|great|cool|hey|hi|hello)[\s,!.]+)*(?:please\s+)?(?:(?:can|could|would)\s+(?:you|u)\s+)?(?:please\s+)?(?:help\s+me\s+)?(?:update|fill|populate|insert|add|attach|apply|place|write|create|make|build|generate|draft|rewrite|revise|edit|review|comment|reply|respond|flag|mark|turn|convert|visuali[sz]e|change|set|rename|retitle|replace|format|recolou?r|colou?r|move|resize|highlight)\b/i;
+/**
+ * The polite / first-person lead-in a request may open with before its action verb: "please",
+ * "hi, can you", "I want to", "I'd like you to", "we need to", "let's", "help me", in any order.
+ * Each phrase must end on a word boundary, so "I want to know how to add…" never reaches a verb.
+ */
+const LEAD_IN =
+  String.raw`(?:(?:ok(?:ay)?|yes|yeah|yep|sure|alright|great|cool|thanks|hey|hi|hello|so|now|also|and|then` +
+  String.raw`|please|pls|plz|kindly|just|quickly|maybe|go\s+ahead\s+and` +
+  String.raw`|(?:can|could|would|will)\s+(?:you|u)` +
+  String.raw`|(?:i|we)\s*(?:would|['’]d)\s+(?:like|love)\s+(?:(?:you|u)\s+)?to` +
+  String.raw`|(?:i|we)\s+(?:want|need|have|plan|wish|intend)\s+(?:(?:you|u)\s+)?to` +
+  String.raw`|(?:i|we)\s+(?:wanna|gotta)` +
+  String.raw`|(?:i\s*['’]m|i\s+am|we\s*['’]re|we\s+are)\s+(?:trying|going|looking|hoping)\s+to` +
+  String.raw`|let\s*['’]?s|let\s+me|help\s+me(?:\s+to)?|is\s+it\s+possible\s+to|try\s+to` +
+  String.raw`)(?:[\s,!.]+|$))*`;
+
+/** A request whose (lead-in-stripped) first word is one of `verbs`, optionally followed by `tail`. */
+function requestRe(verbs: string, tail = ''): RegExp {
+  return new RegExp(String.raw`^\s*` + LEAD_IN + String.raw`(?:${verbs})\b` + tail, 'i');
+}
+
+const EXCEL_CHART_CREATE_RE = requestRe(
+  'create|make|insert|add|build|generate|plot|visuali[sz]e',
+  String.raw`[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b`,
+);
+const EXCEL_CHART_CONVERT_RE = requestRe(
+  'turn|convert',
+  String.raw`[\s\S]*\b(?:into|to)\b[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b`,
+);
+const OFFICE_ACTION_REQUEST_RE = requestRe(
+  'update|fill|populate|insert|add|attach|apply|place|write|create|make|build|generate|draft|' +
+    'rewrite|revise|edit|review|comment|reply|respond|answer|flag|mark|turn|convert|visuali[sz]e|' +
+    'change|set|rename|retitle|replace|format|recolou?r|colou?r|move|resize|highlight|remove|' +
+    'delete|fix|correct|sort',
+);
 /**
  * Answering an existing comment thread is a write (`comment-reply`), however it is phrased —
  * "answer Adele's comment", "can you resolve this thread", "address the comment on the SLA".
@@ -110,14 +139,22 @@ const COMMENT_ACTION_RE =
   /\b(?:reply|respond|answer|resolve|address)\b[\s\S]*\b(?:comment|comments|thread)\b/i;
 /** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
 const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
-const WORD_REWRITE_RE =
-  /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:rewrite|revise|tighten|edit|replace|improve)\b[\s\S]*\b(?:selection|selected text|paragraph|text|wording|clause|sentence)\b/i;
-const WORD_REVIEW_RE =
-  /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:review|comment|flag|mark)\b[\s\S]*\b(?:issue|issues|risk|risks|gap|gaps|claim|claims|comment|comments)\b/i;
-const POWERPOINT_DRAFT_RE =
-  /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:create|make|insert|add|build|generate|draft)\b[\s\S]*\bslides?\b/i;
-const OUTLOOK_DRAFT_RE =
-  /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:draft|write|compose|create)\b[\s\S]*\b(?:reply|email|mail|message)\b/i;
+const WORD_REWRITE_RE = requestRe(
+  'rewrite|revise|tighten|edit|replace|improve',
+  String.raw`[\s\S]*\b(?:selection|selected text|paragraph|text|wording|clause|sentence)\b`,
+);
+const WORD_REVIEW_RE = requestRe(
+  'review|comment|flag|mark',
+  String.raw`[\s\S]*\b(?:issue|issues|risk|risks|gap|gaps|claim|claims|comment|comments)\b`,
+);
+const POWERPOINT_DRAFT_RE = requestRe(
+  'create|make|insert|add|build|generate|draft',
+  String.raw`[\s\S]*\bslides?\b`,
+);
+const OUTLOOK_DRAFT_RE = requestRe(
+  'draft|write|compose|create',
+  String.raw`[\s\S]*\b(?:reply|email|mail|message)\b`,
+);
 
 function intentAllowed(intent: Intent, allowedIntents: Iterable<Intent> | undefined): boolean {
   if (allowedIntents === undefined) return true;
