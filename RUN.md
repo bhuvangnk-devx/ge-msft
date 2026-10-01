@@ -270,6 +270,7 @@ For rolling out to groups or the entire tenant:
 | Manifest or ribbon UI | `bun run manifests:generate --profile development` → Re-upload manifests |
 | Production domain | Rebuild with production values → set `GE_PROD_WEB_DOMAIN` → `manifests:generate --profile cimb-production` + `package:cimb` → add the domain's 3 redirect URIs in Entra → re-upload. Keep the `GE_PROD_*_APP_ID` values |
 | Production apps (e.g. add OneNote) | Update `GE_PROD_SURFACES` (and add `GE_PROD_ONENOTE_APP_ID`) → regenerate → upload the new files |
+| `skill/` files, **only if** `VITE_GE_COMMAND_PLANNER_SKILL` / `VITE_GE_SURFACE_COMMANDER_SKILL` are set | `bun run ge:skills` (uploads the bundles to Gemini Enterprise), then rebuild. Without those variables the app sends its own command grammar every turn and nothing needs uploading. A pane that shows "Model instructions out of date" in Activity needs this step |
 
 ---
 

@@ -16,7 +16,7 @@ import {
 } from '@ge/gemini-client';
 import { detectSurface, surfaceFromHost } from '../host.js';
 import { NaaAuthClient } from '../auth-client.js';
-import { composeSession } from '../compose.js';
+import { composeSession, skillDriftNotice } from '../compose.js';
 import { createApplicationRuntime } from '../runtime-extensions.js';
 import { connectPanelRuntime } from '../panel-runtime.js';
 import { brand } from '../brand.js';
@@ -451,6 +451,8 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
     await applyBootCatalogRouting(client, catalogClient);
     const controller = new PanelController(session, prepared.bridge);
     controller.setDiscoveredCatalog(availableAgents, availableDataStores);
+    const drift = skillDriftNotice(warmUp);
+    if (drift) controller.onRuntimeNotice(drift);
     const panelRuntime = connectPanelRuntime({
       session,
       bridge: prepared.bridge,

@@ -13,6 +13,7 @@ import {
   estateWritesEnabledFor,
   SKILL_FILES,
   type ShellConfig,
+  skillDriftNotice,
 } from './compose.js';
 
 const config: ShellConfig = {
@@ -122,5 +123,24 @@ describe('SKILL_FILES', () => {
       expect(key.startsWith('.')).toBe(false);
       expect(key.startsWith('/')).toBe(false);
     }
+  });
+});
+
+describe('skillDriftNotice', () => {
+  it('names stale and missing skills, and stays quiet when all match or none is configured', () => {
+    expect(skillDriftNotice([])).toBeUndefined();
+    expect(
+      skillDriftNotice([{ action: 'unchanged', agent: { displayName: 'm365-surface-commander' } }]),
+    ).toBeUndefined();
+    expect(
+      skillDriftNotice([{ action: 'error', agentId: 'cmdr', error: 'forbidden' }]),
+    ).toBeUndefined();
+    const notice = skillDriftNotice([
+      { action: 'stale', agent: { displayName: 'm365-surface-commander' } },
+      { action: 'missing', agentId: 'm365-command-planner' },
+    ]);
+    expect(notice).toContain('older than this app: m365-surface-commander');
+    expect(notice).toContain('not found: m365-command-planner');
+    expect(notice).toContain('bun run ge:skills');
   });
 });

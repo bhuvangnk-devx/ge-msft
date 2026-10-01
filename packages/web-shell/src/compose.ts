@@ -256,3 +256,22 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
 
   return { session, tokens, client, warmUp, availableAgents, availableDataStores };
 }
+
+/**
+ * A user-visible line when a configured skill bundle in Gemini Enterprise is older than this app
+ * (`stale`: its `[rev:]` marker differs from the build's recorded hash) or absent (`missing`).
+ * Undefined when every skill matches, none is configured, or the check itself failed.
+ */
+export function skillDriftNotice(warmUp: ComposedSession['warmUp']): string | undefined {
+  const name = (w: ComposedSession['warmUp'][number]): string =>
+    'agentId' in w ? w.agentId : (w.agent.displayName ?? w.agent.name ?? 'skill');
+  const stale = warmUp.filter((w) => w.action === 'stale').map(name);
+  const missing = warmUp.filter((w) => w.action === 'missing').map(name);
+  const parts = [
+    ...(stale.length ? [`older than this app: ${stale.join(', ')}`] : []),
+    ...(missing.length ? [`not found: ${missing.join(', ')}`] : []),
+  ];
+  return parts.length
+    ? `Model instructions out of date (${parts.join('; ')}). Ask your admin to run bun run ge:skills.`
+    : undefined;
+}

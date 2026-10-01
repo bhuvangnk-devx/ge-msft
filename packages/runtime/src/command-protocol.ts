@@ -1129,7 +1129,7 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     'Program control: finish when=verified completes only after every effect verifies and no error remains. Use where host readback is supported.',
-    'Otherwise inspect the outcome; emit done alone when complete. Never claim unsupported verification. Always emit the closing fence.',
+    'Otherwise inspect the outcome; emit done alone when complete, or done "<answer>" to answer a question. Never claim unsupported verification. Always emit the closing fence.',
   );
   let prompt = lines.join('\n');
   for (const card of task ? discoverCommands(manifest, task).slice(0, 2) : []) {
@@ -1189,6 +1189,7 @@ export function renderGrammarPrompt(manifest: CapabilityManifest): string {
     `- Document state is refreshed each turn; an unchanged marker refers to the prior snapshot.`,
     `- On an error I return a CLI-style correction; fix the command and continue.`,
     `- When the whole task is complete, emit a \`\`\`cmd block containing only: done`,
+    `- If the user asked a question, answer it in that line: done "<the answer>"`,
   ].join('\n');
 }
 
