@@ -724,13 +724,32 @@ class FakeWorkbook {
   }
 }
 
+/** `selection: CHART_SELECTED` = a chart (not cells) is selected, as right after inserting one. */
+const CHART_SELECTED = '<chart>';
+
 class FakeContext {
   readonly workbook: FakeWorkbook;
   private readonly touched: FakeRange[] = [];
+  private invalidSelection = false;
   constructor(seed: ExcelSeed) {
     this.workbook = trackRanges(new FakeWorkbook(seed), this.touched);
+    const getSelected = this.workbook.getSelectedRange.bind(this.workbook);
+    this.workbook.getSelectedRange = () => {
+      if (seed.selection === CHART_SELECTED) {
+        // Like Excel: the call queues fine; the sync rejects the whole batch.
+        this.invalidSelection = true;
+        return this.workbook.worksheets.getActiveWorksheet().getRange('A1');
+      }
+      return getSelected();
+    };
   }
   sync(): Promise<void> {
+    if (this.invalidSelection)
+      return Promise.reject(
+        Object.assign(new Error('The current selection is invalid for this operation.'), {
+          code: 'InvalidSelection',
+        }),
+      );
     for (const r of this.touched) r.flushLoads();
     for (const r of this.touched) r.commit();
     return Promise.resolve();
@@ -1155,6 +1174,18 @@ describe('ExcelBridge.captureDocState (ADR-0003 outline)', () => {
 
     const second = await bridge.captureDocState();
     expect(second?.version).toBe(2);
+  });
+
+  it('still snapshots and lists context while a chart (not cells) is selected', async () => {
+    active = installExcel({ ...salesSeed(), selection: CHART_SELECTED });
+    const bridge = new ExcelBridge();
+    const snapshot = await bridge.captureDocState();
+    expect(snapshot?.title).toBe('Sales');
+    expect(snapshot?.selection).toBeUndefined();
+    expect(snapshot).toBeDefined();
+    const refs = await bridge.listContext();
+    expect(refs.some((r) => r.live)).toBe(false); // no selection chip
+    expect(refs.length).toBeGreaterThan(0); // the used range is still listed
   });
 
   it('omits named ranges on a host below ExcelApi 1.7', async () => {

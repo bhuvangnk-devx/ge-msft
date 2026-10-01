@@ -106,10 +106,9 @@ export class ExcelBridge implements DocBridge {
   }
 
   private async listRangeContext(): Promise<ContextRef[]> {
+    const selected = await readSelectedRange();
     return Excel.run(async (ctx) => {
       const sheet = ctx.workbook.worksheets.getActiveWorksheet();
-      const sel = ctx.workbook.getSelectedRange();
-      sel.load('address,values');
       // valuesOnly: true — exclude cells that only ever had formatting applied (a common cause of
       // spurious blank rows/columns bloating the used range beyond the real data).
       const used = sheet.getUsedRange(true);
@@ -131,15 +130,17 @@ export class ExcelBridge implements DocBridge {
       }
 
       const refs: ContextRef[] = [];
-      const selValues = sel.values as string[][];
-      refs.push({
-        id: `xl:${sel.address}`,
-        kind: 'range',
-        surface: 'excel',
-        title: sel.address,
-        preview: hasContent(selValues) ? previewOf(selValues) : 'Blank selection',
-        live: true,
-      });
+      // No chip while a chart or shape (not cells) is selected.
+      if (selected) {
+        refs.push({
+          id: `xl:${selected.address}`,
+          kind: 'range',
+          surface: 'excel',
+          title: selected.address,
+          preview: hasContent(selected.values) ? previewOf(selected.values) : 'Blank selection',
+          live: true,
+        });
+      }
       for (const { name, range } of tableRanges) {
         refs.push({
           id: `xl:table:${name}`,
@@ -187,8 +188,12 @@ export class ExcelBridge implements DocBridge {
     }
     if (ref.kind === 'selection' || ref.kind === 'range') {
       const selector = ref.kind === 'selection' && ref.live ? undefined : excelSelectorFromRef(ref);
+      if (!selector) {
+        const selected = await readSelectedRange();
+        return selected ? selectionValuesToContext(selected.address, selected.values) : [];
+      }
       return Excel.run(async (ctx) => {
-        const sel = selector ? resolveReadRange(ctx, selector) : ctx.workbook.getSelectedRange();
+        const sel = resolveReadRange(ctx, selector);
         if (!sel) return [];
         sel.load('address,values,isNullObject');
         await ctx.sync();
@@ -260,15 +265,13 @@ export class ExcelBridge implements DocBridge {
     // gate the named-ranges read on 1.7 so we only emit a name when we can give its range.
     const wantNames = isSet('ExcelApi', '1.7');
 
+    const selected = await readSelectedRange();
     const captured = await Excel.run(async (ctx) => {
       const sheet = ctx.workbook.worksheets.getActiveWorksheet();
       sheet.load('name');
       // valuesOnly: true — see listContext's used-range read for why.
       const used = hasNullObj ? sheet.getUsedRangeOrNullObject(true) : sheet.getUsedRange(true);
       used.load('address,values,isNullObject');
-
-      const sel = ctx.workbook.getSelectedRange();
-      sel.load('address,values');
 
       const names = ctx.workbook.names;
       if (wantNames) names.load('items/name,items/type,items/formula');
@@ -278,8 +281,6 @@ export class ExcelBridge implements DocBridge {
       const usedEmpty = hasNullObj && (used as { isNullObject?: boolean }).isNullObject === true;
       const usedAddress = usedEmpty ? '' : used.address;
       const usedValues = usedEmpty ? [] : (used.values as string[][]);
-      const selValues = sel.values as string[][];
-
       const namedRanges: DocStateNamedRange[] = wantNames
         ? names.items
             .filter((n) => n.type === 'Range' && typeof n.formula === 'string')
@@ -290,8 +291,8 @@ export class ExcelBridge implements DocBridge {
         title: sheet.name,
         usedAddress,
         usedValues,
-        selAddress: sel.address,
-        selValues,
+        selAddress: selected?.address ?? '',
+        selValues: selected?.values ?? [],
         namedRanges,
       };
     });
@@ -1265,3 +1266,23 @@ function stripSheetQuotes(name: string): string {
 
 /** Actual dispatch keys; conformance checks these against the advertised capabilities. */
 export const HANDLED_ACTUATIONS: readonly ActuationKind[] = ExcelBridge.handledActuations;
+
+/**
+ * The selected cell range, or undefined while the selection is not cells: with a chart, shape or
+ * picture selected (e.g. right after inserting a chart) Excel rejects `getSelectedRange` with
+ * InvalidSelection ("The current selection is invalid for this operation."). Read in its own batch
+ * so that rejection cannot fail the caller's other reads. Any other error still throws.
+ */
+async function readSelectedRange(): Promise<{ address: string; values: string[][] } | undefined> {
+  try {
+    return await Excel.run(async (ctx) => {
+      const sel = ctx.workbook.getSelectedRange();
+      sel.load('address,values');
+      await ctx.sync();
+      return { address: sel.address, values: sel.values as string[][] };
+    });
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code === 'InvalidSelection') return undefined;
+    throw error;
+  }
+}
