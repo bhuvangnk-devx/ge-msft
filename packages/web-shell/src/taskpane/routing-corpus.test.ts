@@ -56,6 +56,9 @@ const QUESTIONS = [
   'So what is the conclusion?',
   'Now tell me the total',
   'How do I reply to a comment?',
+  'What is in B5?',
+  'Explain the formula in G12',
+  'Q3 revenue looks low',
   'What does the comment on the SLA say?',
 ];
 const ACTIONS = [
@@ -72,6 +75,11 @@ const ACTIONS = [
   'show me a bar chart of Total by Product',
   'I want a bar chart of revenue by region',
   'Enter 42 in B5',
+  'G12 should be the sum of G2:G11',
+  'B5 = 100',
+  'Total in G12 please',
+  'The value in B5 should be 300',
+  'D2:D11 = B2:B11*C2:C11',
   'Reply to the comment on D5 saying I will check',
   'Can you resolve the comment thread on payment terms?',
   'Fix the typo in the title',
@@ -171,5 +179,35 @@ describe('Indonesian fast paths reach the matching intent', () => {
     ['word', 'Mohon balas komentar tentang termin pembayaran', 'planner'],
   ] as const)('%s: %s → %s', (surface, raw, expected) => {
     expect(route(surface, raw)).toBe(expected);
+  });
+});
+
+describe('cell references: statements are edits, questions and look-alikes are not', () => {
+  it.each([
+    ['b5 = 100', 'planner'],
+    ["'Q3 Sales'!B5 should be 100", 'planner'],
+    ['Sheet1!A1:C10 needs a border', 'planner'],
+    ['total for g2:g11 in g12', 'planner'],
+    ['$B$5 = 10%', 'planner'],
+    ['B5 to 100', 'planner'],
+    ['Nilai B5 harus 100', 'planner'],
+    ['put 5 in A4', 'planner'],
+    ['Is B5 correct', 'chat'],
+    ['Are the totals in G12 right', 'chat'],
+    ['Was G12 changed', 'chat'],
+    ['Could you check B5', 'chat'],
+    ['Can you tell me what B5 means', 'chat'],
+    ['Print this on A4 paper', 'chat'],
+    ['MP3 files are attached', 'chat'],
+    ['PS5 sales are up', 'chat'],
+    ['B2B sales are up', 'chat'],
+    ['FY26 plan looks good', 'chat'],
+    ['Windows 11 is installed', 'chat'],
+    ['H1 results are in', 'chat'],
+    ['thanks for B5', 'chat'],
+    ['Apa isi B5?', 'chat'],
+    ['Jelaskan rumus di G12', 'chat'],
+  ] as const)('excel: %s → %s', (raw, expected) => {
+    expect(route('excel', raw)).toBe(expected);
   });
 });

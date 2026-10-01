@@ -145,7 +145,7 @@ const OFFICE_ACTION_REQUEST_RE = requestRe(
   'update|fill|populate|insert|add|attach|apply|place|write|create|make|build|generate|draft|' +
     'rewrite|revise|edit|review|comment|reply|respond|answer|flag|mark|turn|convert|visuali[sz]e|' +
     'change|set|rename|retitle|replace|format|recolou?r|colou?r|move|resize|highlight|remove|' +
-    'delete|fix|correct|sort|' +
+    'delete|fix|correct|sort|resolve|address|' +
     ID_ACTION_VERBS,
 );
 /**
@@ -156,7 +156,7 @@ const COMMENT_ACTION_RE =
   /\b(?:reply|respond|answer|resolve|address|balas|membalas|selesaikan)\b[\s\S]*\b(?:comment|comments|thread|komentar)\b/i;
 /** A message opening with a question word asks about comments ("How do I reply to a comment?"). */
 const QUESTION_START_RE =
-  /^\s*(?:how|what|why|when|where|who|which|do|does|did|should|bagaimana|apa|apakah|kenapa|mengapa|siapa|kapan|berapa|di\s+mana)\b/i;
+  /^\s*(?:how|what|why|when|where|who|which|do|does|did|should|is|are|was|were|am|can|could|would|will|has|have|bagaimana|apa|apakah|kenapa|mengapa|siapa|kapan|berapa|di\s+mana)\b/i;
 /** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
 const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
 const WORD_REWRITE_RE = requestRe(
@@ -257,13 +257,27 @@ export function shouldUsePlannerForFreeText(
     (!QUESTION_START_RE.test(raw) &&
       (ARTIFACT_REQUEST_RE.test(raw) ||
         CELL_WRITE_RE.test(raw) ||
-        (CHART_PHRASE_RE.test(raw) && !raw.endsWith('?'))))
+        (!raw.endsWith('?') &&
+          (CHART_PHRASE_RE.test(raw) || (CELL_REF_RE.test(raw) && !CHAT_REQUEST_RE.test(raw))))))
   );
 }
 
 /** "show me / give me / I want / I need / I'd like a|an|the|some … chart|graph|table|slide|formula|pivot". */
 const ARTIFACT_REQUEST_RE =
   /\b(?:show\s+me|give\s+me|make\s+me|get\s+me|i\s+(?:want|need)|i\s*['’]d\s+like|we\s+(?:want|need))\s+(?:a|an|the|some)\s+(?:[\w-]+\s+){0,3}(?:chart|graph|table|slide|formula|pivot(?:\s+table)?)s?\b/i;
+
+/**
+ * A cell or range ("B5", "G2:G11", "Sheet1!A1"). A statement about one that is not a question is an
+ * edit ("B5 = 100", "G12 should be the sum of G2:G11", "Total in G12 please"). Quarter and
+ * fiscal-year codes (Q3, H1, FY26) and look-alikes (A4 paper, MP3, PS5, G7) are not cells; "put 5 in
+ * A4" still routes through CELL_WRITE_RE.
+ */
+const CELL_REF_RE =
+  /(?:^|[\s(=,:])(?:'[^']+'!|\w+!)?(?!(?:q[1-4]|h[12]|fy\d{2,4}|a[0-6]|mp[34]|ps[1-5]|f1|g7|g20)\b)\$?[a-z]{1,3}\$?\d{1,7}(?::\$?[a-z]{1,3}\$?\d{1,7})?\b/i;
+
+/** Requests chat answers even when they name a cell: "Explain the formula in G12". */
+const CHAT_REQUEST_RE =
+  /^\s*(?:(?:please|pls|can\s+you|could\s+you)\s+)?(?:explain|summari[sz]e|describe|tell|show|list|compare|check|find|look|thanks|thank\s+you|ok(?:ay)?|great|cool|nice|jelaskan|ringkas(?:kan)?|terima\s+kasih)\b/i;
 
 /** A bare request that opens with the chart it wants: "bar chart of Total by Product". */
 const CHART_PHRASE_RE =
