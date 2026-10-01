@@ -759,6 +759,10 @@ export const ActuationResultSchema = z.object({
   // provenance to stamp). Distinct from `provenanceDropped` (had a record, failed to persist) — this
   // is an unattributed write, surfaced so it is never mistaken for an attributed one.
   provenanceMissing: z.boolean().optional(),
+  // The write LANDED on a host that cannot store provenance at all (Outlook, PowerPoint, OneNote,
+  // Teams): expected, not a failure. Distinct from `provenanceDropped` (a host that can store it
+  // tried and failed). The record still exists in the panel's own store and the run ledger.
+  provenanceUnsupported: z.boolean().optional(),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
 });
 export type ActuationResult = z.infer<typeof ActuationResultSchema>;

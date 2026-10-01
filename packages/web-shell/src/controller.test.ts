@@ -457,6 +457,32 @@ describe('PanelController — conversation history', () => {
   });
 });
 
+describe('provenance warnings on write steps', () => {
+  const writeStep = async (result: Partial<ActuationResult>): Promise<string | undefined> => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({
+        type: 'write-result',
+        turn: 1,
+        changeId: 'w1',
+        result: { ok: true, changeId: asChangeId('w1'), kind: 'reply-mail', ...result },
+      }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('reply');
+    return c.getState().steps.find((s) => s.kind === 'write-result')?.text;
+  };
+
+  it('shows none where the host cannot store provenance (expected)', async () => {
+    expect(await writeStep({ provenanceUnsupported: true })).toBe('reply-mail — applied');
+  });
+
+  it('still warns when a host that can store it failed to, or the write was unattributed', async () => {
+    expect(await writeStep({ provenanceDropped: true })).toContain('⚠ provenance not recorded');
+    expect(await writeStep({ provenanceMissing: true })).toContain('⚠ unattributed');
+  });
+});
+
 describe('Copy diagnostics', () => {
   it('records routes and steps but never document text, prompts or model output', async () => {
     const SECRET = 'ACME-SALARY-98765';

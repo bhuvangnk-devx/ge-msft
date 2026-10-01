@@ -98,7 +98,7 @@ export function createBridgeDispatch<Host>(
       return provenance === 'unsupported' && result.ok
         ? {
             ...result,
-            ...(request.provenance ? { provenanceDropped: true } : { provenanceMissing: true }),
+            ...(request.provenance ? { provenanceUnsupported: true } : { provenanceMissing: true }),
           }
         : result;
     },

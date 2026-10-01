@@ -155,9 +155,11 @@ describe('bridge dispatch boundary', () => {
       );
       const result = await dispatcher.dispatch({}, input);
       expect(result).toMatchObject(
-        present ? { provenanceDropped: true } : { provenanceMissing: true },
+        present ? { provenanceUnsupported: true } : { provenanceMissing: true },
       );
-      expect(present ? result.provenanceMissing : result.provenanceDropped).toBeUndefined();
+      expect(present ? result.provenanceMissing : result.provenanceUnsupported).toBeUndefined();
+      // "Cannot store" is not "tried and failed".
+      expect(result.provenanceDropped).toBeUndefined();
     },
   );
 

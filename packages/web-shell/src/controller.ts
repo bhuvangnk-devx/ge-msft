@@ -2137,7 +2137,8 @@ function writeStepText(ev: Extract<CommandLoopEvent, { type: 'write-result' }>):
           : 'failed';
   // Observability: the change landed but its provenance is not durably recorded — make it visible.
   // `provenanceMissing` (no payload at all → unattributed) is distinct from `provenanceDropped`
-  // (had a record, failed to persist); both leave the write without a durable trace.
+  // (had a record, failed to persist); both leave the write without a durable trace. A host that
+  // cannot store provenance at all (`provenanceUnsupported`) is expected and shows no warning.
   const provenance = !r.ok
     ? ''
     : r.provenanceMissing
