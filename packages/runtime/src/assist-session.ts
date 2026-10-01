@@ -157,6 +157,17 @@ const DEFAULT_MAX_TURNS = 12;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
 const DEFAULT_MAX_WRITES_PER_TURN = 8;
+/**
+ * Host replies meaning "this verb cannot apply to this item" (nothing was written). Only these may
+ * be excused by a different-kind recovery; guardrail and admission blocks never are.
+ */
+const WRONG_TARGET_CODES = new Set([
+  'no_compose',
+  'no_item',
+  'unsupported',
+  'unsupported_host',
+  'onenote_unsupported',
+]);
 
 /** Bound on one `share`'s content — the same cap `WorkspaceStore.save` applies to local artifacts. */
 const MAX_SHARE_BYTES = 256 * 1024;
@@ -464,6 +475,8 @@ export class AssistSession {
   private task?: RunOutcome & { signal?: AbortSignal };
   /** Per task: the writes that already landed, so an identical re-issue is refused (see effectKey). */
   private readonly appliedWrites = new WeakMap<object, Set<string>>();
+  /** Per task: the model turn each effect was recorded in, parallel to `effects`. */
+  private readonly effectTurns = new WeakMap<object, number[]>();
   private taskSequence = 0;
   private backgroundSequence = 0;
   private readonly instanceId =
@@ -545,12 +558,24 @@ export class AssistSession {
         yield event;
       }
       signal?.throwIfAborted();
-      // A clean failure (nothing written) that a later same-kind write succeeded on was retried,
-      // not left undone. Uncertain or unretried outcomes still mark the task incomplete.
+      // A clean failure (nothing written) was retried, not left undone, when a same-kind write
+      // succeeded, or when the host said the verb cannot apply here and the model recovered with
+      // a write of another kind in a LATER turn, then finished (e.g. `set-body` on a received mail
+      // → `mail`). Guardrail blocks, uncertain and unrecovered outcomes still mark it incomplete.
       if (deferred.size > 0) task.status = 'incomplete';
+      const turns = this.effectTurns.get(task) ?? [];
       const retried = (result: ActuationResult, i: number): boolean =>
         assessActuationResult(result) === 'failed' &&
-        task.effects.some((other, j) => j !== i && other.kind === result.kind && other.ok);
+        task.effects.some(
+          (other, j) =>
+            j !== i &&
+            other.ok &&
+            (other.kind === result.kind ||
+              (WRONG_TARGET_CODES.has(result.error?.code ?? '') &&
+                (turns[j] ?? 0) > (turns[i] ?? 0) &&
+                completion !== undefined &&
+                ['verified', 'unverified'].includes(assessActuationResult(other)))),
+        );
       task.status = task.effects.some(
         (result, i) =>
           !['verified', 'unverified'].includes(assessActuationResult(result)) &&
@@ -617,6 +642,11 @@ export class AssistSession {
 
   private async recordEffect(request: ActuationRequest, result: ActuationResult): Promise<void> {
     this.task?.effects.push(structuredClone(result));
+    if (this.task)
+      this.effectTurns.set(this.task, [
+        ...(this.effectTurns.get(this.task) ?? []),
+        this.task.modelTurns,
+      ]);
     if (this.task && result.ok) {
       const keys = this.appliedWrites.get(this.task) ?? new Set<string>();
       keys.add(effectKey(request));

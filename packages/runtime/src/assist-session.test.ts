@@ -1567,6 +1567,114 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(session.executions.list().at(-1)?.status).toBe('completed');
   });
 
+  class RejectFirstBridge extends ComposeBridge {
+    private calls = 0;
+    constructor(private readonly first: Partial<ActuationResult>) {
+      super();
+    }
+    override actuate(request: ActuationRequest): Promise<ActuationResult> {
+      this.calls += 1;
+      if (this.calls === 1)
+        return Promise.resolve({
+          ok: false,
+          changeId: request.changeId,
+          kind: request.kind,
+          error: { code: 'no_compose', message: 'not a draft' },
+          ...this.first,
+        });
+      return super.actuate(request);
+    }
+  }
+
+  it('a clean failure recovered by a later different-kind write, then done, completes the task', async () => {
+    const bridge = new RejectFirstBridge({});
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(bridge.applied.map((r) => r.kind)).toEqual(['insert-chart']);
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('a clean failure followed only by an EARLIER different-kind success stays incomplete', async () => {
+    class RejectSecondBridge extends ComposeBridge {
+      private calls = 0;
+      override actuate(request: ActuationRequest): Promise<ActuationResult> {
+        this.calls += 1;
+        if (this.calls === 2)
+          return Promise.resolve({
+            ok: false,
+            changeId: request.changeId,
+            kind: request.kind,
+            error: { code: 'no_hits', message: 'nothing matched' },
+          });
+        return super.actuate(request);
+      }
+    }
+    const bridge = new RejectSecondBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('incomplete');
+  });
+
+  it('a guardrail block is never excused by a later different-kind success', async () => {
+    const bridge = new RejectFirstBridge({
+      error: { code: 'unsafe_formula', message: 'blocked formula' },
+    });
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('incomplete');
+  });
+
+  it('a different-kind sibling in the SAME turn does not excuse a wrong-target failure', async () => {
+    const bridge = new RejectFirstBridge({});
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('incomplete');
+  });
+
+  it('an uncertain outcome is never excused by a later different-kind success', async () => {
+    const bridge = new RejectFirstBridge({
+      recoveryPending: true,
+      error: { code: 'outcome_unknown', message: 'receipt lost' },
+    });
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).not.toBe('completed');
+  });
+
   it('refuses to re-apply a write identical to one that already landed in the task', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([
