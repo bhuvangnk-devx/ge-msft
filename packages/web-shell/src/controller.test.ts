@@ -1443,6 +1443,60 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     );
   });
 
+  it('shows a Planning… placeholder while the planner runs, then removes it', async () => {
+    const assist = new FakeAssist();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    assist.plan = async (task: string) => {
+      assist.planTasks.push(task);
+      await gate;
+      return { plan: wordPlan, errors: [], needsClarification: false };
+    };
+    const c = new PanelController(assist, lister([]));
+
+    const planning = c.proposePlan('/rewrite the SLA', undefined);
+    const live = c.getState().messages.at(-1);
+    expect(live).toMatchObject({ role: 'assistant', streaming: true, activity: 'Planning…' });
+    release();
+    await planning;
+    expect(c.getState().messages.some((m) => m.id === live?.id)).toBe(false);
+    expect(c.getState().pendingCommandPlan?.plan).toEqual(wordPlan);
+  });
+
+  it('a slash write verb the planner calls "chat" still runs the executor, never plain chat', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, intent: 'ask', surface: 'excel' },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+
+    await c.proposePlan(
+      '/visualize Can you create a better chart of the subscriptions?',
+      undefined,
+    );
+    await tick();
+    expect(assist.asked).toHaveLength(0);
+    expect(assist.runTasks[0]).toContain('/visualize Can you create a better chart');
+    expect(c.getState().messages.filter((m) => m.role === 'user')).toHaveLength(1);
+  });
+
+  it('a free-text request the planner calls "chat" still goes to chat', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, intent: 'ask' },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+
+    await c.proposePlan('add context about the SLA history', undefined);
+    await tick();
+    expect(assist.runTasks).toHaveLength(0);
+    expect(assist.asked).toHaveLength(1);
+  });
+
   it('degrades to the executor when the planner yields no parseable plan', async () => {
     const assist = new FakeAssist();
     assist.planned = { plan: null, errors: [], needsClarification: false };

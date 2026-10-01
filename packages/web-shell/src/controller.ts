@@ -28,6 +28,7 @@ import {
   assessActuationResult,
   deriveOutput,
   extractCommandBlock,
+  IntentSchema,
 } from '@ge/contracts';
 import type {
   AgentView,
@@ -1065,8 +1066,17 @@ export class PanelController {
       return;
     }
     const userMsg: ChatMessage = { id: this.id('u'), role: 'user', text: displayText ?? t };
+    // Planning streams nothing the user can see; without this the pane looked idle for the whole
+    // planner turn. Every exit below replaces or removes it.
+    const planning: ChatMessage = {
+      id: this.id('a'),
+      role: 'assistant',
+      text: '',
+      streaming: true,
+      activity: 'Planning…',
+    };
     const controller = this.beginExecution({
-      messages: [...this.state.messages, userMsg],
+      messages: [...this.state.messages, userMsg, planning],
       pendingPlanClarification: undefined,
     });
     let continuation: 'commands' | 'ask' | undefined;
@@ -1104,7 +1114,9 @@ export class PanelController {
         this.set({
           messages: this.state.messages.filter((message) => message.id !== userMsg.id),
         });
-        continuation = 'ask';
+        // The user picked a write verb (`/visualize …`): a "chat" verdict must not downgrade it to
+        // the read-only route, where the model can only describe a chart it cannot make.
+        continuation = explicitlyActuating(t) ? 'commands' : 'ask';
         return;
       }
       this.set({
@@ -1114,6 +1126,11 @@ export class PanelController {
       if (this.inflight === controller && !controller.signal.aborted && !isAbortError(err))
         this.set({ error: errorText(err) });
     } finally {
+      if (controller.signal.aborted) {
+        this.patchMessage(planning.id, () => ({ streaming: false, cancelled: true }));
+      } else {
+        this.set({ messages: this.state.messages.filter((m) => m.id !== planning.id) });
+      }
       if (this.finishExecution(controller, {}, { drain: false }) && !controller.signal.aborted) {
         // Planner handoffs remain explicit; a staged plan/clarification waits for its own user action.
         if (continuation === 'commands') void this.runCommands(t, grounding);
@@ -2084,4 +2101,11 @@ function codeExecutionResultText(ev: Extract<SseEvent, { type: 'code-execution-r
 /** A fetch aborted via AbortSignal rejects with a DOMException/Error named 'AbortError'. */
 function isAbortError(err: unknown): boolean {
   return err instanceof Error && err.name === 'AbortError';
+}
+
+/** Whether a task was routed with an actuating slash verb (`/visualize …`, `/rewrite …`). */
+function explicitlyActuating(task: string): boolean {
+  const verb = /^\/([a-z-]+)(?:\s|$)/i.exec(task)?.[1]?.toLowerCase();
+  const intent = IntentSchema.safeParse(verb);
+  return intent.success && deriveOutput(intent.data) !== 'chat';
 }
