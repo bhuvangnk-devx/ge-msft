@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { asChangeId, type ActuationRequest, type ContextRef } from '@ge/contracts';
 import type { HostEvent } from '@ge/triggers';
-import { toOoxmlPackage } from './actuate-plan.js';
 import { WordBridge } from './word-bridge.js';
 import { toOoxmlPackage } from './actuate-plan.js';
 import { DocStateSnapshotSchema } from '@ge/contracts';

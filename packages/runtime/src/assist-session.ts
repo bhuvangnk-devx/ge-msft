@@ -283,6 +283,8 @@ interface PlanState {
   done: boolean;
   /** `done` arrived in the same block as writes: finish only if every one of them lands. */
   doneAfterWrites?: boolean;
+  /** `done` was requested but ignored because earlier lines in the block failed. */
+  doneIgnored?: boolean;
   finishVerified?: boolean;
   /** Effects that took effect inline during this turn's pass 1 (an approved `share`). */
   landedInline: string[];
@@ -1587,7 +1589,7 @@ export class AssistSession {
       dryRunErrors > 0 &&
       this.task?.mode === 'command' &&
       !plan.finishVerified &&
-      (plan.planSlots.length > 0 || plan.done)
+      (plan.planSlots.length > 0 || plan.done || plan.doneIgnored === true)
     ) {
       const withheldWrites = plan.planSlots.length;
       const alreadyApplied = [...plan.landedInline];
@@ -1889,6 +1891,7 @@ export class AssistSession {
       // `format` rejected, then "0 changes"). Keep going so it can read them and correct.
       if (plan.results.some((r) => typeof r === 'object' && r !== null && 'error' in r)) {
         // The failed lines already count toward repair; this note is not a further failure.
+        plan.doneIgnored = true;
         plan.results.push(
           advisory({
             error:
