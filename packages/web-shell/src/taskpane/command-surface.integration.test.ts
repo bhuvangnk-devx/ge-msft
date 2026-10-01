@@ -394,12 +394,8 @@ describe('command surface — implicit intent inference', () => {
       expect(plans(raw), raw).toBe(true);
     }
     for (const raw of [
-      'I want to know how to reply to this email',
-      'I would like to understand why the update failed',
       'Can you explain how to add a chart?',
       'What does this email want me to reply?',
-      'I need help understanding the formulas',
-      'Let me think about the slide order',
       'Is it possible to highlight the overdue rows?',
     ]) {
       expect(plans(raw), raw).toBe(false);

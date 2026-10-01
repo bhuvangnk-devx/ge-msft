@@ -154,9 +154,6 @@ const OFFICE_ACTION_REQUEST_RE = requestRe(
  */
 const COMMENT_ACTION_RE =
   /\b(?:reply|respond|answer|resolve|address|balas|membalas|selesaikan)\b[\s\S]*\b(?:comment|comments|thread|komentar)\b/i;
-/** A message opening with a question word asks about comments ("How do I reply to a comment?"). */
-const QUESTION_START_RE =
-  /^\s*(?:how|what|why|when|where|who|which|do|does|did|should|is|are|was|were|am|can|could|would|will|has|have|bagaimana|apa|apakah|kenapa|mengapa|siapa|kapan|berapa|di\s+mana)\b/i;
 /** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
 const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
 const WORD_REWRITE_RE = requestRe(
@@ -234,13 +231,17 @@ function hasActuatingIntent(allowedIntents: Iterable<Intent> | undefined): boole
   return false;
 }
 
+/** Text that reads as a question or a request for an explanation, which plain chat answers. */
+const QUESTION_RE =
+  /^\s*(?:(?:ok(?:ay)?|so|hey|hi)[\s,]+)?(?:(?:can|could|would)\s+you\s+(?:tell|explain|describe|summari[sz]e)\b|who|what|what's|when|where|which|why|how|is|are|was|were|does|did|should|summari[sz]e|explain|tell\s+me|describe|compare)\b/i;
+
 /**
  * Thin router predicate, not an intent classifier. It decides only whether free text goes to the
  * command planner or straight to chat; the planner owns intent selection, exclusions and
- * clarification, and can still answer in chat. Questions and chat requests stay in chat (no extra
- * planner turn); action requests go to the planner: an action verb after any lead-in, a request
- * for an Office artifact ("show me a bar chart…", "I want a bar chart…") or a value placed in a
- * cell ("In G12 put a formula…"), which docs/COMMAND-RELIABILITY.md (fix E) found landing in chat.
+ * clarification, and can still answer in chat. On a surface that can write, anything that is not
+ * a question goes to the planner. Matching a list of action verbs instead sent "In G12 put a
+ * formula…", "show me a bar chart…" and "I want a bar chart…" to chat, where nothing can be
+ * written and the model described or invented a result (docs/COMMAND-RELIABILITY.md, fix E).
  */
 export function shouldUsePlannerForFreeText(
   allowedIntents: Iterable<Intent> | undefined,
@@ -250,42 +251,14 @@ export function shouldUsePlannerForFreeText(
   const raw = inv.raw.trim();
   if (!raw || raw.startsWith('/')) return false;
   if (!hasActuatingIntent(allowedIntents)) return false;
-  return (
+  if (
     OFFICE_ACTION_REQUEST_RE.test(raw) ||
-    (COMMENT_ACTION_RE.test(raw) && !QUESTION_START_RE.test(raw)) ||
-    FIND_REPLACE_RE.test(raw) ||
-    (!QUESTION_START_RE.test(raw) &&
-      (ARTIFACT_REQUEST_RE.test(raw) ||
-        CELL_WRITE_RE.test(raw) ||
-        (!raw.endsWith('?') &&
-          (CHART_PHRASE_RE.test(raw) || (CELL_REF_RE.test(raw) && !CHAT_REQUEST_RE.test(raw))))))
-  );
+    COMMENT_ACTION_RE.test(raw) ||
+    FIND_REPLACE_RE.test(raw)
+  )
+    return true;
+  return !(QUESTION_RE.test(raw) || raw.endsWith('?'));
 }
-
-/** "show me / give me / I want / I need / I'd like a|an|the|some … chart|graph|table|slide|formula|pivot". */
-const ARTIFACT_REQUEST_RE =
-  /\b(?:show\s+me|give\s+me|make\s+me|get\s+me|i\s+(?:want|need)|i\s*['’]d\s+like|we\s+(?:want|need))\s+(?:a|an|the|some)\s+(?:[\w-]+\s+){0,3}(?:chart|graph|table|slide|formula|pivot(?:\s+table)?)s?\b/i;
-
-/**
- * A cell or range ("B5", "G2:G11", "Sheet1!A1"). A statement about one that is not a question is an
- * edit ("B5 = 100", "G12 should be the sum of G2:G11", "Total in G12 please"). Quarter and
- * fiscal-year codes (Q3, H1, FY26) and look-alikes (A4 paper, MP3, PS5, G7) are not cells; "put 5 in
- * A4" still routes through CELL_WRITE_RE.
- */
-const CELL_REF_RE =
-  /(?:^|[\s(=,:])(?:'[^']+'!|\w+!)?(?!(?:q[1-4]|h[12]|fy\d{2,4}|a[0-6]|mp[34]|ps[1-5]|f1|g7|g20)\b)\$?[a-z]{1,3}\$?\d{1,7}(?::\$?[a-z]{1,3}\$?\d{1,7})?\b/i;
-
-/** Requests chat answers even when they name a cell: "Explain the formula in G12". */
-const CHAT_REQUEST_RE =
-  /^\s*(?:(?:please|pls|can\s+you|could\s+you)\s+)?(?:explain|summari[sz]e|describe|tell|show|list|compare|check|find|look|thanks|thank\s+you|ok(?:ay)?|great|cool|nice|jelaskan|ringkas(?:kan)?|terima\s+kasih)\b/i;
-
-/** A bare request that opens with the chart it wants: "bar chart of Total by Product". */
-const CHART_PHRASE_RE =
-  /^\s*(?:an?\s+)?(?:[\w-]+\s+){0,2}(?:chart|graph)s?\s+(?:of|for|by|showing)\b/i;
-
-/** A value placed in a cell: "In G12 put a formula …", "enter 42 in B5", "put the total in D20". */
-const CELL_WRITE_RE =
-  /^\s*in\s+(?:'[^']+'!|\w+!)?\$?[a-z]{1,3}\$?\d{1,7}\b|\b(?:put|enter|type|place)\b[\s\S]*\b(?:in|into|at)\s+(?:'[^']+'!|\w+!)?\$?[a-z]{1,3}\$?\d{1,7}\b/i;
 
 /**
  * Map ONE typed composer `@`-mention to its {@link GroundingSelection} (Finding #2/#B-wire). The
