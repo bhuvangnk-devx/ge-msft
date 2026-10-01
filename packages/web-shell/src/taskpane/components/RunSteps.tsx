@@ -15,15 +15,25 @@ export interface RunStepsProps {
 export function RunSteps({ steps, diagnostics }: RunStepsProps): JSX.Element | null {
   const [expanded, setExpanded] = useState(false);
   const [copyState, setCopyState] = useState('');
+  const [manualCopy, setManualCopy] = useState<string>();
   const listId = useId();
   const copyDiagnostics = async (): Promise<void> => {
     if (!diagnostics) return;
+    const text = diagnostics();
+    setManualCopy(undefined);
     try {
-      await navigator.clipboard.writeText(diagnostics());
+      await navigator.clipboard.writeText(text);
       setCopyState('Copied. Paste it to your support contact.');
+      return;
     } catch {
-      setCopyState('Copy is blocked here. Try again from Office on the web.');
+      // Desktop Office blocks the async clipboard API; the legacy copy command usually works there.
     }
+    if (legacyCopy(text)) {
+      setCopyState('Copied. Paste it to your support contact.');
+      return;
+    }
+    setManualCopy(text);
+    setCopyState('Select the text below and copy it (Ctrl+C / ⌘C).');
   };
 
   if (steps.length === 0) return null;
@@ -77,7 +87,16 @@ export function RunSteps({ steps, diagnostics }: RunStepsProps): JSX.Element | n
           <button type="button" onClick={() => void copyDiagnostics()}>
             Copy diagnostics
           </button>
-          {copyState ? <span className="muted small">{copyState}</span> : null}
+          {copyState ? <span>{copyState}</span> : null}
+          {manualCopy ? (
+            <textarea
+              readOnly
+              aria-label="Diagnostics"
+              value={manualCopy}
+              onFocus={(e) => e.currentTarget.select()}
+              ref={(el) => el?.select()}
+            />
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -116,4 +135,22 @@ function WorkspaceArtifactCard({
       ) : null}
     </article>
   );
+}
+
+/** `document.execCommand('copy')` through a hidden textarea; false when the host refuses it. */
+function legacyCopy(text: string): boolean {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+  }
 }

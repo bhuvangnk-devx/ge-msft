@@ -2287,6 +2287,43 @@ button.cite:hover {
 .run-steps.is-expanded .run-steps-caret::before {
   content: '\2212';
 }
+.run-steps-diagnostics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--s4);
+  border-top: 0.5px solid var(--hairline);
+}
+.run-steps-diagnostics button {
+  border: 1px solid var(--hairline-soft);
+  border-radius: 12px;
+  padding: 4px 10px;
+  background: var(--surface);
+  color: var(--blue-ink);
+  font: inherit;
+  font-size: var(--fz-sm);
+  cursor: pointer;
+}
+.run-steps-diagnostics button:hover {
+  background: var(--paper);
+}
+.run-steps-diagnostics span {
+  font-size: var(--fz-xs);
+  color: var(--ink-3);
+}
+.run-steps-diagnostics textarea {
+  width: 100%;
+  min-height: 120px;
+  font-family: var(--mono);
+  font-size: var(--fz-xs);
+  color: var(--ink-2);
+  background: var(--paper);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--r);
+  padding: 6px;
+  resize: vertical;
+}
 .run-steps-list {
   margin: 0;
   padding: 0;

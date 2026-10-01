@@ -64,8 +64,23 @@ function parseNakedCliLine(line: string): ParsedLine | undefined {
   return {
     line,
     actionable: isActionableEntry(entry),
-    explicitSingle: isExplicitSingleLine(entry),
+    explicitSingle: isExplicitSingleLine(entry) && !readsAsProse(line),
   };
+}
+
+/**
+ * A lone line whose arguments are mostly plain words is a sentence that happens to start with a
+ * CLI verb ("Read the last row for me", "Search for the payment clause"), not a command. CLI
+ * arguments are refs (`A1:B9`, `slide:2`, `result:x`), key=value props or quoted strings, so
+ * count only the bare alphabetic words left after the verb once quoted spans are removed.
+ */
+function readsAsProse(line: string): boolean {
+  const args = line
+    .replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .slice(1);
+  return args.filter((token) => /^[a-z]+[.,!?]?$/i.test(token)).length >= 2;
 }
 
 function isNakedDirectEntry(entry: ProgramEntry): boolean {
