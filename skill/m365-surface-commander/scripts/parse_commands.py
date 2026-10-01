@@ -444,10 +444,18 @@ def parse_line(line: str):
 
     # No-argument verbs. Consume the FULL line: a trailing token is malformed input, not something
     # to silently drop (review Finding #8/#10 — a dropped `done`-block tail hid real parse failures).
-    if verb in ("outline", "done"):
+    if verb == "outline":
         if rest:
             return {"error": f"{verb} takes no arguments — got {rest!r} (usage: {verb})"}
         return {"verb": verb}
+
+    if verb == "done":
+        if not rest:
+            return {"verb": "done"}
+        q = _scan_quoted(rest)
+        if not q or q[1]:
+            return {"error": 'done takes an optional quoted answer — usage: done  OR  done "The last row is …"'}
+        return {"verb": "done", "message": q[0]} if q[0].strip() else {"verb": "done"}
     if verb == "help":
         return {"verb": "help", **({"topic": rest} if rest else {})}
     if verb == "read":

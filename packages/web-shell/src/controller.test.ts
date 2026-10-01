@@ -457,6 +457,29 @@ describe('PanelController — conversation history', () => {
   });
 });
 
+describe('command route answers', () => {
+  it('shows the answer a `done "<answer>"` carries as the reply text', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({ type: 'turn-start', turn: 1 }),
+      ev({ type: 'done', turn: 2, answer: '', message: 'The last row is Samarth\\nPlan: Pro' }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('read the last row');
+    const reply = c.getState().messages.at(-1);
+    expect(reply?.role).toBe('assistant');
+    expect(reply?.text).toBe('The last row is Samarth\nPlan: Pro');
+  });
+
+  it('a bare done still shows no invented text', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [ev({ type: 'done', turn: 1, answer: '' })];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('apply it');
+    expect(c.getState().messages.at(-1)?.text).toBe('');
+  });
+});
+
 describe('chat replies that claim a document change', () => {
   it.each([
     "I've created a chart that shows the MRR per plan.",

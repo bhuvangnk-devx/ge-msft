@@ -1375,6 +1375,13 @@ export class PanelController {
         this.addStep('capped', ev.reason);
         return;
       case 'done':
+        // A read-only question ends with `done "<answer>"`: show the answer, not just a step.
+        if ('message' in ev && ev.message) {
+          const message = ev.message.replace(/\\n/g, '\n');
+          this.patchMessage(replyId, (m) => ({
+            text: `${m.text}${m.text ? '\n\n' : ''}${message}`,
+          }));
+        }
         this.addStep('done', 'Done');
         return;
       case 'exhausted':

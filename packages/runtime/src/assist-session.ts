@@ -223,7 +223,7 @@ export type CommandLoopEvent =
   /** `deferred` names a write held back by the per-turn cap; the model may send it next turn. */
   | { type: 'capped'; turn: number; reason: string; deferred?: string }
   /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
-  | { type: 'done'; turn: number; answer: string }
+  | { type: 'done'; turn: number; answer: string; message?: string }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string };
 
@@ -271,6 +271,8 @@ interface PlanState {
    * skill call expands into — so expansion can't exceed the cap (security finding). */
   budget: number;
   done: boolean;
+  /** The answer a `done "<answer>"` carries, shown to the user as the reply. */
+  doneMessage?: string;
   /** `done` arrived in the same block as writes: finish only if every one of them lands. */
   doneAfterWrites?: boolean;
   finishVerified?: boolean;
@@ -1337,7 +1339,7 @@ export class AssistSession {
       }
       pendingNoFenceReprompt = false;
 
-      const { results, done, stopped } = yield* this.executeProgramTurn(
+      const { results, done, stopped, message } = yield* this.executeProgramTurn(
         entries,
         turn,
         capabilities,
@@ -1346,7 +1348,7 @@ export class AssistSession {
       );
 
       if (done) {
-        yield { type: 'done', turn, answer };
+        yield { type: 'done', turn, answer, ...(message !== undefined ? { message } : {}) };
         return;
       }
       if (stopped) return;
@@ -1528,7 +1530,7 @@ export class AssistSession {
     turnProvenance: ProvenancePayload | undefined,
   ): AsyncGenerator<
     SseEvent | CommandLoopEvent,
-    { results: unknown[]; done: boolean; stopped?: boolean },
+    { results: unknown[]; done: boolean; stopped?: boolean; message?: string },
     void
   > {
     const maxCommands = opts.maxCommandsPerTurn ?? DEFAULT_MAX_COMMANDS_PER_TURN;
@@ -1698,6 +1700,7 @@ export class AssistSession {
     return {
       results: plan.results,
       done: plan.done,
+      ...(plan.done && plan.doneMessage !== undefined ? { message: plan.doneMessage } : {}),
       ...(plan.finishVerified && !plan.done ? { stopped: true } : {}),
     };
   }
@@ -1850,6 +1853,7 @@ export class AssistSession {
 
     // Control + reads run inline (pure / non-actuating), exactly as ADR-0004.
     if (command.verb === 'done') {
+      if (command.message !== undefined) plan.doneMessage = command.message;
       if (plan.planSlots.length > 0) {
         plan.doneAfterWrites = true;
         plan.results.push({
@@ -3737,6 +3741,7 @@ function noFenceReprompt(turnHadCodeExecution: boolean): string {
     '```cmd',
     'done',
     '```',
+    'If the user asked a question, put the answer in the done line: done "<the answer>"',
   );
   return lines.join('\n');
 }

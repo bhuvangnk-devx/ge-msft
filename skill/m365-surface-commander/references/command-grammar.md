@@ -133,7 +133,7 @@ approval. Do not ask the model to write raw PPTX base64 in the CLI.
 
 | Command | Meaning                                                                  |
 | ------- | ------------------------------------------------------------------------ |
-| `done`  | The whole task is complete.                                              |
+| `done`  | The whole task is complete. `done "<answer>"` shows the answer to a question. |
 | `help`  | List available commands, or `help <command>` for one generated playbook. |
 
 `<command> -h` and `<command> --help` are aliases for `help <command>`. Use targeted help before

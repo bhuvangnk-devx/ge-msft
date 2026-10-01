@@ -221,7 +221,7 @@ export type ParsedCommand =
   // runtime compiles into the kind's `ActuationParams`. Per-surface availability is checked at
   // compile, not here (the parser stays structural).
   | { verb: 'invoke'; kind: string; props: Record<string, string>; args: string[] }
-  | { verb: 'done' }
+  | { verb: 'done'; message?: string }
   | { verb: 'help'; topic?: string };
 
 export type WorkspaceSource =
@@ -362,7 +362,7 @@ export const ParsedCommandSchema: z.ZodType<ParsedCommand> = z.discriminatedUnio
     props: z.record(z.string()),
     args: z.array(z.string()),
   }),
-  z.object({ verb: z.literal('done') }),
+  z.object({ verb: z.literal('done'), message: z.string().optional() }),
   z.object({ verb: z.literal('help'), topic: z.string().optional() }),
 ]);
 
@@ -449,7 +449,7 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'outline':
       return { verb: 'outline' };
     case 'done':
-      return { verb: 'done' };
+      return parseDone(rest);
     case 'help':
       return { verb: 'help', ...(rest ? { topic: rest } : {}) };
 
@@ -1282,6 +1282,19 @@ function parseReply(rest: string): ParsedCommand | CommandParseError {
 }
 
 /**
+ * `done` or `done "<answer>"`: finish the task. The quoted answer is shown to the user as the reply,
+ * so a read-only question ("read the last row") ends with its answer, not a bare "Done".
+ */
+function parseDone(rest: string): ParsedCommand | CommandParseError {
+  const usage = 'done takes an optional quoted answer — usage: done  OR  done "The last row is …"';
+  const t = rest.trim();
+  if (t === '') return { verb: 'done' };
+  const message = scanQuoted(t, 0);
+  if (!message || t.slice(message.end).trim() !== '') return { error: usage };
+  return message.value.trim() === '' ? { verb: 'done' } : { verb: 'done', message: message.value };
+}
+
+/**
  * `slide "<title>" ["<bullet>" …] [at=N]` OR `slide "<title>" (<table-expr>) [at=N]`
  * (`insert-slide`). The first quoted string is the title; the bullets are EITHER zero-or-more quoted
  * strings OR a single composition expression (`( <pipeline> )` / `$var`) whose resulting table's
@@ -1864,7 +1877,11 @@ export function grammarFor(manifest: CapabilityManifest): VerbSpec[] {
   }
 
   specs.push(
-    { verb: 'done', usage: 'done', hint: 'finish — you have completed the task' },
+    {
+      verb: 'done',
+      usage: 'done  OR  done "<answer>"',
+      hint: 'finish — for a question, put the answer in quotes: done "The last row is Samarth, Pro, ₹1,999"',
+    },
     { verb: 'help', usage: 'help', hint: 'list the available commands' },
   );
   return specs;

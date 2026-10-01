@@ -48,6 +48,7 @@ Verification is a host phase; it need not cause another model turn.
 `finish when=verified` requests completion only when every effect has verified and no error remains.
 Unknown/mismatched readback, skipped effects, or pending recovery cannot satisfy it. Otherwise
 inspect the outcome; emit `done` alone when the task is complete without claiming unsupported verification.
+For a question, answer with `done "<answer>"`.
 
 A new model turn is needed for an unresolved semantic decision, fresh calculated values after a
 write, or an effect-created ID without a supported binding. Separate surfaces require a handoff.

@@ -1,6 +1,6 @@
 # CNGPT hardening plan (items 1–9)
 
-Status: 1–2 done · 3–9 planned. Owner: Bhuvan. Started 2026-10-01.
+Status: 1–3 done · 4–9 planned. Owner: Bhuvan. Started 2026-10-01.
 
 These items come from bugs found in manual testing on the CIMB test deployment (Cloud Run
 `cngpt-web`), not from a full audit. Each item lists the problem, the evidence, the change, how it

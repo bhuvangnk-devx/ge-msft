@@ -1675,6 +1675,22 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(session.executions.list().at(-1)?.status).not.toBe('completed');
   });
 
+  it('a read-only question ends with the answer `done "<answer>"` carries', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nread A1:B3\n```',
+      '```cmd\ndone "The last row is Samarth, Pro"\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('read the last row'));
+    const done = events.find((e) => e.type === 'done' && 'turn' in e);
+    expect(done).toMatchObject({ message: 'The last row is Samarth, Pro' });
+    expect(bridge.applied).toHaveLength(0);
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
   it('refuses to re-apply a write identical to one that already landed in the task', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([
