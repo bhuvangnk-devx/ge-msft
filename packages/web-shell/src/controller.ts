@@ -190,6 +190,8 @@ export interface ChatMessage {
   streaming?: boolean;
   /** Latest transient StreamAssist activity; never appended to answer text or provenance. */
   activity?: string;
+  /** A muted line under the answer, e.g. that a chat reply changed nothing. */
+  note?: string;
   sources?: SourceRef[];
   error?: string;
   /** The turn was cancelled by the user mid-stream (distinct from a stream `error`). */
@@ -1024,6 +1026,7 @@ export class PanelController {
         // later write — drop it so applyProposal can't stamp a write with a half-landed turn.
         this.currentTurnProvenance = undefined;
       } else {
+        failed = true;
         this.patchMessage(reply.id, () => ({ error: errorText(err) }));
       }
     } finally {
@@ -1035,6 +1038,8 @@ export class PanelController {
           ...(controller.signal.aborted ? { cancelled: true } : {}),
         }));
         const recover = controller.signal.aborted ? undefined : recoverAsCommandTask;
+        if (!recover && !failed && !controller.signal.aborted && claimsDocumentChange(replyText))
+          this.patchMessage(reply.id, () => ({ note: CHAT_CHANGED_NOTHING }));
         this.finishExecution(controller, {}, { drain: !recover });
         if (recover) {
           if (!controller.signal.aborted)
@@ -2108,4 +2113,29 @@ function explicitlyActuating(task: string): boolean {
   const verb = /^\/([a-z-]+)(?:\s|$)/i.exec(task)?.[1]?.toLowerCase();
   const intent = IntentSchema.safeParse(verb);
   return intent.success && deriveOutput(intent.data) !== 'chat';
+}
+
+/** Shown under a chat answer that reads as if it changed the document. Chat never writes. */
+export const CHAT_CHANGED_NOTHING =
+  'This reply has not changed your document. To apply it, use Insert if it is offered, or ask ' +
+  'for it as an action (for example "Add a chart of …" or /visualize).';
+
+/**
+ * A chat answer that claims a change it cannot have made: "I've created a chart", "Here is a bar
+ * chart", "The title has been updated", "Saya sudah membuat grafik". The chat route has no write
+ * commands, so the note this triggers is true even when the match is loose.
+ */
+const CHANGE_CLAIM_RE = new RegExp(
+  [
+    String.raw`\bI(?:\s*['’]ve|\s+have)?\s+(?:just\s+|now\s+|also\s+)?(?:created|added|inserted|updated|changed|replied|applied|built|generated|formatted|renamed|deleted|removed|moved|drafted|attached|highlighted|fixed|written|wrote|put|placed)\b`,
+    String.raw`\bhere\s+is\s+(?:a|an|the|your)\s+(?:\w+\s+){0,2}(?:chart|graph|slide|table)\b`,
+    String.raw`\b(?:has|have)\s+been\s+(?:created|added|inserted|updated|changed|applied|formatted|renamed|deleted|removed|moved|attached|highlighted)\b`,
+    String.raw`\b(?:saya|aku)\s+(?:sudah|telah)\s+(?:membuat|menambahkan|menyisipkan|mengubah|mengganti|membalas|menghapus|memperbarui|memformat|menulis)\b`,
+    String.raw`\b(?:sudah|telah)\s+(?:dibuat|ditambahkan|disisipkan|diubah|diganti|dibalas|dihapus|diperbarui|diformat)\b`,
+  ].join('|'),
+  'i',
+);
+
+export function claimsDocumentChange(text: string): boolean {
+  return CHANGE_CLAIM_RE.test(text);
 }

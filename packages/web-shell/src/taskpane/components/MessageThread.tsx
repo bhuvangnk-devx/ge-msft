@@ -869,6 +869,11 @@ function Message({
           </div>
         )}
         {message.cancelled && <div className="muted small">Cancelled.</div>}
+        {message.note && !message.streaming && (
+          <div className="muted small" role="note">
+            {message.note}
+          </div>
+        )}
         {message.sources && message.sources.length > 0 && (
           <div className="cites" aria-label="Citations">
             <span className="cites-h eyebrow">Sources</span>

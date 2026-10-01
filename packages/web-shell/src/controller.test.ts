@@ -20,6 +20,8 @@ import type {
 } from '@ge/gemini-client';
 import type { HostEvent } from '@ge/triggers';
 import {
+  CHAT_CHANGED_NOTHING,
+  claimsDocumentChange,
   PanelController,
   type AssistLike,
   type ContextLister,
@@ -452,6 +454,43 @@ describe('PanelController — conversation history', () => {
     c.resumeConversation(assist.conversations[0]!.name);
     expect(assist.resumedSession).toBe(assist.conversations[0]!.name);
     expect(c.getState().conversations.items[0]?.active).toBe(true);
+  });
+});
+
+describe('chat replies that claim a document change', () => {
+  it.each([
+    "I've created a chart that shows the MRR per plan.",
+    'Here is a bar chart visualizing the revenue breakdown:',
+    'I have updated the title on slide 2.',
+    'The header has been formatted bold.',
+    'I replied to the customer saying you will check.',
+    'Saya sudah membuat grafik pendapatan.',
+    'Judul telah diubah menjadi FY26.',
+  ])('flags: %s', (text) => {
+    expect(claimsDocumentChange(text)).toBe(true);
+  });
+  it.each([
+    'The SLA is 99.5% per the vendor policy.',
+    'Enterprise earns ₹15,998 per month; Pro ₹4,998.',
+    'To add a chart, select the data and choose Insert → Chart.',
+    'You could reply saying you will check by Friday.',
+    'Total pendapatan adalah Rp 21.995.',
+    'Here are the three trial users: Asha, Ravi, Meera.',
+  ])('leaves alone: %s', (text) => {
+    expect(claimsDocumentChange(text)).toBe(false);
+  });
+
+  it('adds the note under a chat answer that claims a change, and only then', async () => {
+    const assist = new FakeAssist();
+    assist.scriptFor = [
+      [{ type: 'token', text: "I've created a chart of MRR per plan." }, { type: 'done' }],
+      [{ type: 'token', text: 'Enterprise earns the most.' }, { type: 'done' }],
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.send('create a better chart of the subscriptions');
+    expect(c.getState().messages.at(-1)?.note).toBe(CHAT_CHANGED_NOTHING);
+    await c.send('which plan earns the most?');
+    expect(c.getState().messages.at(-1)?.note).toBeUndefined();
   });
 });
 
