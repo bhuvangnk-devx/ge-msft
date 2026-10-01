@@ -340,8 +340,12 @@ describe('AssistSession — the reusable loop', () => {
   it('threads the abort signal through to the transport fetch', async () => {
     const bridge = new FakeBridge();
     let seenSignal: AbortSignal | undefined;
+    const ac = new AbortController();
+    let abortedInFlight = false;
     const fetchImpl = vi.fn(async (_url: string, init?: { signal?: AbortSignal }) => {
       seenSignal = init?.signal;
+      ac.abort();
+      abortedInFlight = init?.signal?.aborted === true;
       return new Response(
         streamOf([
           JSON.stringify([
@@ -359,10 +363,12 @@ describe('AssistSession — the reusable loop', () => {
     });
     const client = new StreamAssistClient(tokens, cfg, fetchImpl as unknown as typeof fetch);
     const session = new AssistSession(bridge, client, { unit });
-    const ac = new AbortController();
 
-    await collect(session.ask('q', { signal: ac.signal }));
-    expect(seenSignal).toBe(ac.signal);
+    await collect(session.ask('q', { signal: ac.signal })).catch(() => undefined); // cancelled
+    // The transport links the caller's signal with its idle watchdog: a cancel while the request
+    // is in flight reaches the fetch signal.
+    expect(seenSignal).toBeDefined();
+    expect(abortedInFlight).toBe(true);
   });
 
   it('does NOT mark the folded brief resident when the turn is aborted mid-stream (re-folds next turn)', async () => {

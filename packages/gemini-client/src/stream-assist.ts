@@ -54,11 +54,69 @@ export interface StreamOptions {
   /** Structured grounding selected by the composer/context UI. */
   grounding?: ResolvedGrounding;
   signal?: AbortSignal;
+  /**
+   * Abort the turn when the engine sends nothing for this long, before or during the stream
+   * (default {@link DEFAULT_IDLE_TIMEOUT_MS}). Only time spent waiting on the network counts: a
+   * consumer that is busy between reads does not. 0 disables it.
+   */
+  idleTimeoutMs?: number;
 }
+
+/** Long enough for a slow reasoning turn's first frame; short enough that a hang is not forever. */
+export const DEFAULT_IDLE_TIMEOUT_MS = 90_000;
 
 type FetchLike = typeof fetch;
 
 class StreamRequestError extends Error {}
+
+class IdleTimeoutError extends Error {}
+
+/**
+ * Re-expose `body` so that each read must produce bytes within `ms`. The timer runs only while a
+ * read is pending (`highWaterMark: 0` → no read-ahead), so consumer work never counts as idle.
+ */
+function withIdleTimeout(
+  body: ReadableStream<Uint8Array>,
+  ms: number,
+  onIdle: () => void,
+): ReadableStream<Uint8Array> {
+  const reader = body.getReader();
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const idle = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new IdleTimeoutError()), ms);
+        });
+        try {
+          const { done, value } = await Promise.race([reader.read(), idle]);
+          if (done) controller.close();
+          else controller.enqueue(value);
+        } catch (error) {
+          if (error instanceof IdleTimeoutError) {
+            onIdle();
+            void reader.cancel().catch(() => {});
+          }
+          controller.error(error);
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+      cancel(reason) {
+        return reader.cancel(reason);
+      },
+    },
+    { highWaterMark: 0 },
+  );
+}
+
+function timeoutEvent(ms: number): SseEvent {
+  return {
+    type: 'error',
+    code: 'timeout',
+    message: `The assistant did not respond for ${Math.round(ms / 1000)} seconds. Try again.`,
+  };
+}
 
 /**
  * Calls Gemini Enterprise `:streamAssist` directly as the signed-in user and
@@ -136,17 +194,54 @@ export class StreamAssistClient {
     // Snapshot the mode before awaiting the POST; callers cannot change provenance semantics
     // by mutating their options while a response is in flight.
     const isSessionLess = opts.isSessionLess === true;
-    let res: Response;
+    const idleMs = opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+    // One signal for the whole turn: the caller's cancel, or our idle watchdog.
+    const turn = new AbortController();
+    const forwardAbort = (): void => turn.abort(opts.signal?.reason);
+    if (opts.signal?.aborted) forwardAbort();
+    opts.signal?.addEventListener('abort', forwardAbort, { once: true });
+    let timedOut = false;
     try {
-      res = await this.post(req, { ...opts, isSessionLess });
-    } catch (err) {
-      yield {
-        type: 'error',
-        code: err instanceof StreamRequestError ? 'invalid_request' : 'network',
-        message: errorMessage(err),
-      };
-      return;
+      let res: Response;
+      const postTimer =
+        idleMs > 0
+          ? setTimeout(() => {
+              timedOut = true;
+              turn.abort();
+            }, idleMs)
+          : undefined;
+      try {
+        res = await this.post(req, { ...opts, isSessionLess, signal: turn.signal });
+      } catch (err) {
+        if (timedOut) {
+          yield timeoutEvent(idleMs);
+          return;
+        }
+        yield {
+          type: 'error',
+          code: err instanceof StreamRequestError ? 'invalid_request' : 'network',
+          message: errorMessage(err),
+        };
+        return;
+      } finally {
+        clearTimeout(postTimer);
+      }
+      yield* this.readStream(res, opts, isSessionLess, idleMs, () => {
+        timedOut = true;
+        turn.abort();
+      });
+    } finally {
+      opts.signal?.removeEventListener('abort', forwardAbort);
     }
+  }
+
+  private async *readStream(
+    res: Response,
+    opts: StreamOptions,
+    isSessionLess: boolean,
+    idleMs: number,
+    onIdle: () => void,
+  ): AsyncGenerator<SseEvent> {
     if (!res.ok || !res.body) {
       const detail = await safeText(res);
       yield {
@@ -165,99 +260,113 @@ export class StreamAssistClient {
     const emittedSupports = new Set<string>();
     let policyBlocked = false;
 
-    for await (const chunk of parseJsonArrayStream(res.body)) {
-      const resp = DeStreamAssistResponseSchema.safeParse(chunk);
-      if (!resp.success) continue; // tolerate non-conforming keepalive/metadata frames
-      const data = resp.data;
-      if (!isSessionLess) session = data.sessionInfo?.session ?? session;
-      for (const skill of data.invokedSkills ?? []) {
-        const name = skill.displayName ?? skill.name;
-        if (name && !invokedSkills.includes(name)) invokedSkills.push(name);
-      }
-
-      // A policy block arrives as a structured verdict, not a generic failure;
-      // surface it once with a graceful message. Once blocked we suppress *all*
-      // answer output for the turn — Model Armor can block the generated answer,
-      // and the offending text may ride along in this or a later frame's replies,
-      // so we must not stream, cite, ground, or hash any of it through.
-      const policy = data.answer?.customerPolicyEnforcementResult;
-      if (!policyBlocked && policy?.verdict?.toUpperCase() === 'BLOCK') {
-        policyBlocked = true;
-        yield { type: 'policy', verdict: 'block', reason: policyReason() };
-      }
-      if (policyBlocked) continue;
-
-      if (data.answer?.state === 'FAILED') {
-        yield { type: 'error', code: 'assist_failed', message: 'The assistant could not answer.' };
-      }
-
-      for (const q of data.answer?.relatedQuestions ?? []) {
-        if (q && !relatedQuestions.includes(q)) relatedQuestions.push(q);
-      }
-
-      for (const reply of data.answer?.replies ?? []) {
-        const gc = reply.groundedContent;
-        const content = gc?.content;
-        const code = content?.executableCode?.code;
-        if (code && content?.thought !== true) {
-          yield { type: 'code-execution', language: 'python', code };
+    const body = idleMs > 0 ? withIdleTimeout(res.body, idleMs, onIdle) : res.body;
+    try {
+      for await (const chunk of parseJsonArrayStream(body)) {
+        const resp = DeStreamAssistResponseSchema.safeParse(chunk);
+        if (!resp.success) continue; // tolerate non-conforming keepalive/metadata frames
+        const data = resp.data;
+        if (!isSessionLess) session = data.sessionInfo?.session ?? session;
+        for (const skill of data.invokedSkills ?? []) {
+          const name = skill.displayName ?? skill.name;
+          if (name && !invokedSkills.includes(name)) invokedSkills.push(name);
         }
-        const codeResult = content?.codeExecutionResult;
-        if (codeResult && content?.thought !== true) {
+
+        // A policy block arrives as a structured verdict, not a generic failure;
+        // surface it once with a graceful message. Once blocked we suppress *all*
+        // answer output for the turn — Model Armor can block the generated answer,
+        // and the offending text may ride along in this or a later frame's replies,
+        // so we must not stream, cite, ground, or hash any of it through.
+        const policy = data.answer?.customerPolicyEnforcementResult;
+        if (!policyBlocked && policy?.verdict?.toUpperCase() === 'BLOCK') {
+          policyBlocked = true;
+          yield { type: 'policy', verdict: 'block', reason: policyReason() };
+        }
+        if (policyBlocked) continue;
+
+        if (data.answer?.state === 'FAILED') {
           yield {
-            type: 'code-execution-result',
-            outcome: codeExecutionOutcome(codeResult.outcome),
-            ...(codeResult.output ? { output: codeResult.output } : {}),
+            type: 'error',
+            code: 'assist_failed',
+            message: 'The assistant could not answer.',
           };
         }
-        const text = content?.text;
-        if (text && content?.thought === true) {
-          const activity = activityText(text);
-          if (activity) yield { type: 'activity', text: activity };
-        } else if (text) {
-          accumulated += text;
-          yield { type: 'token', text };
+
+        for (const q of data.answer?.relatedQuestions ?? []) {
+          if (q && !relatedQuestions.includes(q)) relatedQuestions.push(q);
         }
-        const references = gc?.textGroundingMetadata?.references ?? [];
-        for (const ref of references) {
-          const dm = ref.documentMetadata;
-          if (!dm) continue;
-          const excerpt = ref.content ? truncateExcerpt(ref.content) : undefined;
-          const source: SourceRef = {
-            title: dm.title ?? dm.uri ?? dm.domain ?? 'Source',
-            ...(dm.uri ? { uri: dm.uri } : {}),
-            ...(dm.pageIdentifier ? { locator: dm.pageIdentifier } : {}),
-            ...(excerpt ? { excerpt } : {}),
-          };
-          const key = source.uri ?? `${source.title}#${source.locator ?? ''}`;
-          if (!citations.has(key)) {
-            citations.set(key, source);
-            yield { type: 'citation', source };
+
+        for (const reply of data.answer?.replies ?? []) {
+          const gc = reply.groundedContent;
+          const content = gc?.content;
+          const code = content?.executableCode?.code;
+          if (code && content?.thought !== true) {
+            yield { type: 'code-execution', language: 'python', code };
           }
-        }
-        // Grounding supports carry byte spans into the answer text; convert them
-        // against the accumulated answer so far and emit precise claim highlights.
-        const supports = gc?.textGroundingMetadata?.groundingSupports ?? [];
-        if (supports.length > 0) {
-          const mapper = new ByteOffsetMapper(accumulated);
-          for (const support of supports) {
-            const span = byteOffsetToCharIndex(mapper, support.startIndex, support.endIndex);
-            if (!span) continue;
-            const dedupeKey = `${span.start}:${span.end}`;
-            if (emittedSupports.has(dedupeKey)) continue;
-            emittedSupports.add(dedupeKey);
+          const codeResult = content?.codeExecutionResult;
+          if (codeResult && content?.thought !== true) {
             yield {
-              type: 'grounding-support',
-              start: span.start,
-              end: span.end,
-              ...(typeof support.groundingScore === 'number'
-                ? { score: support.groundingScore }
-                : {}),
-              sources: resolveSupportSources(support, references),
+              type: 'code-execution-result',
+              outcome: codeExecutionOutcome(codeResult.outcome),
+              ...(codeResult.output ? { output: codeResult.output } : {}),
             };
           }
+          const text = content?.text;
+          if (text && content?.thought === true) {
+            const activity = activityText(text);
+            if (activity) yield { type: 'activity', text: activity };
+          } else if (text) {
+            accumulated += text;
+            yield { type: 'token', text };
+          }
+          const references = gc?.textGroundingMetadata?.references ?? [];
+          for (const ref of references) {
+            const dm = ref.documentMetadata;
+            if (!dm) continue;
+            const excerpt = ref.content ? truncateExcerpt(ref.content) : undefined;
+            const source: SourceRef = {
+              title: dm.title ?? dm.uri ?? dm.domain ?? 'Source',
+              ...(dm.uri ? { uri: dm.uri } : {}),
+              ...(dm.pageIdentifier ? { locator: dm.pageIdentifier } : {}),
+              ...(excerpt ? { excerpt } : {}),
+            };
+            const key = source.uri ?? `${source.title}#${source.locator ?? ''}`;
+            if (!citations.has(key)) {
+              citations.set(key, source);
+              yield { type: 'citation', source };
+            }
+          }
+          // Grounding supports carry byte spans into the answer text; convert them
+          // against the accumulated answer so far and emit precise claim highlights.
+          const supports = gc?.textGroundingMetadata?.groundingSupports ?? [];
+          if (supports.length > 0) {
+            const mapper = new ByteOffsetMapper(accumulated);
+            for (const support of supports) {
+              const span = byteOffsetToCharIndex(mapper, support.startIndex, support.endIndex);
+              if (!span) continue;
+              const dedupeKey = `${span.start}:${span.end}`;
+              if (emittedSupports.has(dedupeKey)) continue;
+              emittedSupports.add(dedupeKey);
+              yield {
+                type: 'grounding-support',
+                start: span.start,
+                end: span.end,
+                ...(typeof support.groundingScore === 'number'
+                  ? { score: support.groundingScore }
+                  : {}),
+                sources: resolveSupportSources(support, references),
+              };
+            }
+          }
         }
       }
+    } catch (error) {
+      // The watchdog fired mid-stream: say so instead of leaving a spinner or a raw stream error.
+      if (error instanceof IdleTimeoutError) {
+        yield timeoutEvent(idleMs);
+        return;
+      }
+      throw error;
     }
 
     // A blocked turn produced no usable answer; do not emit related questions or a
