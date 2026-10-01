@@ -529,7 +529,7 @@ export function App({
           onAnswer={(answer) => controller.answerPlanClarification(answer)}
         />
 
-        <RunSteps steps={state.steps} />
+        <RunSteps steps={state.steps} diagnostics={() => controller.diagnostics({ surface })} />
 
         <ProposalCard
           proposals={state.proposals}

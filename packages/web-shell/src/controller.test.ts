@@ -457,6 +457,70 @@ describe('PanelController — conversation history', () => {
   });
 });
 
+describe('Copy diagnostics', () => {
+  it('records routes and steps but never document text, prompts or model output', async () => {
+    const SECRET = 'ACME-SALARY-98765';
+    const assist = new FakeAssist();
+    assist.script = [{ type: 'token', text: `The secret is ${SECRET}` }, { type: 'done' }];
+    assist.commandScript = [
+      ev({ type: 'turn-start', turn: 1 }),
+      ev({ type: 'activity', text: `Thinking about ${SECRET}` }),
+      ev({
+        type: 'command',
+        turn: 1,
+        command: { verb: 'read', selector: `'${SECRET}'!A1` },
+        compiled: { error: `no sheet named "${SECRET}"` },
+      }),
+      ev({ type: 'done', turn: 1, answer: SECRET, message: SECRET }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.send(`what is ${SECRET}?`);
+    await c.runCommands(`read ${SECRET}`);
+
+    const out = c.diagnostics({ surface: 'excel' });
+    expect(out).not.toContain(SECRET);
+    const parsed = JSON.parse(out) as {
+      surface: string;
+      routes: Array<{ route: string }>;
+      steps: Array<{ kind: string; text?: string }>;
+    };
+    expect(parsed.surface).toBe('excel');
+    expect(parsed.routes.map((r) => r.route)).toEqual(['chat', 'command']);
+    expect(parsed.steps.map((s) => s.kind)).toEqual(['turn-start', 'activity', 'command', 'done']);
+    expect(parsed.steps[1]?.text).toBeUndefined(); // model activity
+    expect(parsed.steps[2]?.text).toBeUndefined(); // compile error echoes values
+  });
+
+  it("keeps the panel's own notices but drops model activity that looks like one", async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [ev({ type: 'activity', text: 'Task: review Acme Q3 margins' })];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('go');
+    c.onRuntimeNotice('Task blocked. 1 changes applied; 2 not applied.');
+    const steps = (
+      JSON.parse(c.diagnostics({ surface: 'outlook' })) as {
+        steps: Array<{ kind: string; text?: string }>;
+      }
+    ).steps;
+    expect(JSON.stringify(steps)).not.toContain('Acme');
+    expect(steps.at(-1)).toEqual({
+      kind: 'activity',
+      text: 'Task blocked. 1 changes applied; 2 not applied.',
+    });
+  });
+
+  it('records the planner verdict', async () => {
+    const assist = new FakeAssist();
+    assist.planned = { plan: null, errors: [], needsClarification: false };
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('/visualize revenue', undefined);
+    await tick();
+    const routes = (JSON.parse(c.diagnostics({ surface: 'excel' })) as { routes: unknown[] })
+      .routes;
+    expect(routes[0]).toMatchObject({ route: 'planner', verdict: 'no plan' });
+  });
+});
+
 describe('command route answers', () => {
   it('shows the answer a `done "<answer>"` carries as the reply text', async () => {
     const assist = new FakeAssist();

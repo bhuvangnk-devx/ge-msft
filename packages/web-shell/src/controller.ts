@@ -4,6 +4,7 @@ import type {
   AnalysisState,
   RecoverySummary,
   EvidenceState,
+  RunRecord,
 } from '@ge/runtime';
 import {
   compileWorkflowRecipe,
@@ -112,6 +113,8 @@ export interface AssistLike {
   readonly analysis?: { state(): AnalysisState };
   readonly recovery?: { durable: boolean; list(): RecoverySummary[] };
   readonly evidence?: { state(): EvidenceState };
+  /** The content-free run ledger (see execution-ledger.ts), for "Copy diagnostics". */
+  readonly executions?: { list(): RunRecord[] };
   runAnalysis?(
     action: AnalysisAction,
     opts?: RunCommandsOptions,
@@ -427,6 +430,8 @@ export interface RunStep {
     | 'error';
   text: string;
   artifact?: RunStepArtifact;
+  /** Set on the panel's own notices (`onRuntimeNotice`), never on model activity. */
+  source?: 'runtime';
 }
 
 export interface RunStepArtifact {
@@ -548,6 +553,8 @@ export class PanelController {
    * drained back through its OWN route so a queued mode is never downgraded (Finding #3).
    */
   private readonly turnQueue = new TurnQueue();
+  /** Which route each submitted request took, for "Copy diagnostics" (no request text). */
+  private readonly routeLog: Array<{ at: string; route: string; verdict?: string }> = [];
   /**
    * The fail-closed approval state machine (E-full): owns the per-write changeId + the resolver
    * promises the loop awaits (Finding #6). The `pendingWrite`/`pendingPlan`/`pendingShare` VIEW slice
@@ -959,6 +966,7 @@ export class PanelController {
       return;
     }
 
+    this.logRoute('chat');
     const userMsg: ChatMessage = { id: this.id('u'), role: 'user', text: q };
     const reply: ChatMessage = { id: this.id('a'), role: 'assistant', text: '', streaming: true };
     const controller = this.beginExecution({
@@ -1091,6 +1099,10 @@ export class PanelController {
         signal: controller.signal,
         ...(grounding ? { grounding } : {}),
       });
+      this.logRoute(
+        'planner',
+        !plan ? 'no plan' : needsClarification ? 'clarify' : `intent:${plan.intent}`,
+      );
       if (controller.signal.aborted || this.inflight !== controller) return;
       if (!plan) {
         // No parseable plan → run the executor directly (it stages its own effect-level gate).
@@ -1225,6 +1237,7 @@ export class PanelController {
       return;
     }
 
+    this.logRoute('command');
     const userMsg: ChatMessage = { id: this.id('u'), role: 'user', text: displayText ?? t };
     const reply: ChatMessage = { id: this.id('a'), role: 'assistant', text: '', streaming: true };
     const owner = this.beginExecution({
@@ -1249,6 +1262,7 @@ export class PanelController {
       return;
     }
 
+    this.logRoute('direct');
     const userMsg: ChatMessage = { id: this.id('u'), role: 'user', text: p };
     const reply: ChatMessage = { id: this.id('a'), role: 'assistant', text: '', streaming: true };
     const owner = this.beginExecution({
@@ -1457,11 +1471,22 @@ export class PanelController {
     this.approvals.rejectShare();
   }
 
-  private addStep(kind: RunStep['kind'], text: string, artifact?: RunStepArtifact): void {
+  private addStep(
+    kind: RunStep['kind'],
+    text: string,
+    artifact?: RunStepArtifact,
+    source?: RunStep['source'],
+  ): void {
     this.set({
       steps: [
         ...this.state.steps,
-        { id: this.id('step'), kind, text, ...(artifact ? { artifact } : {}) },
+        {
+          id: this.id('step'),
+          kind,
+          text,
+          ...(artifact ? { artifact } : {}),
+          ...(source ? { source } : {}),
+        },
       ],
     });
   }
@@ -1562,7 +1587,7 @@ export class PanelController {
 
   /** Diagnostic metadata only; hooks never put source content or raw exception bodies here. */
   readonly onRuntimeNotice = (text: string): void => {
-    this.addStep('activity', text);
+    this.addStep('activity', text, undefined, 'runtime');
   };
 
   /** Every host event constructs working context (no model call). */
@@ -1857,6 +1882,32 @@ export class PanelController {
     });
   }
 
+  private logRoute(route: string, verdict?: string): void {
+    this.routeLog.push({ at: new Date().toISOString(), route, ...(verdict ? { verdict } : {}) });
+    if (this.routeLog.length > 20) this.routeLog.shift();
+  }
+
+  /**
+   * A support snapshot the user can paste to us: routes taken, planner verdicts, this run's steps
+   * and recent run outcomes. It carries NO document text, prompts or model output: only labels the
+   * panel builds itself (turn numbers, effect counts, write outcomes, command verbs, its own notices)
+   * keep their text; every other step exports its kind alone.
+   */
+  diagnostics(meta: { surface: string; build?: string }): string {
+    return JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        surface: meta.surface,
+        ...(meta.build ? { build: meta.build } : {}),
+        routes: this.routeLog,
+        steps: this.state.steps.map(diagnosticStep),
+        runs: (this.session.executions?.list() ?? []).slice(-10),
+      },
+      null,
+      2,
+    );
+  }
+
   private patchMessage(id: string, patch: (m: ChatMessage) => Partial<ChatMessage>): void {
     this.set({
       messages: this.state.messages.map((m) => (m.id === id ? { ...m, ...patch(m) } : m)),
@@ -2080,7 +2131,10 @@ function writeStepText(ev: Extract<CommandLoopEvent, { type: 'write-result' }>):
         ? r.degraded
           ? 'degraded'
           : 'applied'
-        : (r.error?.code ?? 'failed');
+        : // A code is a short identifier; anything else is not trusted into the step label.
+          /^[\w.-]{1,64}$/.test(r.error?.code ?? '')
+          ? r.error!.code
+          : 'failed';
   // Observability: the change landed but its provenance is not durably recorded — make it visible.
   // `provenanceMissing` (no payload at all → unattributed) is distinct from `provenanceDropped`
   // (had a record, failed to persist); both leave the write without a durable trace.
@@ -2145,4 +2199,29 @@ const CHANGE_CLAIM_RE = new RegExp(
 
 export function claimsDocumentChange(text: string): boolean {
   return CHANGE_CLAIM_RE.test(text);
+}
+
+/**
+ * Step kinds whose text the panel builds entirely itself (turn numbers, effect counts, write kinds +
+ * outcome codes), so it is safe to export. Every other step exports its kind only: error and command
+ * texts can echo model, host or HTTP text, and model activity is a thought title.
+ */
+const SELF_LABELLED_STEPS = new Set<RunStep['kind']>([
+  'turn-start',
+  'plan-preview',
+  'write-result',
+  'no-fence',
+  'done',
+  'exhausted',
+]);
+
+/** A step reduced to content-free fields for {@link PanelController.diagnostics}. */
+function diagnosticStep(step: RunStep): { kind: RunStep['kind']; text?: string } {
+  if (SELF_LABELLED_STEPS.has(step.kind)) return { kind: step.kind, text: step.text.slice(0, 160) };
+  if (step.kind === 'activity' && step.source === 'runtime')
+    return { kind: step.kind, text: step.text.slice(0, 160) };
+  // A command step is its verb, or `error: …` (the compile error can echo values).
+  if (step.kind === 'command' && /^\/?[a-z][a-z0-9-]*$/.test(step.text))
+    return { kind: step.kind, text: step.text };
+  return { kind: step.kind };
 }

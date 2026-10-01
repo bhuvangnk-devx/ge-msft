@@ -3,6 +3,8 @@ import type { RunStep } from '../../controller.js';
 
 export interface RunStepsProps {
   steps: RunStep[];
+  /** Builds the content-free support snapshot copied by "Copy diagnostics". */
+  diagnostics?: () => string;
 }
 
 /**
@@ -10,9 +12,19 @@ export interface RunStepsProps {
  * (turn / command / read / write / done) so the user can watch the read-many/write-one loop
  * progress. Rendered as an ordered list with a polite live region so new steps are announced.
  */
-export function RunSteps({ steps }: RunStepsProps): JSX.Element | null {
+export function RunSteps({ steps, diagnostics }: RunStepsProps): JSX.Element | null {
   const [expanded, setExpanded] = useState(false);
+  const [copyState, setCopyState] = useState('');
   const listId = useId();
+  const copyDiagnostics = async (): Promise<void> => {
+    if (!diagnostics) return;
+    try {
+      await navigator.clipboard.writeText(diagnostics());
+      setCopyState('Copied. Paste it to your support contact.');
+    } catch {
+      setCopyState('Copy is blocked here. Try again from Office on the web.');
+    }
+  };
 
   if (steps.length === 0) return null;
 
@@ -60,6 +72,14 @@ export function RunSteps({ steps }: RunStepsProps): JSX.Element | null {
           </li>
         ))}
       </ol>
+      {expanded && diagnostics ? (
+        <div className="run-steps-diagnostics">
+          <button type="button" onClick={() => void copyDiagnostics()}>
+            Copy diagnostics
+          </button>
+          {copyState ? <span className="muted small">{copyState}</span> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
