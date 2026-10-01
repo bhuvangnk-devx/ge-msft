@@ -2287,47 +2287,6 @@ button.cite:hover {
 .run-steps.is-expanded .run-steps-caret::before {
   content: '\2212';
 }
-.model-setting {
-  display: grid;
-  gap: 6px;
-  padding: var(--s3) var(--s4);
-  border-bottom: 0.5px solid var(--hairline);
-}
-.model-setting-row {
-  display: flex;
-  gap: 6px;
-}
-.model-setting input {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--mono);
-  font-size: var(--fz-sm);
-  padding: 4px 8px;
-  border: 0.5px solid var(--hairline-soft);
-  border-radius: var(--r);
-  background: var(--surface);
-  color: var(--ink);
-}
-.model-setting input[aria-invalid='true'] {
-  border-color: #c4314b;
-}
-.model-setting button {
-  border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
-  padding: 4px 10px;
-  background: var(--surface);
-  color: var(--blue-ink);
-  font: inherit;
-  font-size: var(--fz-sm);
-  cursor: pointer;
-}
-.model-setting button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.model-setting p {
-  margin: 0;
-}
 .run-steps-diagnostics {
   display: flex;
   flex-wrap: wrap;

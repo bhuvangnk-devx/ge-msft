@@ -125,30 +125,3 @@ describe('streamAssist idle timeout', () => {
     expect(events.some((e) => e.type === 'error' && e.code === 'timeout')).toBe(false);
   });
 });
-
-describe('setModelId', () => {
-  it('sends generationSpec.modelId for later turns, and none when cleared', async () => {
-    const bodies: Array<Record<string, unknown>> = [];
-    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
-      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      return new Response(timedBody(['[', frame('ok'), ']'], 0), { status: 200 });
-    });
-    const client = new StreamAssistClient(
-      tokens,
-      { ...cfg, modelId: 'gemini-3.8-flash' },
-      fetch as unknown as typeof globalThis.fetch,
-      {},
-    );
-    await collect(client.stream(req));
-    client.setModelId('gemini-2.5-pro');
-    await collect(client.stream(req));
-    client.setModelId(undefined);
-    await collect(client.stream(req));
-    expect(bodies.map((b) => b.generationSpec)).toEqual([
-      { modelId: 'gemini-3.8-flash' },
-      { modelId: 'gemini-2.5-pro' },
-      undefined,
-    ]);
-    expect(client.modelId).toBeUndefined();
-  });
-});

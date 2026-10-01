@@ -154,19 +154,6 @@ export class StreamAssistClient {
     this.config = { ...this.config, ...update };
   }
 
-  /**
-   * Switch the model for later turns (`generationSpec.modelId`); undefined = the engine's default
-   * model. The engine rejects an unknown id with HTTP 400 ("model id: … is invalid").
-   */
-  setModelId(modelId: string | undefined): void {
-    const { modelId: _previous, ...rest } = this.config;
-    this.config = modelId ? { ...rest, modelId } : rest;
-  }
-
-  get modelId(): string | undefined {
-    return this.config.modelId;
-  }
-
   async addContextFile(
     input: ContextFileInput,
     opts: ContextFileUploadOptions = {},
