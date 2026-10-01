@@ -331,17 +331,14 @@ export function wifFromEnv(env: RawEnv): WifConfig {
   };
 }
 
-/** The model CNGPT asks for when `VITE_GE_MODEL_ID` is blank (verified live 2026-10-01). */
-export const DEFAULT_MODEL_ID = 'gemini-3.8-flash';
-
 /**
- * The model id from env: the value, or {@link DEFAULT_MODEL_ID} when blank. `engine-default` sends
- * no model id, so the Gemini Enterprise assistant's own default model answers.
+ * The model id from env, or undefined when blank: then no `generationSpec.modelId` is sent and the
+ * Gemini Enterprise assistant's own default model answers. That default is also the recommended
+ * setting: on 2026-10-01 the same command prompt took 6–7 s and always produced a command on it,
+ * against 19–57 s, prose and a Model Armor block on gemini-3.8-flash.
  */
 export function modelIdFromEnv(value: string | undefined): string | undefined {
-  const v = value?.trim();
-  if (!v) return DEFAULT_MODEL_ID;
-  return v.toLowerCase() === 'engine-default' ? undefined : v;
+  return value?.trim() || undefined;
 }
 
 export function shellConfigFromEnv(env: RawEnv): ShellConfig {

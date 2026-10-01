@@ -16,7 +16,6 @@ import {
   warmUpSkillsFromEnv,
   widgetFromEnv,
   type RawEnv,
-  DEFAULT_MODEL_ID,
   modelIdFromEnv,
 } from './config.js';
 
@@ -284,11 +283,9 @@ describe('config from env', () => {
 });
 
 describe('modelIdFromEnv', () => {
-  it('defaults to gemini-3.8-flash, honours an override, and engine-default sends none', () => {
-    expect(DEFAULT_MODEL_ID).toBe('gemini-3.8-flash');
-    expect(modelIdFromEnv(undefined)).toBe('gemini-3.8-flash');
-    expect(modelIdFromEnv('  ')).toBe('gemini-3.8-flash');
-    expect(modelIdFromEnv('gemini-2.5-pro')).toBe('gemini-2.5-pro');
-    expect(modelIdFromEnv('engine-default')).toBeUndefined();
+  it('sends no model id when blank (the engine default answers) and honours an override', () => {
+    expect(modelIdFromEnv(undefined)).toBeUndefined();
+    expect(modelIdFromEnv('  ')).toBeUndefined();
+    expect(modelIdFromEnv('gemini-3.8-flash')).toBe('gemini-3.8-flash');
   });
 });
