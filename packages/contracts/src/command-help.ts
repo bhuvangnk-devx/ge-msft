@@ -363,13 +363,14 @@ export const COMMAND_HELP = {
   slide: {
     ...genericWrite(
       'slide',
-      'slide "Title" "bullet" ... OR slide "Title" (<table expr>)',
-      'you need to add a new PowerPoint slide with a title and bullet points. For a native TABLE on a new slide use /add-table-slide slide=new title="…" rows="a\\tb\\nc\\td" instead (slide would flatten rows into bullets)',
+      'slide "Title" "bullet" ... [at=N] OR slide "Title" (<table expr>) [at=N]',
+      'you need to add a new PowerPoint slide with a title and bullet points; at=N inserts it as slide N (at=2 → the new second slide), otherwise it is added at the end. For a native TABLE on a new slide use /add-table-slide slide=new title="…" rows="a\\tb\\nc\\td" instead (slide would flatten rows into bullets)',
     ),
     // A concrete line first: command cards show the first example free of `<placeholders>`.
     examples: [
       'slide "Q4 plan" "Hire 5 engineers" "Ship firmware 4.2"',
-      'slide "Title" "bullet" ... OR slide "Title" (<table expr>)',
+      'slide "Agenda" "Goals" "Timeline" at=2',
+      'slide "Title" "bullet" ... [at=N] OR slide "Title" (<table expr>) [at=N]',
     ],
   },
   shape: {

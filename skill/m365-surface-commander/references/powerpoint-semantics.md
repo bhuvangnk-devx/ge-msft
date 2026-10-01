@@ -43,7 +43,9 @@ to an unsupported Office.js path.
 **Core verbs:**
 
 - `slide "Title" "bullet" …` inserts a slide (bullets can be a table expression whose rows become
-  bullets).
+  bullets). It goes at the end unless you add `at=N`, which makes it slide N: "add a slide as the
+  second slide" → `slide "Title" "bullet" at=2`; "after slide 3" → `at=4`. After an `at=` slide,
+  address it as `slide=N`, not `slide=last`.
 - `shape <pp:shape:slideId:shapeId> "text"` replaces text in one existing shape/text box. Discover
   the target with `list shape`, `properties <ref>`, `open <ref>`, and `inspect <ref>` first.
 

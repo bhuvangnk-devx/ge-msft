@@ -510,6 +510,18 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles `slide … at=N` → insert-slide targeting zero-based slideIndex N-1', () => {
+    const c = compileCommand(
+      { verb: 'slide', title: 'Agenda', bullets: ['Goals'], at: 2 },
+      { surface: 'powerpoint', mintChangeId: mint },
+    );
+    expect(c).toMatchObject({
+      kind: 'write',
+      request: { kind: 'insert-slide', params: { target: { slideIndex: 1 } } },
+    });
+    if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
   it('compiles `/insert-slide deckBase64=…` into an explicit PowerPoint deck artifact import', () => {
     const c = compileCommand(
       {

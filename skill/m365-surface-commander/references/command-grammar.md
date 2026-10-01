@@ -114,7 +114,7 @@ that support it (see [capability-map.md](capability-map.md)).
 | `comment` | add a comment      | Word, Excel | `comment <cell> "text"` or `comment "anchor" "text"`                                                  |
 | `format`  | format cells       | Excel       | `format <range> k=v …` — keys: `bold italic fill numberFormat fontColor align valign border borderColor` |
 | `reply`   | reply to a comment | Word, Excel | `reply <commentId> "text"`                                                                            |
-| `slide`   | insert a slide     | PowerPoint  | `slide "Title" "bullet" …` or `slide "Title" ($rows \| select a,b)`                                   |
+| `slide`   | insert a slide     | PowerPoint  | `slide "Title" "bullet" … [at=N]` or `slide "Title" ($rows \| select a,b)` (`at=2` → new slide 2)     |
 | `page`    | append a page      | OneNote     | `page "Title" "body"`                                                                                 |
 | `mail`    | stage a reply      | Outlook     | `mail "body"` — reviewable, never auto-sent                                                           |
 | `compose` | draft a new email  | Outlook     | `compose "Subject" "body"` — recipients left to the user                                              |

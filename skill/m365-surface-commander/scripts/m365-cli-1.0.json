@@ -1798,8 +1798,8 @@
     },
     "slide": {
       "command": "slide",
-      "useWhen": "you need to add a new PowerPoint slide with a title and bullet points. For a native TABLE on a new slide use /add-table-slide slide=new title=\"…\" rows=\"a\\tb\\nc\\td\" instead (slide would flatten rows into bullets)",
-      "syntax": "slide \"Title\" \"bullet\" ... OR slide \"Title\" (<table expr>)",
+      "useWhen": "you need to add a new PowerPoint slide with a title and bullet points; at=N inserts it as slide N (at=2 → the new second slide), otherwise it is added at the end. For a native TABLE on a new slide use /add-table-slide slide=new title=\"…\" rows=\"a\\tb\\nc\\td\" instead (slide would flatten rows into bullets)",
+      "syntax": "slide \"Title\" \"bullet\" ... [at=N] OR slide \"Title\" (<table expr>) [at=N]",
       "discovery": [
         "outline or list",
         "read/search/inspect/properties the target"
@@ -1811,7 +1811,8 @@
       ],
       "examples": [
         "slide \"Q4 plan\" \"Hire 5 engineers\" \"Ship firmware 4.2\"",
-        "slide \"Title\" \"bullet\" ... OR slide \"Title\" (<table expr>)"
+        "slide \"Agenda\" \"Goals\" \"Timeline\" at=2",
+        "slide \"Title\" \"bullet\" ... [at=N] OR slide \"Title\" (<table expr>) [at=N]"
       ],
       "doNot": [
         "Do not write before reading.",

@@ -200,7 +200,7 @@ export type ParsedCommand =
   // `( <pipeline> )` / `$var` expression (evaluated at dry-run) as well as a quoted literal. The
   // anchor slots (title/subject) stay literal. `slide` bullets accept a table expression whose rows
   // become bullets (`bulletsExpr`).
-  | { verb: 'slide'; title: string; bullets: string[]; bulletsExpr?: ParsedExpr }
+  | { verb: 'slide'; title: string; bullets: string[]; bulletsExpr?: ParsedExpr; at?: number }
   | { verb: 'page'; title: string; body: string; bodyExpr?: ParsedExpr }
   | { verb: 'mail'; body: string; bodyExpr?: ParsedExpr }
   | { verb: 'post'; text: string; textExpr?: ParsedExpr }
@@ -312,6 +312,7 @@ export const ParsedCommandSchema: z.ZodType<ParsedCommand> = z.discriminatedUnio
     title: z.string(),
     bullets: z.array(z.string()),
     bulletsExpr: z.lazy(() => ParsedExprSchema).optional(),
+    at: z.number().int().positive().optional(),
   }),
   z.object({
     verb: z.literal('page'),
@@ -1281,32 +1282,46 @@ function parseReply(rest: string): ParsedCommand | CommandParseError {
 }
 
 /**
- * `slide "<title>" ["<bullet>" …]` OR `slide "<title>" (<table-expr>)` (`insert-slide`). The first
- * quoted string is the title; the bullets are EITHER zero-or-more quoted strings OR a single
- * composition expression (`( <pipeline> )` / `$var`) whose resulting table's rows become bullets at
- * dry-run (`bulletsExpr`). A missing/empty title or a non-quoted, non-expression tail is corrective.
+ * `slide "<title>" ["<bullet>" …] [at=N]` OR `slide "<title>" (<table-expr>) [at=N]`
+ * (`insert-slide`). The first quoted string is the title; the bullets are EITHER zero-or-more quoted
+ * strings OR a single composition expression (`( <pipeline> )` / `$var`) whose resulting table's
+ * rows become bullets at dry-run (`bulletsExpr`). `at=N` (1-based, first or last) makes the new slide
+ * slide N; without it the slide is appended. A missing/empty title or a non-quoted, non-expression
+ * tail is corrective.
  */
 function parseSlide(rest: string): ParsedCommand | CommandParseError {
   const usage =
-    'slide needs a quoted title and bullets (quoted strings or a table expression) — usage: slide "Title" "bullet one" "bullet two"  OR  slide "Title" ($rows | select a,b)';
-  const t = rest.trim();
+    'slide needs a quoted title and bullets (quoted strings or a table expression), plus optional at=N for the position — usage: slide "Title" "bullet one" "bullet two" at=2  OR  slide "Title" ($rows | select a,b)';
+  let t = rest.trim();
+  let at: number | undefined;
+  const lead = /^at=(\S*)\s+/i.exec(t);
+  const trail = lead ? null : /\s+at=(\S*)$/i.exec(t);
+  const atMatch = lead ?? trail;
+  if (atMatch) {
+    const value = atMatch[1] ?? '';
+    if (!/^[1-9]\d*$/.test(value))
+      return { error: `slide at= must be a slide number (1 = first), got "${value}"` };
+    at = Number(value);
+    t = (lead ? t.slice(atMatch[0].length) : t.slice(0, atMatch.index)).trim();
+  }
+  const position = at === undefined ? {} : { at };
   if (!t.startsWith('"')) return { error: usage };
   const title = scanQuoted(t, 0);
   if (!title) return { error: usage };
   if (title.value === '') return { error: 'slide title cannot be empty' };
 
   const tail = t.slice(title.end).trim();
-  if (tail === '') return { verb: 'slide', title: title.value, bullets: [] };
+  if (tail === '') return { verb: 'slide', title: title.value, bullets: [], ...position };
   // Expression bullets: a parenthesized pipeline or a bare `$var` (quoted bullets always start `"`).
   if (tail.startsWith('(') || tail.startsWith('$')) {
     const expr = parseEffectArg(tail);
     if (expr === undefined) return { error: usage };
     if (isExprParseError(expr)) return expr;
-    return { verb: 'slide', title: title.value, bullets: [], bulletsExpr: expr };
+    return { verb: 'slide', title: title.value, bullets: [], bulletsExpr: expr, ...position };
   }
   const bullets = scanQuotedList(tail);
   if (!bullets) return { error: usage };
-  return { verb: 'slide', title: title.value, bullets };
+  return { verb: 'slide', title: title.value, bullets, ...position };
 }
 
 /**
@@ -1983,8 +1998,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'slide':
       return {
         verb: 'slide',
-        usage: 'slide "Title" "bullet" ...  OR  slide "Title" (<table expr>)',
-        hint: 'add a slide; bullets can be a table expression, e.g. slide "Top accounts" ($rows | select name,arr)',
+        usage: 'slide "Title" "bullet" ... [at=N]  OR  slide "Title" (<table expr>) [at=N]',
+        hint: 'add a slide (at=N makes it slide N; default: the end); bullets can be a table expression, e.g. slide "Top accounts" ($rows | select name,arr) at=2',
       };
     case 'page':
       return {

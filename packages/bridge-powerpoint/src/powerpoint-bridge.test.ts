@@ -76,6 +76,8 @@ interface DeckSeed {
   insertedDeckOptions: PowerPoint.InsertSlideOptions[];
   /** Shapes a `slides.add()` slide gets from the default layout (default: title + body placeholders). */
   newSlideShapes?: ShapeSeed[];
+  /** Make `Slide.moveTo` fail its sync, like a host that rejects the move. */
+  failMoveTo?: boolean;
   addedShapes: Array<{
     slideId: string;
     kind: 'textBox' | 'geometric' | 'line' | 'table';
@@ -404,6 +406,16 @@ class FakeSlide {
   }
   get shapes(): FakeShapeCollection {
     return new FakeShapeCollection(this.slide, this.seed, this.slide.id, this.guard);
+  }
+  /** `Slide.moveTo` (PowerPointApi 1.8): reorders the deck. */
+  moveTo(slideIndex: number): void {
+    if (this.seed.failMoveTo) {
+      pendingHostError = 'GeneralException';
+      return;
+    }
+    const from = this.seed.slides.indexOf(this.slide);
+    this.seed.slides.splice(from, 1);
+    this.seed.slides.splice(slideIndex, 0, this.slide);
   }
   setSelectedShapes(shapeIds: string[]): void {
     this.seed.selectedIndices = [this.index];
@@ -1390,6 +1402,56 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     // Title placeholder untouched (empty); bullets written to the body placeholder.
     expect(appended?.shapes[0]?.text).toBe('');
     expect(appended?.shapes[1]?.text).toBe('Only a bullet');
+  });
+});
+
+describe('PowerPointBridge.actuate insert-slide (at a position)', () => {
+  it('moves the new slide to the requested position after writing its text', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const before = d.slides.map((s) => s.id);
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Agenda', bullets: ['Goals'] }, target: { slideIndex: 1 } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(res.error).toBeUndefined();
+    expect(d.slides[1]?.shapes[0]?.text).toBe('Agenda');
+    expect(d.slides[1]?.shapes[1]?.text).toBe('Goals');
+    expect(d.slides.filter((s) => before.includes(s.id)).map((s) => s.id)).toEqual(before);
+    expect(d.slides[0]?.id).toBe(before[0]);
+  });
+
+  it('appends when the position is past the end', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Last', bullets: [] }, target: { slideIndex: 99 } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Last');
+  });
+
+  it('refuses cleanly, writing nothing, on a host without Slide.moveTo', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d, { requirements: { PowerPointApi: 1.5 } });
+    const before = d.slides.length;
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Agenda', bullets: [] }, target: { slideIndex: 1 } }),
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error?.code).toBe('unsupported');
+    expect(d.slides.length).toBe(before);
+  });
+
+  it('reports an unconfirmed move as landed-but-uncertain, never as plain success', async () => {
+    const d = { ...deck(SAMPLE_SLIDES, [0]), failMoveTo: true };
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Agenda', bullets: [] }, target: { slideIndex: 1 } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(res.error?.code).toBe('not_moved');
+    expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Agenda');
   });
 });
 

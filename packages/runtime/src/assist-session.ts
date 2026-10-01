@@ -3464,10 +3464,11 @@ function renderCommandLine(
       return `format ${command.range} ${props}`;
     }
     case 'slide': {
+      const at = command.at !== undefined ? ` at=${command.at}` : '';
       if (command.bulletsExpr)
-        return `slide "${command.title}" ${renderExprArg(command.bulletsExpr)}`;
+        return `slide "${command.title}" ${renderExprArg(command.bulletsExpr)}${at}`;
       const bullets = command.bullets.map((b) => `"${b}"`).join(' ');
-      return bullets ? `slide "${command.title}" ${bullets}` : `slide "${command.title}"`;
+      return (bullets ? `slide "${command.title}" ${bullets}` : `slide "${command.title}"`) + at;
     }
     case 'page': {
       const body = command.bodyExpr ? renderExprArg(command.bodyExpr) : `"${command.body}"`;

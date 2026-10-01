@@ -392,6 +392,21 @@ export class PowerPointBridge implements DocBridge {
     // work; the slide gets its real id once the request completes. So: find the new slide's
     // POSITION by the one id that is new (never a stale index — a co-author's concurrent add must
     // not redirect the text), write to it by position, and read its real id back afterwards.
+    // `at=N`: the host only appends, so the slide is moved into place after its text lands. Check
+    // the move API before anything is written, so an old host fails cleanly instead of half-done.
+    if (plan.targetIndex !== undefined && !isSet('PowerPointApi', '1.8')) {
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        error: {
+          code: 'unsupported',
+          message:
+            'This PowerPoint version cannot place a new slide at a position (needs PowerPointApi 1.8). ' +
+            'Add it without at= (it goes at the end) and tell the user to move it.',
+        },
+      };
+    }
     let newIndex: number | undefined;
     const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
       try {
@@ -401,6 +416,29 @@ export class PowerPointBridge implements DocBridge {
         await writeComposedSlide(ctx, index, shapes, plan.title, plan.bullets);
         await ctx.sync();
         newIndex = index;
+        // A position past the end means "append": the slide is already there.
+        if (plan.targetIndex !== undefined && plan.targetIndex < index) {
+          try {
+            ctx.presentation.slides.getItemAt(index).moveTo(plan.targetIndex);
+            await ctx.sync();
+            newIndex = plan.targetIndex;
+          } catch (error) {
+            // The slide and its text landed at the end; only the move is unconfirmed.
+            return {
+              ok: true,
+              changeId: req.changeId,
+              kind: req.kind,
+              location: `slide:${provisionalId}`,
+              error: {
+                code: 'not_moved',
+                message:
+                  `The slide was added at the end (slide ${index + 1}) but PowerPoint did not confirm ` +
+                  `moving it to slide ${plan.targetIndex + 1}${hostErrorSuffix(error)}. ` +
+                  'Inspect the deck before trying again.',
+              },
+            };
+          }
+        }
         return {
           ok: true,
           changeId: req.changeId,

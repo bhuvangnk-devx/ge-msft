@@ -1227,6 +1227,36 @@ describe('command-grammar — ADR-0006 CLI parity verbs (slide/page/mail/post)',
       bullets: ['up 12%', 'churn down'],
     });
   });
+  it('slide takes an optional at=N position, first or last, and rejects a non-number', () => {
+    expect(parseCommandLine('slide "Agenda" "Goals" "Timeline" at=2')).toEqual({
+      verb: 'slide',
+      title: 'Agenda',
+      bullets: ['Goals', 'Timeline'],
+      at: 2,
+    });
+    expect(parseCommandLine('slide at=1 "Cover"')).toEqual({
+      verb: 'slide',
+      title: 'Cover',
+      bullets: [],
+      at: 1,
+    });
+    expect(parseCommandLine('slide "Top" ($rows | select name) at=3')).toMatchObject({
+      verb: 'slide',
+      at: 3,
+    });
+    expect(parseCommandLine('slide "Meet at=5" "x"')).toEqual({
+      verb: 'slide',
+      title: 'Meet at=5',
+      bullets: ['x'],
+    });
+    expect(parseCommandLine('slide "Agenda" at=0')).toMatchObject({
+      error: expect.stringContaining('at= must be a slide number'),
+    });
+    expect(parseCommandLine('slide "Agenda" at=second')).toMatchObject({
+      error: expect.stringContaining('at= must be a slide number'),
+    });
+  });
+
   it('slide: title only (zero bullets)', () => {
     expect(parseCommandLine('slide "Just a title"')).toEqual({
       verb: 'slide',

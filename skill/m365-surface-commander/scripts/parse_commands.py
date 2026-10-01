@@ -700,10 +700,21 @@ def parse_line(line: str):
         return {"verb": verb, slot: q[0]}
 
     if verb == "slide":
+        at = None
+        m = re.match(r"^at=(\S*)\s+", rest.strip(), re.I) or re.search(r"\s+at=(\S*)$", rest.strip(), re.I)
+        if m:
+            if not re.fullmatch(r"[1-9]\d*", m.group(1)):
+                return {"error": f'slide at= must be a slide number (1 = first), got "{m.group(1)}"'}
+            at = int(m.group(1))
+            t = rest.strip()
+            rest = t[m.end():] if m.start() == 0 else t[: m.start()]
         qs = _QUOTED.findall(rest)
         if not qs:
-            return {"error": 'slide needs a quoted title — usage: slide "Title" "bullet" ...'}
-        return {"verb": "slide", "title": qs[0], "bullets": qs[1:]}
+            return {"error": 'slide needs a quoted title — usage: slide "Title" "bullet" ... [at=N]'}
+        out = {"verb": "slide", "title": qs[0], "bullets": qs[1:]}
+        if at is not None:
+            out["at"] = at
+        return out
 
     if verb == "shape":
         q = _QUOTED.search(rest)

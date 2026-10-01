@@ -248,6 +248,7 @@ export function compileCommand(
       // ({ title, bullets, notes? }) — see bridge-powerpoint planInsertSlide.
       return compileWrite(WRITE_VERB_TO_KIND.slide, ctx, {
         slide: { title: cmd.title, bullets: cmd.bullets },
+        ...(cmd.at !== undefined ? { target: { slideIndex: cmd.at - 1 } } : {}),
       });
     case 'page':
       // ADR-0006 OneNote `append-page`: the bridge takes the page title from `target.matchText`
