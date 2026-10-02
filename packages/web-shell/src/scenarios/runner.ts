@@ -28,8 +28,8 @@ import { installFakeWord, wordSeed } from '../test-harness/fake-word.js';
 import { liveFetch, loadShellEnv, scenarioAuth, type TranscriptEntry } from './live-env.js';
 
 export interface ScenarioExpect {
-  /** Final status of the last task (default "completed"). */
-  status?: RunRecord['status'];
+  /** Final status of the last task (default "completed"; "any" skips the check). */
+  status?: RunRecord['status'] | 'any';
   /** No error step and no panel error (default true). */
   noErrors?: boolean;
   /** Minimum number of applied changes per kind, e.g. { "format-cells": 1 }. */
@@ -42,6 +42,8 @@ export interface ScenarioExpect {
   formatsInclude?: string[];
   /** Case-insensitive text that must appear somewhere in the document afterwards. */
   documentIncludes?: string[];
+  /** Case-insensitive text that must NOT appear in the document afterwards. */
+  documentExcludes?: string[];
 }
 
 export interface Scenario {
@@ -273,7 +275,8 @@ function check(scenario: Scenario, r: ScenarioResult): string[] {
   const e = scenario.expect ?? {};
   const out: string[] = [];
   const status = e.status ?? 'completed';
-  if (r.status !== status) out.push(`status is ${r.status ?? 'none'}, expected ${status}`);
+  if (status !== 'any' && r.status !== status)
+    out.push(`status is ${r.status ?? 'none'}, expected ${status}`);
   if ((e.noErrors ?? true) && r.errors.length) out.push(`errors shown: ${r.errors.join(' | ')}`);
   for (const [kind, min] of Object.entries(e.applied ?? {})) {
     if ((r.applied[kind] ?? 0) < min)
@@ -297,6 +300,10 @@ function check(scenario: Scenario, r: ScenarioResult): string[] {
   const doc = JSON.stringify(r.document).toLowerCase();
   for (const text of e.documentIncludes ?? []) {
     if (!doc.includes(text.toLowerCase())) out.push(`document does not contain "${text}"`);
+  }
+  for (const text of e.documentExcludes ?? []) {
+    if (doc.includes(text.toLowerCase()))
+      out.push(`document contains "${text}", expected it absent`);
   }
   return out;
 }
