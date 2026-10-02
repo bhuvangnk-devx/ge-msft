@@ -100,6 +100,7 @@ export interface RangeFormatSeed {
   fontColor?: string;
   fontSize?: number;
   horizontalAlignment?: string;
+  verticalAlignment?: string;
   wrapText?: boolean;
   borders?: Record<string, Record<string, string>>;
   autofit?: boolean;
@@ -191,6 +192,7 @@ class FakeRange {
     },
     fill: { color: undefined as string | undefined },
     horizontalAlignment: undefined as string | undefined,
+    verticalAlignment: undefined as string | undefined,
     wrapText: undefined as boolean | undefined,
     borders: {
       getItem: (edge: string): Record<string, string> => {
@@ -332,6 +334,9 @@ class FakeRange {
       ...(this.format.font.size !== undefined ? { fontSize: this.format.font.size } : {}),
       ...(this.format.horizontalAlignment !== undefined
         ? { horizontalAlignment: this.format.horizontalAlignment }
+        : {}),
+      ...(this.format.verticalAlignment !== undefined
+        ? { verticalAlignment: this.format.verticalAlignment }
         : {}),
       ...(this.format.wrapText !== undefined ? { wrapText: this.format.wrapText } : {}),
       ...(this.edges.size > 0 ? { borders: Object.fromEntries(this.edges) } : {}),

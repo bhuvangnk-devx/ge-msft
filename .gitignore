@@ -39,3 +39,6 @@ __pycache__/
 
 # Cloud Run build context: copied from packages/web-shell/dist-web by the deploy workflow
 deploy/cloudrun/public/
+
+# Live scenario reports (contain Gemini transcripts)
+scenarios/.results/
