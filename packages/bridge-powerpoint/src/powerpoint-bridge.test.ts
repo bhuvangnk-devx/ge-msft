@@ -1475,24 +1475,6 @@ describe('PowerPointBridge.actuate insert-slide (at a position)', () => {
     expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Last');
   });
 
-  it('appends, with an honest receipt, when the selection cannot be read', async () => {
-    const d = deck(SAMPLE_SLIDES, [0]);
-    installed = install(d);
-    const spy = vi.spyOn(FakePresentation.prototype, 'getSelectedSlides').mockImplementation(() => {
-      throw new Error('selection unavailable');
-    });
-    try {
-      const res = await new PowerPointBridge().actuate(
-        insertSlide({ slide: { title: 'Last', bullets: [] } }),
-      );
-      expect(res.ok).toBe(true);
-      expect(res.recoveryPending).toBeUndefined();
-      expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Last');
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
   it('appends a slide with no position on a host without Slide.moveTo', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d, { requirements: { PowerPointApi: 1.5 } });

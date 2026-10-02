@@ -1767,8 +1767,7 @@ export class AssistSession {
     )
       plan.done = true;
 
-    // A rejected plan ran nothing, so there is nothing to verify (it ends the task below).
-    if (plan.finishVerified && !plan.rejected) {
+    if (plan.finishVerified) {
       const errors = plan.results.some(
         (result) =>
           result !== null &&
@@ -2420,7 +2419,7 @@ export class AssistSession {
       results[index] = result;
       yield { type: 'write-result', turn, changeId: effect.request.changeId, result };
     }
-    // True when an approver declined (or threw, which also fails closed), never for a missing one.
+    // True only for the user's own "no" (an approver that declined), never for a missing approver.
     return planApproved === false && opts.approvePlan !== undefined;
   }
 

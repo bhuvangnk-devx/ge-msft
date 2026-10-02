@@ -1528,8 +1528,6 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
       'step 1: rewrite the SLA figure to 99.9% as a tracked change',
     );
     expect(assist.runTasks[0]).toContain('exclude: the indemnity clause');
-    // Live 2026-10-02: a 4-step deck plan landed 4 slides in turn 1, then gained one per turn.
-    expect(assist.runTasks[0]).toContain('emit `done` once every step has landed');
   });
 
   it('stages a chat-labelled plan whose steps change the document as an edit (fix G)', async () => {

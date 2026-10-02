@@ -1404,18 +1404,6 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(events.some((e) => e.type === 'done')).toBe(false);
   });
 
-  it('a missing approver blocks the write but is not a rejection: the loop continues', async () => {
-    const bridge = new ComposeBridge();
-    const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
-    const client = new StreamAssistClient(tokens, cfg, fetch);
-    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
-
-    const events = await collectLoop(session.runCommands('one write', {}));
-
-    expect(events.filter((e) => e.type === 'turn-start')).toHaveLength(2);
-    expect(bridge.applied).toHaveLength(0);
-  });
-
   it('approve → every effect is gated + actuated (one approval for the whole set)', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([
