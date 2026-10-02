@@ -1088,19 +1088,24 @@ async function appendTargetSlideId(
 }
 
 /**
- * The position just after the last selected slide, or `undefined` (append) when nothing is selected
- * or the host cannot move slides (`getSelectedSlides` 1.5, `Slide.moveTo` 1.8).
+ * The position just after the last selected slide, or `undefined` (append) when nothing is selected,
+ * the selection cannot be read, or the host cannot move slides (`getSelectedSlides` 1.5,
+ * `Slide.moveTo` 1.8). Nothing is written yet, so a failed read must not become an uncertain write.
  */
 async function indexAfterSelection(ctx: PowerPoint.RequestContext): Promise<number | undefined> {
   if (!isSet('PowerPointApi', '1.8')) return undefined;
-  const selected = ctx.presentation.getSelectedSlides();
-  const slides = ctx.presentation.slides;
-  selected.load('items/id');
-  slides.load('items/id');
-  await ctx.sync();
-  const ids = slides.items.map((slide) => slide.id);
-  const last = Math.max(-1, ...selected.items.map((slide) => ids.indexOf(slide.id)));
-  return last < 0 ? undefined : last + 1;
+  try {
+    const selected = ctx.presentation.getSelectedSlides();
+    const slides = ctx.presentation.slides;
+    selected.load('items/id');
+    slides.load('items/id');
+    await ctx.sync();
+    const ids = slides.items.map((slide) => slide.id);
+    const last = Math.max(-1, ...selected.items.map((slide) => ids.indexOf(slide.id)));
+    return last < 0 ? undefined : last + 1;
+  } catch {
+    return undefined;
+  }
 }
 
 interface PowerPointRevealTarget {
@@ -1714,7 +1719,6 @@ function hostErrorSuffix(error: unknown): string {
   return typeof code === 'string' && /^[\w.-]{1,64}$/.test(code) ? ` (PowerPoint: ${code})` : '';
 }
 
-/** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
 /** Best effort: the slide was written either way, so a failed selection only loses placement. */
 async function selectSlide(slideId: string): Promise<void> {
   try {
@@ -1727,6 +1731,7 @@ async function selectSlide(slideId: string): Promise<void> {
   }
 }
 
+/** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
 async function readSlideIdAt(index: number): Promise<string | undefined> {
   try {
     return await PowerPoint.run(async (ctx) => {

@@ -382,6 +382,7 @@ function renderConfirmedPlanTask(pending: PendingCommandPlan): string {
   const lines: string[] = [
     'Execute this user-confirmed plan in the open Microsoft 365 surface.',
     'Treat the plan as approved intent only: read live host content before any write, respect exclusions, emit only the supported cmd protocol, and let the normal preview/approval gate run.',
+    'Each step runs once: check the effects already landed before a write, never repeat a landed step or add work the steps do not ask for, and emit `done` once every step has landed.',
     '',
     CONFIRMED_PLAN_OPEN,
     `original_request: ${task}`,
