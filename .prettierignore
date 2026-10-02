@@ -25,3 +25,4 @@ skill/m365-surface-commander/scripts/m365-cli-1.0.json
 
 # Exploratory probe harnesses (authored artifacts — kept verbatim, not reformatted)
 scripts
+deploy/cloudrun/public

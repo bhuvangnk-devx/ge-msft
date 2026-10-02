@@ -168,15 +168,48 @@ const MAX_REPAIR_TURNS = 2;
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
 const DEFAULT_MAX_WRITES_PER_TURN = 8;
 /**
- * Host replies meaning "this verb cannot apply to this item" (nothing was written). Only these may
- * be excused by a different-kind recovery; guardrail and admission blocks never are.
+ * Clean host rejections (nothing was written) that a different-kind write landing in a LATER turn,
+ * followed by a finish, may excuse: the model read the corrective and recovered another way.
+ * - wrong target: "this verb cannot apply to this item / host";
+ * - invalid request: "nothing usable in this request" (`no_format`: no valid format key; `no_text`,
+ *   `no_target`, `no_hits` …).
+ * Never listed: safety blocks (`unsafe_*`), admission/gate blocks, conflicts where the document
+ * changed (`target_conflict`, `anchor_drift`, `stale_*`, `*_gone`), limits and uncertain outcomes.
  */
 const WRONG_TARGET_CODES = new Set([
+  // wrong target / host
   'no_compose',
   'no_item',
   'unsupported',
   'unsupported_host',
   'onenote_unsupported',
+  // invalid request
+  'no_format',
+  'invalid_request',
+  'invalid_target',
+  'no_text',
+  'no_target',
+  'no_shape',
+  'no_hits',
+  'no_anchor',
+  'no_cells',
+  'no_table',
+  'no_style',
+  'no_selection',
+  'no_section',
+  'no_comment',
+  'no_body',
+  'no_subject',
+  'no_recipients',
+  'no_content',
+  'no_ooxml',
+  'no_hyperlink',
+  'no_content_control',
+  'no_find_replace',
+  'empty_slide',
+  'empty_synthesis',
+  'no_attachment',
+  // not `invalid_attachment`: it also rejects non-https links (a scheme rule, not a typo).
 ]);
 
 /** Bound on one `share`'s content — the same cap `WorkspaceStore.save` applies to local artifacts. */
@@ -304,6 +337,8 @@ interface PlanState {
   landedInline: string[];
   /** Host reads executed this turn, whose results the model has not seen yet. */
   readsThisTurn: number;
+  /** The user rejected this turn's plan: the task ends instead of asking the model again. */
+  rejected?: boolean;
 }
 
 /** Max nesting depth for skill-call expansion — bounds recursive/mutually-recursive skills. */
@@ -1710,14 +1745,13 @@ export class AssistSession {
           dag,
           approvalClasses,
         };
-      for await (const ev of this.executePlan(
+      plan.rejected = yield* this.executePlan(
         turn,
         plan.planSlots,
         opts,
         plan.results,
         turnProvenance,
-      ))
-        yield ev;
+      );
     }
     // A batched `done` completes the task only when every result in this block succeeded; a
     // failed or capped write keeps the loop going so the model sees the receipt.
@@ -1775,6 +1809,8 @@ export class AssistSession {
       )
     )
       this.task.status = 'incomplete';
+    // A rejected plan ends the task: re-asking the model only re-proposes the change.
+    if (plan.rejected) return { results: plan.results, done: false, stopped: true };
     return {
       results: plan.results,
       done: plan.done,
@@ -2317,9 +2353,9 @@ export class AssistSession {
     opts: RunCommandsOptions,
     results: unknown[],
     turnProvenance: ProvenancePayload | undefined,
-  ): AsyncGenerator<CommandLoopEvent> {
+  ): AsyncGenerator<CommandLoopEvent, boolean> {
     const effects = planSlots.map((s) => s.effect);
-    if (!effects.length) return;
+    if (!effects.length) return false;
     await this.hooks.run(
       'plan:ready',
       { effects: effects.map((e) => e.request) },
@@ -2383,6 +2419,8 @@ export class AssistSession {
       results[index] = result;
       yield { type: 'write-result', turn, changeId: effect.request.changeId, result };
     }
+    // True only for the user's own "no" (an approver that declined), never for a missing approver.
+    return planApproved === false && opts.approvePlan !== undefined;
   }
 
   /** Call the plan approver defensively — a thrown approver fails closed (treated as a reject). */

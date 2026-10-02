@@ -24,6 +24,8 @@ module.exports = {
     'node_modules',
     'dist',
     'dist-web',
+    // scripts/cimb-release.sh copies the built app here before deploying (git-ignored).
+    'deploy/cloudrun/public',
     'build',
     'coverage',
     '*.cjs',

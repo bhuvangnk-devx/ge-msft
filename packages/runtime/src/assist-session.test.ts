@@ -1387,6 +1387,23 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(writes.every((w) => w.result.error?.code === 'plan_unapproved')).toBe(true);
   });
 
+  it('a rejected plan ends the task: no further model turn', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\nset A2 2\n```']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(
+      session.runCommands('one write', { approvePlan: () => false }),
+    );
+
+    expect(events.filter((e) => e.type === 'turn-start')).toHaveLength(1);
+    expect(bridge.applied).toHaveLength(0);
+    expect(writeResults(events)[0]?.result.error?.code).toBe('plan_unapproved');
+    // Nothing landed, so the task is not reported as done.
+    expect(events.some((e) => e.type === 'done')).toBe(false);
+  });
+
   it('approve → every effect is gated + actuated (one approval for the whole set)', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([
@@ -1633,6 +1650,39 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
 
     await collectLoop(session.runCommands('write', { approvePlan: () => true }));
     expect(session.executions.list().at(-1)?.status).toBe('incomplete');
+  });
+
+  it('an invalid-request rejection (no_format) recovered by another write later completes', async () => {
+    // Live 2026-10-02: format-shape → no_format, then set-shape-text applied, then "Task blocked".
+    const bridge = new RejectFirstBridge({
+      error: { code: 'no_format', message: 'no recognized format property' },
+    });
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('a document-changed conflict (target_conflict) is not excused by another kind', async () => {
+    const bridge = new RejectFirstBridge({
+      error: { code: 'target_conflict', message: 'the target changed' },
+    });
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).not.toBe('completed');
   });
 
   it('a guardrail block is never excused by a later different-kind success', async () => {
