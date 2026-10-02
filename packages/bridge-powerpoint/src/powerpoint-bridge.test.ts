@@ -1363,7 +1363,7 @@ describe('PowerPointBridge.actuate insert-slide (base64 prebuilt deck)', () => {
 
 describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
   it('appends a slide and writes the title into shape[0] and bullets into shape[1]', async () => {
-    const d = deck(SAMPLE_SLIDES, [0]);
+    const d = deck(SAMPLE_SLIDES);
     installed = install(d);
     const before = d.slides.length;
     const res = await new PowerPointBridge().actuate(
@@ -1441,6 +1441,49 @@ describe('PowerPointBridge.actuate insert-slide (at a position)', () => {
     expect(res.ok).toBe(false);
     expect(res.error?.code).toBe('unsupported');
     expect(d.slides.length).toBe(before);
+  });
+
+  it('puts a slide with no position right after the selected slide', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const before = d.slides.map((s) => s.id);
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Next', bullets: [] } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(res.error).toBeUndefined();
+    expect(d.slides[1]?.shapes[0]?.text).toBe('Next');
+    expect(d.slides.filter((s) => before.includes(s.id)).map((s) => s.id)).toEqual(before);
+  });
+
+  it('keeps several new slides in order after the selected slide', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const bridge = new PowerPointBridge();
+    for (const title of ['A', 'B', 'C'])
+      await bridge.actuate(insertSlide({ slide: { title, bullets: [] } }, `chg-${title}`));
+    expect(d.slides.slice(1, 4).map((s) => s.shapes[0]?.text)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('appends a slide with no position when no slide is selected', async () => {
+    const d = deck(SAMPLE_SLIDES, []);
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Last', bullets: [] } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Last');
+  });
+
+  it('appends a slide with no position on a host without Slide.moveTo', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d, { requirements: { PowerPointApi: 1.5 } });
+    const res = await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Last', bullets: [] } }),
+    );
+    expect(res.ok).toBe(true);
+    expect(res.error).toBeUndefined();
+    expect(d.slides.at(-1)?.shapes[0]?.text).toBe('Last');
   });
 
   it('reports an unconfirmed move as landed-but-uncertain, never as plain success', async () => {

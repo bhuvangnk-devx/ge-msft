@@ -364,7 +364,7 @@ export const COMMAND_HELP = {
     ...genericWrite(
       'slide',
       'slide "Title" "bullet" ... [at=N] OR slide "Title" (<table expr>) [at=N]',
-      'you need to add a new PowerPoint slide with a title and bullet points; at=N inserts it as slide N (at=2 → the new second slide), otherwise it is added at the end. For a native TABLE on a new slide use /add-table-slide slide=new title="…" rows="a\\tb\\nc\\td" instead (slide would flatten rows into bullets)',
+      'you need to add a new PowerPoint slide with a title and bullet points; at=N inserts it as slide N (at=2 → the new second slide); without at= it goes right after the current (selected) slide, or at the end when none is selected. For "at the end" pass at=<slide count + 1>. For a native TABLE on a new slide use /add-table-slide slide=new title="…" rows="a\\tb\\nc\\td" instead (slide would flatten rows into bullets)',
     ),
     // A concrete line first: command cards show the first example free of `<placeholders>`.
     examples: [

@@ -194,3 +194,12 @@ Validation: 2,671 Vitest tests passed, 16 optional live tests skipped (198 files
 builds, TypeScript, ESLint, Prettier, frozen lockfile, generated-resource checks, 46 Python tests,
 71 parity cases, 14 deterministic eval cases, and three source-exact skill archives passed.
 Security review closed all concrete findings. Live Office/tenant acceptance remains tracked above.
+
+## PowerPoint slide placement — October 2026
+
+- [x] `slide` without `at=` lands right after the selected slide (append when nothing is selected
+      or the host lacks PowerPointApi 1.8); help text and skill semantics say so.
+- [ ] **Next: `move-slide`.** Reorder an existing slide ("move slide 2 to the end"): bridge handler
+      on `Slide.moveTo` (1.8) with a verified post-move order, `move-slide` inverse (`toIndex`, already
+      in `capability.ts`), advertised verb + regenerated CLI/skill metadata, bridge tests. Also fix
+      `docs/CAPABILITY-CATALOG.md`, which lists it as available "now" though no handler exists.
