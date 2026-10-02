@@ -34,6 +34,8 @@ export interface ScenarioExpect {
   noErrors?: boolean;
   /** Minimum number of applied changes per kind, e.g. { "format-cells": 1 }. */
   applied?: Record<string, number>;
+  /** At least one change of ANY of these kinds (for vague asks with several valid answers). */
+  appliedAny?: string[];
   /** Kinds that must not be applied. */
   notApplied?: string[];
   /** Case-insensitive text the final answer must contain. */
@@ -281,6 +283,9 @@ function check(scenario: Scenario, r: ScenarioResult): string[] {
   for (const [kind, min] of Object.entries(e.applied ?? {})) {
     if ((r.applied[kind] ?? 0) < min)
       out.push(`applied ${r.applied[kind] ?? 0} × ${kind}, expected ≥ ${min}`);
+  }
+  if (e.appliedAny?.length && !e.appliedAny.some((kind) => (r.applied[kind] ?? 0) > 0)) {
+    out.push(`none of ${e.appliedAny.join(', ')} was applied`);
   }
   for (const kind of e.notApplied ?? []) {
     if (r.applied[kind]) out.push(`${kind} was applied ${r.applied[kind]} time(s), expected none`);
