@@ -133,8 +133,13 @@ function requestRe(verbs: string, tail = ''): RegExp {
   return new RegExp(String.raw`^\s*` + LEAD_IN + String.raw`(?:${verbs})\b` + tail, 'i');
 }
 
+/** Indonesian verbs that CREATE something (make/add/insert/compose) — not delete or change. */
+const ID_CREATE_VERBS =
+  'buat|buatkan|membuat|bikin|bikinkan|jadikan|tambah|tambahkan|menambah|menambahkan|' +
+  'sisipkan|menyisipkan|masukkan|memasukkan|susun|menyusun|draf|drafkan';
+
 const EXCEL_CHART_CREATE_RE = requestRe(
-  'create|make|insert|add|build|generate|plot|visuali[sz]e|' + ID_ACTION_VERBS,
+  'create|make|insert|add|build|generate|plot|visuali[sz]e|' + ID_CREATE_VERBS,
   String.raw`[\s\S]*\b(?:chart|graph|visuali[sz]ation|grafik|diagram|bagan)\b`,
 );
 const EXCEL_CHART_CONVERT_RE = requestRe(
@@ -160,12 +165,22 @@ const WORD_REWRITE_RE = requestRe(
   'rewrite|revise|tighten|edit|replace|improve',
   String.raw`[\s\S]*\b(?:selection|selected text|paragraph|text|wording|clause|sentence)\b`,
 );
+/** Indonesian: "tulis ulang / perbaiki / revisi … teks|paragraf|kalimat|klausul|yang dipilih". */
+const WORD_REWRITE_ID_RE = requestRe(
+  'tulis\\s+ulang|tuliskan\\s+ulang|perbaiki|revisi|sunting|perhalus|perjelas|persingkat|rapikan',
+  String.raw`[\s\S]*\b(?:teks|tulisan|paragraf|kalimat|klausul|kata-kata|pilihan|bagian|dipilih)\b`,
+);
 const WORD_REVIEW_RE = requestRe(
   'review|comment|flag|mark',
   String.raw`[\s\S]*\b(?:issue|issues|risk|risks|gap|gaps|claim|claims|comment|comments)\b`,
 );
+/** Indonesian: "tinjau / tandai / komentari … klaim|risiko|masalah|celah|komentar". */
+const WORD_REVIEW_ID_RE = requestRe(
+  'tinjau|tandai|komentari|beri\\s+komentar',
+  String.raw`[\s\S]*\b(?:klaim|risiko|masalah|celah|isu|komentar)\b`,
+);
 const POWERPOINT_DRAFT_RE = requestRe(
-  'create|make|insert|add|build|generate|draft|' + ID_ACTION_VERBS,
+  'create|make|insert|add|build|generate|draft|' + ID_CREATE_VERBS,
   String.raw`[\s\S]*\b(?:slides?|salindia)\b`,
 );
 const OUTLOOK_DRAFT_RE = requestRe(
@@ -206,8 +221,16 @@ export function inferImplicitIntent(
       }
       return undefined;
     case 'word':
-      if (intentAllowed('rewrite', allowedIntents) && WORD_REWRITE_RE.test(raw)) return 'rewrite';
-      if (intentAllowed('review', allowedIntents) && WORD_REVIEW_RE.test(raw)) return 'review';
+      if (
+        intentAllowed('rewrite', allowedIntents) &&
+        (WORD_REWRITE_RE.test(raw) || WORD_REWRITE_ID_RE.test(raw))
+      )
+        return 'rewrite';
+      if (
+        intentAllowed('review', allowedIntents) &&
+        (WORD_REVIEW_RE.test(raw) || WORD_REVIEW_ID_RE.test(raw))
+      )
+        return 'review';
       return undefined;
     case 'powerpoint':
       return intentAllowed('draft', allowedIntents) && POWERPOINT_DRAFT_RE.test(raw)
@@ -231,9 +254,14 @@ function hasActuatingIntent(allowedIntents: Iterable<Intent> | undefined): boole
   return false;
 }
 
-/** Text that reads as a question or a request for an explanation, which plain chat answers. */
-const QUESTION_RE =
-  /^\s*(?:(?:ok(?:ay)?|so|hey|hi)[\s,]+)?(?:(?:can|could|would)\s+you\s+(?:tell|explain|describe|summari[sz]e)\b|who|what|what's|when|where|which|why|how|is|are|was|were|does|did|should|summari[sz]e|explain|tell\s+me|describe|compare)\b/i;
+/** Text that reads as a question or a request for an explanation, which plain chat answers (EN + ID). */
+const QUESTION_RE = new RegExp(
+  String.raw`^\s*(?:(?:ok(?:ay)?|so|hey|hi|halo|hai|tolong|mohon|coba)[\s,]+)?` +
+    String.raw`(?:(?:can|could|would)\s+you\s+(?:tell|explain|describe|summari[sz]e)\b|who|what|what's|when|where|which|why|how|is|are|was|were|does|did|should|summari[sz]e|explain|tell\s+me|describe|compare` +
+    // Indonesian (CIMB): question words, and "explain / summarize / list / compare / tell".
+    String.raw`|(?:bisa|bisakah)\s+(?:kamu\s+|anda\s+)?(?:jelaskan|ringkas(?:kan)?|ceritakan)\b|apa|apakah|bagaimana|gimana|kenapa|mengapa|siapa|kapan|berapa|di\s*mana|mana|jelaskan|terangkan|ringkas(?:kan)?|rangkum(?:kan)?|sebutkan|bandingkan|ceritakan)\b`,
+  'i',
+);
 
 /**
  * Thin router predicate, not an intent classifier. It decides only whether free text goes to the
