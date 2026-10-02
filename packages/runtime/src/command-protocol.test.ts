@@ -951,6 +951,15 @@ describe('compileCommand', () => {
         fill: '#123456',
       },
     );
+    // Live: `/format-shape slide=1 shape=title fontColor=#002060 bold=true` applied the colour but
+    // silently dropped bold.
+    expect(
+      compile(
+        '/format-shape slide=1 shape=title fontColor=#002060 bold=true italic=true underline=true size=24',
+      ).shapeFormat,
+    ).toEqual({
+      font: { color: '#002060', bold: true, italic: true, underline: true, size: 24 },
+    });
   });
 
   it('compiles specialized /format-shape into typed PowerPoint shape formatting params', () => {
@@ -2118,6 +2127,19 @@ describe('AssistSession.runCommands — the bounded command loop', () => {
     );
     expect(bridge.applied).toHaveLength(3);
     expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('names the exact held-back command so the model can resend it', async () => {
+    const bridge = new FakeExcelBridge();
+    const { client, queries } = fakeClient([
+      '```cmd\nset A1 1\nset A2 2\nformat Sales!A1:C1 bold=true fill=#1F4E79\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const session = new AssistSession(bridge, client, { unit });
+    await collect(
+      session.runCommands('write and format', { approveWrite: () => true, maxWritesPerTurn: 2 }),
+    );
+    expect(queries[1]).toContain('resend exactly: format Sales!A1:C1 bold=true fill=#1F4E79');
   });
 
   it('stays incomplete when a capped write is never sent again', async () => {

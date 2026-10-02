@@ -623,6 +623,15 @@ function paramsFromInvoke(
       // them far more often than `fontColor=`, which used to leave the text unchanged.
       const textColor = style.textColor ?? style.color;
       if (textColor && !style.fontColor) style.fontColor = textColor;
+      // Same for bare `bold=` / `italic=` / `underline=` / `size=`, which were silently dropped.
+      for (const [bare, key] of [
+        ['bold', 'fontBold'],
+        ['italic', 'fontItalic'],
+        ['underline', 'fontUnderline'],
+        ['size', 'fontSize'],
+      ] as const) {
+        if (style[bare] !== undefined && style[key] === undefined) style[key] = style[bare];
+      }
       p.shapeFormat = {
         ...((style.fill ?? style.fillColor) ? { fill: style.fill ?? style.fillColor } : {}),
         ...((style.line ?? style.lineColor) ? { line: style.line ?? style.lineColor } : {}),

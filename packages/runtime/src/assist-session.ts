@@ -2168,7 +2168,7 @@ export class AssistSession {
             : WRITE_VERB_TO_KIND[command.verb],
         error: {
           code: 'write_cap',
-          message: `write cap (${plan.maxWrites}/turn) reached — not applied yet; send this command again in your next block`,
+          message: `write cap (${plan.maxWrites}/turn) reached — not applied yet; in your next block resend exactly: ${commandText(command)}`,
         },
       };
       plan.results[slotIndex] = advisory(capped);
@@ -4059,4 +4059,22 @@ function framedRead(read: ResolvedContext, id: string): ResolvedContext {
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 function effectKey(request: ActuationRequest): string {
   return JSON.stringify({ kind: request.kind, surface: request.surface, params: request.params });
+}
+
+/** Command text for a held-back write, so the model can resend it verbatim. */
+function commandText(command: ParsedCommand): string {
+  const quote = (v: string): string => (/[\s"]/.test(v) ? JSON.stringify(v) : v);
+  const c = command as ParsedCommand & Record<string, unknown>;
+  if (c.verb === 'format' && typeof c.range === 'string' && c.props) {
+    const props = Object.entries(c.props as Record<string, string>)
+      .map(([k, v]) => `${k}=${quote(v)}`)
+      .join(' ');
+    return `format ${c.range} ${props}`;
+  }
+  if (c.verb === 'set' && typeof c.cell === 'string')
+    return `set ${c.cell} ${String(c.value ?? '')}`;
+  const target = ['range', 'cell', 'selector', 'slide', 'title'].find(
+    (key) => typeof c[key] === 'string',
+  );
+  return target ? `${c.verb} ${String(c[target])} …` : `${c.verb} …`;
 }
