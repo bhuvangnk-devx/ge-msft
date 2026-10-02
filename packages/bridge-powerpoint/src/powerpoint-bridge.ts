@@ -408,15 +408,8 @@ export class PowerPointBridge implements DocBridge {
       };
     }
     let newIndex: number | undefined;
-    let placedBySelection = false;
     const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
       try {
-        // No `at=`: the slide goes right after the selected one ("add a slide" while on slide 1 →
-        // slide 2). Read before appending; with no selection or no move API it is appended.
-        const afterSelection =
-          plan.targetIndex === undefined ? await indexAfterSelection(ctx) : undefined;
-        placedBySelection = afterSelection !== undefined;
-        const targetIndex = plan.targetIndex ?? afterSelection;
         const added = await appendSlide(ctx);
         if ('error' in added) return unknownActuationResult(req, added.error);
         const { index, provisionalId, shapes } = added;
@@ -424,11 +417,11 @@ export class PowerPointBridge implements DocBridge {
         await ctx.sync();
         newIndex = index;
         // A position past the end means "append": the slide is already there.
-        if (targetIndex !== undefined && targetIndex < index) {
+        if (plan.targetIndex !== undefined && plan.targetIndex < index) {
           try {
-            ctx.presentation.slides.getItemAt(index).moveTo(targetIndex);
+            ctx.presentation.slides.getItemAt(index).moveTo(plan.targetIndex);
             await ctx.sync();
-            newIndex = targetIndex;
+            newIndex = plan.targetIndex;
           } catch (error) {
             // The slide and its text landed at the end; only the move is unconfirmed.
             return {
@@ -440,7 +433,7 @@ export class PowerPointBridge implements DocBridge {
                 code: 'not_moved',
                 message:
                   `The slide was added at the end (slide ${index + 1}) but PowerPoint did not confirm ` +
-                  `moving it to slide ${targetIndex + 1}${hostErrorSuffix(error)}. ` +
+                  `moving it to slide ${plan.targetIndex + 1}${hostErrorSuffix(error)}. ` +
                   'Inspect the deck before trying again.',
               },
             };
@@ -464,9 +457,6 @@ export class PowerPointBridge implements DocBridge {
     if (!result.ok || newIndex === undefined) return result;
     // Best effort: report the slide's settled id (the one `outline` and later commands will see).
     const settledId = await readSlideIdAt(newIndex);
-    // Select the new slide, as PowerPoint does, so the next slide of a multi-slide plan lands after
-    // it rather than after the original selection (which would reverse their order).
-    if (settledId && placedBySelection && !result.error) await selectSlide(settledId);
     return settledId ? { ...result, location: `slide:${settledId}` } : result;
   }
 
@@ -1087,22 +1077,6 @@ async function appendTargetSlideId(
   return slide.id;
 }
 
-/**
- * The position just after the last selected slide, or `undefined` (append) when nothing is selected
- * or the host cannot move slides (`getSelectedSlides` 1.5, `Slide.moveTo` 1.8).
- */
-async function indexAfterSelection(ctx: PowerPoint.RequestContext): Promise<number | undefined> {
-  if (!isSet('PowerPointApi', '1.8')) return undefined;
-  const selected = ctx.presentation.getSelectedSlides();
-  const slides = ctx.presentation.slides;
-  selected.load('items/id');
-  slides.load('items/id');
-  await ctx.sync();
-  const ids = slides.items.map((slide) => slide.id);
-  const last = Math.max(-1, ...selected.items.map((slide) => ids.indexOf(slide.id)));
-  return last < 0 ? undefined : last + 1;
-}
-
 interface PowerPointRevealTarget {
   slideId: string;
   shapeId?: string;
@@ -1715,18 +1689,6 @@ function hostErrorSuffix(error: unknown): string {
 }
 
 /** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
-/** Best effort: the slide was written either way, so a failed selection only loses placement. */
-async function selectSlide(slideId: string): Promise<void> {
-  try {
-    await PowerPoint.run(async (ctx) => {
-      ctx.presentation.setSelectedSlides([slideId]);
-      await ctx.sync();
-    });
-  } catch {
-    // Ignored: see above.
-  }
-}
-
 async function readSlideIdAt(index: number): Promise<string | undefined> {
   try {
     return await PowerPoint.run(async (ctx) => {
