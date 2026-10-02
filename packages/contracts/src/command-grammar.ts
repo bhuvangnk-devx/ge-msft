@@ -1286,12 +1286,14 @@ function parseReply(rest: string): ParsedCommand | CommandParseError {
  * so a read-only question ("read the last row") ends with its answer, not a bare "Done".
  */
 function parseDone(rest: string): ParsedCommand | CommandParseError {
-  const usage = 'done takes an optional quoted answer — usage: done  OR  done "The last row is …"';
+  // Never a corrective: `done — all 4 slides added` must still finish (a rejected done kept the loop
+  // running and the model adding slides). Only a quoted answer is shown; other trailing text is
+  // ignored, as it always was.
   const t = rest.trim();
-  if (t === '') return { verb: 'done' };
-  const message = scanQuoted(t, 0);
-  if (!message || t.slice(message.end).trim() !== '') return { error: usage };
-  return message.value.trim() === '' ? { verb: 'done' } : { verb: 'done', message: message.value };
+  const message = t.startsWith('"') ? scanQuoted(t, 0) : null;
+  return message && message.value.trim() !== ''
+    ? { verb: 'done', message: message.value }
+    : { verb: 'done' };
 }
 
 /**

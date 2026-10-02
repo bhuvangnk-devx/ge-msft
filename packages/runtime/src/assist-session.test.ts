@@ -11,7 +11,12 @@ import type {
 import { asChangeId, asSessionId } from '@ge/contracts';
 import { StreamAssistClient } from '@ge/gemini-client';
 import type { DocStateSnapshot } from '@ge/contracts';
-import { AssistSession, DOC_STATE_REF_ID, READ_REF_PREFIX } from './assist-session.js';
+import {
+  AssistSession,
+  HOST_READ_TIMEOUT_MS,
+  DOC_STATE_REF_ID,
+  READ_REF_PREFIX,
+} from './assist-session.js';
 import type { CommandLoopEvent, PlanEffect } from './assist-session.js';
 import type { ReadIntent } from './command-protocol.js';
 import { BRIEF_REF_ID } from './context-model.js';
@@ -1745,6 +1750,29 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(done).toMatchObject({ message: 'The last row is Samarth, Pro' });
     expect(bridge.applied).toHaveLength(0);
     expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('a host snapshot that never settles is skipped after the read timeout, not a frozen task', async () => {
+    // Live 2026-10-02: PowerPoint for the web stalled reading the deck right after insert-slide.
+    vi.useFakeTimers();
+    try {
+      class StallingBridge extends ComposeBridge {
+        captureDocState(): Promise<DocStateSnapshot | undefined> {
+          return new Promise(() => {});
+        }
+      }
+      const bridge = new StallingBridge();
+      const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
+      const client = new StreamAssistClient(tokens, cfg, fetch);
+      const session = new AssistSession(bridge, client, { unit });
+      const run = collectLoop(session.runCommands('write', { approvePlan: () => true }));
+      await vi.advanceTimersByTimeAsync(HOST_READ_TIMEOUT_MS * 3);
+      await run;
+      expect(bridge.applied).toHaveLength(1);
+      expect(session.executions.list().at(-1)?.status).toBe('completed');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('refuses to re-apply a write identical to one that already landed in the task', async () => {

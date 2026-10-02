@@ -1133,7 +1133,7 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     'Program control: finish when=verified completes only after every effect verifies and no error remains. Use where host readback is supported.',
     // `done "<answer>"` answers a question (help done has the detail); kept as short as the line it replaced.
-    'Otherwise inspect the outcome; done (or done "<answer>"). Never claim unsupported verification. Always emit the closing fence.',
+    'Otherwise inspect the outcome; emit done alone when complete (done "<answer>" answers a question). Never claim unsupported verification. Always emit the closing fence.',
   );
   let prompt = lines.join('\n');
   // Rank on what the user asked for, never on the confirmed-plan wrapper's protocol wording.

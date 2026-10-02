@@ -1227,19 +1227,17 @@ describe('command-grammar — ADR-0006 CLI parity verbs (slide/page/mail/post)',
       bullets: ['up 12%', 'churn down'],
     });
   });
-  it('done takes an optional quoted answer and rejects anything else', () => {
+  it('done takes an optional quoted answer and never rejects trailing text', () => {
     expect(parseCommandLine('done')).toEqual({ verb: 'done' });
     expect(parseCommandLine('done "The last row is Samarth · Pro"')).toEqual({
       verb: 'done',
       message: 'The last row is Samarth · Pro',
     });
     expect(parseCommandLine('done ""')).toEqual({ verb: 'done' });
-    expect(parseCommandLine('done the last row')).toMatchObject({
-      error: expect.stringContaining('optional quoted answer'),
-    });
-    expect(parseCommandLine('done "a" "b"')).toMatchObject({
-      error: expect.stringContaining('optional quoted answer'),
-    });
+    // Trailing text still finishes (a rejected done kept a deck plan adding slides).
+    expect(parseCommandLine('done the last row')).toEqual({ verb: 'done' });
+    expect(parseCommandLine('done — all 4 slides added')).toEqual({ verb: 'done' });
+    expect(parseCommandLine('done "a" "b"')).toEqual({ verb: 'done', message: 'a' });
   });
 
   it('slide takes an optional at=N position, first or last, and rejects a non-number', () => {

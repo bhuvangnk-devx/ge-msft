@@ -212,6 +212,37 @@ const WRONG_TARGET_CODES = new Set([
   // not `invalid_attachment`: it also rejects non-https links (a scheme rule, not a typo).
 ]);
 
+/**
+ * Host reads (`context:*`: snapshot, list, resolve) give up after this long. A host call can stall
+ * without settling (live 2026-10-02: PowerPoint for the web after adding a slide) and would freeze
+ * the whole task. Writes are never raced: an Office write cannot be abandoned safely.
+ */
+export const HOST_READ_TIMEOUT_MS = 20_000;
+
+export class HostReadTimeoutError extends Error {
+  constructor(operation: string) {
+    super(
+      `The Office app did not answer ${operation} within ${HOST_READ_TIMEOUT_MS / 1000} s; ` +
+        'continuing without it.',
+    );
+    this.name = 'HostReadTimeoutError';
+  }
+}
+
+async function withHostReadTimeout<T>(operation: string, run: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      run(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new HostReadTimeoutError(operation)), HOST_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Bound on one `share`'s content — the same cap `WorkspaceStore.save` applies to local artifacts. */
 const MAX_SHARE_BYTES = 256 * 1024;
 /** The reserved suffix `share` writes its provenance companion under; a `name` may not target it. */
@@ -691,7 +722,9 @@ export class AssistSession {
     await this.hooks.run('tool:before', { name, args }, beforeContext);
     if (task) task.toolCalls++;
     try {
-      const result = await run();
+      const result = name.startsWith('context:')
+        ? await withHostReadTimeout(name, run)
+        : await run();
       // After-observers deliberately have no cancelled task signal: record successful work accurately.
       await this.hooks.run('tool:after', { name, result }, afterContext);
       return result;

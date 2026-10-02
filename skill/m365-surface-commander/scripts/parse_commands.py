@@ -452,10 +452,9 @@ def parse_line(line: str):
     if verb == "done":
         if not rest:
             return {"verb": "done"}
-        q = _scan_quoted(rest)
-        if not q or q[1]:
-            return {"error": 'done takes an optional quoted answer — usage: done  OR  done "The last row is …"'}
-        return {"verb": "done", "message": q[0]} if q[0].strip() else {"verb": "done"}
+        # Never an error: trailing text after done still finishes; only a quoted answer is kept.
+        q = _scan_quoted(rest) if rest.strip().startswith('"') else None
+        return {"verb": "done", "message": q[0]} if q and q[0].strip() else {"verb": "done"}
     if verb == "help":
         return {"verb": "help", **({"topic": rest} if rest else {})}
     if verb == "read":
