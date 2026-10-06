@@ -571,6 +571,8 @@ export class AssistSession {
   private task?: RunOutcome & { signal?: AbortSignal };
   /** Per task: the writes that already landed, so an identical re-issue is refused (see effectKey). */
   private readonly appliedWrites = new WeakMap<object, Set<string>>();
+  /** Writes whose outcome the host could not confirm, per task: an identical resend could duplicate. */
+  private readonly uncertainWrites = new WeakMap<object, Set<string>>();
   /** Per task: the model turn each effect was recorded in, parallel to `effects`. */
   private readonly effectTurns = new WeakMap<object, number[]>();
   private taskSequence = 0;
@@ -756,6 +758,10 @@ export class AssistSession {
       const keys = this.appliedWrites.get(this.task) ?? new Set<string>();
       keys.add(effectKey(request));
       this.appliedWrites.set(this.task, keys);
+    } else if (this.task && assessActuationResult(result) === 'uncertain') {
+      const keys = this.uncertainWrites.get(this.task) ?? new Set<string>();
+      keys.add(effectKey(request));
+      this.uncertainWrites.set(this.task, keys);
     }
     this.model.observe({ type: 'post-actuation', request, result });
     await this.hooks.run(
@@ -2203,6 +2209,14 @@ export class AssistSession {
       const error = `already applied: this exact ${resolved.request.kind} succeeded earlier in this task — do not repeat it; emit done if the task is complete`;
       // A decision already made, not a malformed line: it must not withhold the program's other
       // writes or count toward the repair budget (regression review of fix D, 2026-10-01).
+      plan.results[slotIndex] = advisory({ error });
+      yield { type: 'command', turn, command, compiled: { error } };
+      return;
+    }
+    if (this.task && this.uncertainWrites.get(this.task)?.has(effectKey(resolved.request))) {
+      // The host could not confirm this exact write earlier: it may have landed. Resending it can
+      // duplicate it (live 2026-10-06: the same three slides re-sent each turn).
+      const error = `outcome unknown: this exact ${resolved.request.kind} was sent earlier in this task and the host did not confirm it — it may already be in the document. Do not resend it; inspect the document (outline/read) first`;
       plan.results[slotIndex] = advisory({ error });
       yield { type: 'command', turn, command, compiled: { error } };
       return;

@@ -60,6 +60,25 @@ describe('MessageThread', () => {
     );
   });
 
+  it('shows a lively working indicator with an elapsed counter while a step is slow', () => {
+    vi.useFakeTimers();
+    try {
+      render([{ id: 'a1', role: 'assistant', text: '', streaming: true, activity: 'Planning…' }]);
+      expect(container.querySelectorAll('.typing-dots > i').length).toBe(3);
+      expect(container.querySelector('.activity-elapsed')).toBeNull();
+      act(() => vi.advanceTimersByTime(5000));
+      expect(container.querySelector('.activity-elapsed')?.textContent).toBe('5s');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows a streaming reply bubble (with its caret) before any text arrives', () => {
+    render([{ id: 'a1', role: 'assistant', text: '', streaming: true }]);
+    expect(container.querySelectorAll('.m.a').length).toBe(1);
+    expect(container.querySelector('.caret')).not.toBeNull();
+  });
+
   it('keeps the rest of a finished answer visible after an unclosed command fence', () => {
     render([{ id: 'a1', role: 'assistant', text: 'Intro.\n```cmd\nset B2 100\nStill here.' }]);
     expect(container.textContent).toContain('Still here.');
@@ -69,6 +88,43 @@ describe('MessageThread', () => {
     render([{ id: 'a1', role: 'assistant', text: 'Intro.\n```cmd\nset B2 1', streaming: true }]);
     expect(container.textContent).toContain('Intro.');
     expect(container.textContent).not.toContain('set B2 1');
+  });
+
+  it('hides commands the model narrates in an unlabelled fence or as bare lines', () => {
+    render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        text: [
+          '```',
+          'read Penjualan!B1:B44',
+          'read Penjualan!J1:J44',
+          '```',
+          'grid "Penjualan Bulanan!A1" = "Bulan\\tTotal"',
+          'chart column "Penjualan Bulanan!A1:B5" title="Total Penjualan"',
+          'done "Chart total penjualan per bulan telah berhasil dibuat."',
+          'The chart is on the Penjualan Bulanan sheet.',
+        ].join('\n'),
+      },
+    ]);
+    const text = container.textContent ?? '';
+    expect(text).toContain('The chart is on the Penjualan Bulanan sheet.');
+    for (const hidden of ['read Penjualan!B1', 'grid "Penjualan', 'chart column', 'done "Chart'])
+      expect(text).not.toContain(hidden);
+  });
+
+  it('keeps ordinary sentences that start with a command word', () => {
+    render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        text: 'Read the summary below for details.\nDone! The chart is ready.\nset the tone early.',
+      },
+    ]);
+    const text = container.textContent ?? '';
+    expect(text).toContain('Read the summary below for details.');
+    expect(text).toContain('Done! The chart is ready.');
+    expect(text).toContain('set the tone early.');
   });
 
   it('strips only exact cmd and plan fences', () => {

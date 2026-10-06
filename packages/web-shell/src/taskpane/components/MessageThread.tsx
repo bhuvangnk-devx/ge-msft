@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ChatMessage } from '../../controller.js';
-import { CONFIRMED_PLAN_OPEN, type SourceRef, type Surface } from '@ge/contracts';
+import {
+  CONFIRMED_PLAN_OPEN,
+  isCommandParseError,
+  parseCommandLine,
+  type SourceRef,
+  type Surface,
+} from '@ge/contracts';
 import type { InsertableArtifact } from '../insert-artifact.js';
 import { canRenderHostLocation } from '../../host-location.js';
 
@@ -818,28 +824,97 @@ function AnswerActions({
 }
 
 /**
- * Remove the add-in's own protocol blocks (exactly ```cmd and ```plan, as the runtime parses them)
- * from a reply. They are how the model drives the add-in, not part of the answer: the approval card
- * and Activity show what they do, and the reply says how many were hidden. An unclosed block is
- * hidden only while the reply is still streaming; a finished reply keeps everything after a stray
- * fence visible.
+ * A step that sends nothing visible for a while (planning, reading the document) must not look
+ * frozen: three bouncing dots, and an elapsed-seconds counter once it has taken over 3 seconds.
+ */
+function WorkingIndicator({ activity }: { activity: string }): JSX.Element {
+  const [started] = useState(() => Date.now());
+  const [now, setNow] = useState(started);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const seconds = Math.floor((now - started) / 1000);
+  return (
+    <span className="message-activity" role="status" aria-live="polite">
+      <span className="typing-dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      <span>{activity}</span>
+      {seconds >= 3 && <span className="activity-elapsed">{seconds}s</span>}
+    </span>
+  );
+}
+
+/** Command structure a sentence rarely has: a sheet/cell reference, an `=` or a quoted value. */
+const COMMAND_STRUCTURE = /["=!]|\b[A-Z]{1,3}\d+\b/;
+
+/**
+ * A line the model wrote as a command rather than prose: lowercase (sentences start with a capital),
+ * parsed by the real command grammar, and carrying command structure, so "Read the summary below." or
+ * "Done! The chart is ready." stay visible. A bare `done` closes a narrated program.
+ */
+function isNarratedCommand(line: string): boolean {
+  const t = line.trim();
+  if (t === 'done') return true;
+  return /^[a-z]/.test(t) && COMMAND_STRUCTURE.test(t) && !isCommandParseError(parseCommandLine(t));
+}
+
+/**
+ * Remove commands from a reply. They are how the model drives the add-in, not part of the answer; the
+ * approval card and Activity show what they do, and the reply says how many blocks were hidden.
+ * Hidden: ```cmd / ```plan fences (as the runtime parses them), any other fence whose every line is a
+ * command, and bare narrated command lines. An unclosed ```cmd / ```plan fence is hidden only while
+ * the reply is still streaming; a finished reply keeps everything after a stray fence visible.
  */
 export function stripCommandBlocks(
   text: string,
   streaming = false,
 ): { text: string; hidden: number } {
+  const lines = text.split('\n');
+  const out: string[] = [];
   let hidden = 0;
-  let out = text.replace(/^[ \t]*```(?:cmd|plan)[ \t]*\n[\s\S]*?^[ \t]*```[ \t]*$/gm, () => {
-    hidden++;
-    return '';
-  });
-  if (streaming) {
-    out = out.replace(/^[ \t]*```(?:cmd|plan)[ \t]*(?:\n[\s\S]*)?$/m, () => {
-      hidden++;
-      return '';
-    });
+  let inNarration = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const fence = /^[ \t]*```([\w-]*)[ \t]*$/.exec(line);
+    if (fence) {
+      let end = i + 1;
+      while (end < lines.length && !/^[ \t]*```[ \t]*$/.test(lines[end] ?? '')) end++;
+      const closed = end < lines.length;
+      const body = lines.slice(i + 1, end);
+      const label = (fence[1] ?? '').toLowerCase();
+      const protocol = label === 'cmd' || label === 'plan';
+      const allCommands =
+        body.some((l) => l.trim()) && body.every((l) => !l.trim() || isNarratedCommand(l));
+      if ((protocol && (closed || streaming)) || (closed && allCommands)) {
+        hidden++;
+        inNarration = false;
+        i = end;
+        continue;
+      }
+      out.push(...lines.slice(i, closed ? end + 1 : lines.length));
+      inNarration = false;
+      i = closed ? end : lines.length;
+      continue;
+    }
+    if (isNarratedCommand(line)) {
+      if (!inNarration) hidden++;
+      inNarration = true;
+      continue;
+    }
+    inNarration = false;
+    out.push(line);
   }
-  return { text: out.replace(/\n{3,}/g, '\n\n').trim(), hidden };
+  return {
+    text: out
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+    hidden,
+  };
 }
 
 function Message({
@@ -864,9 +939,11 @@ function Message({
     ? { text: message.text, hidden: 0 }
     : stripCommandBlocks(message.text, Boolean(message.streaming));
   const text = stripped.text;
+  // Only a finished reply that ended up empty is dropped; a streaming one keeps its bubble and caret.
   if (
     !isUser &&
     !text &&
+    !message.streaming &&
     stripped.hidden === 0 &&
     !message.activity &&
     !message.error &&
@@ -896,10 +973,7 @@ function Message({
             />
           )}
           {message.streaming && message.activity ? (
-            <span className="message-activity" role="status" aria-live="polite">
-              <span className="message-activity-dot" aria-hidden="true" />
-              <span>{message.activity}</span>
-            </span>
+            <WorkingIndicator activity={message.activity} />
           ) : null}
           {stripped.hidden > 0 && (
             <span className="cmd-hidden-note muted small">

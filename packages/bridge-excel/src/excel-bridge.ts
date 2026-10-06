@@ -139,7 +139,14 @@ export class ExcelBridge implements DocBridge {
           kind: 'range',
           surface: 'excel',
           title: selected.address,
-          preview: hasContent(selected.values) ? previewOf(selected.values) : 'Blank selection',
+          preview: selected.skippedCells
+            ? 'Too large to read'
+            : hasContent(selected.values)
+              ? previewOf(selected.values)
+              : 'Blank selection',
+          ...(selected.skippedCells
+            ? { notice: tooLargeNotice(selected.address, selected.skippedCells) }
+            : {}),
           live: true,
         });
       }
@@ -295,6 +302,7 @@ export class ExcelBridge implements DocBridge {
         usedValues,
         selAddress: selected?.address ?? '',
         selValues: selected?.values ?? [],
+        selSkippedCells: selected?.skippedCells,
         namedRanges,
       };
     });
@@ -304,13 +312,19 @@ export class ExcelBridge implements DocBridge {
       : [];
 
     this.docStateVersion += 1;
-    const selection = hasContent(captured.selValues)
+    const selection = captured.selSkippedCells
       ? ({
           kind: 'range',
           title: captured.selAddress,
-          preview: previewOf(captured.selValues),
+          preview: `[values not included: ${tooLargeNotice(captured.selAddress, captured.selSkippedCells)}]`,
         } satisfies DocStateSelection)
-      : undefined;
+      : hasContent(captured.selValues)
+        ? ({
+            kind: 'range',
+            title: captured.selAddress,
+            preview: previewOf(captured.selValues),
+          } satisfies DocStateSelection)
+        : undefined;
 
     return buildDocStateSnapshot({
       surface: 'excel',
@@ -1348,11 +1362,33 @@ export const HANDLED_ACTUATIONS: readonly ActuationKind[] = ExcelBridge.handledA
  * InvalidSelection ("The current selection is invalid for this operation."). Read in its own batch
  * so that rejection cannot fail the caller's other reads. Any other error still throws.
  */
-async function readSelectedRange(): Promise<{ address: string; values: string[][] } | undefined> {
+interface SelectedRange {
+  address: string;
+  values: string[][];
+  /** Cells in the selection; set when it was over the read budget and its values were not loaded. */
+  skippedCells?: number;
+}
+
+/** The note shown to the user (chip) and the model (snapshot) when a selection is too large to read. */
+function tooLargeNotice(address: string, cells: number): string {
+  return (
+    `Your selection (${address}, ${cells.toLocaleString('en-US')} cells) is too large to read. ` +
+    `The assistant can see where it is, but not its values. Select up to ` +
+    `${MAX_READ_CELLS.toLocaleString('en-US')} cells.`
+  );
+}
+
+async function readSelectedRange(): Promise<SelectedRange | undefined> {
   try {
     return await Excel.run(async (ctx) => {
       const sel = ctx.workbook.getSelectedRange();
-      sel.load('address,values');
+      // Size first: a whole-column selection is over a million cells, and loading its values breaks
+      // Office's ~5 MB response cap ("The response payload size has exceeded the limit").
+      sel.load('address,rowCount,columnCount');
+      await ctx.sync();
+      if (!withinReadBudget(sel.rowCount, sel.columnCount))
+        return { address: sel.address, values: [], skippedCells: sel.rowCount * sel.columnCount };
+      sel.load('values');
       await ctx.sync();
       return { address: sel.address, values: sel.values as string[][] };
     });

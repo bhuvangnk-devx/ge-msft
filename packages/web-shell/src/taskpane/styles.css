@@ -2091,6 +2091,46 @@ body {
   background: var(--host);
   animation: lampPulse 1.2s ease-in-out infinite;
 }
+/* working: three bouncing dots, so a slow step reads as busy, not frozen */
+.typing-dots {
+  flex: none;
+  display: inline-flex;
+  gap: 3px;
+}
+.typing-dots > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--host);
+  animation: typingBounce 1.1s ease-in-out infinite;
+}
+.typing-dots > i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dots > i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.activity-elapsed {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes typingBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-dots > i {
+    animation: none;
+  }
+}
 .msg-error {
   margin-top: var(--s2);
   display: flex;
@@ -3349,6 +3389,15 @@ button.cite:hover {
 .cb textarea:disabled {
   color: var(--ink-3);
   border-bottom-color: var(--hairline-soft);
+}
+/* a host warning about the context (e.g. a selection too large to read), shown even when closed */
+.context-notice {
+  margin: 6px 0 0;
+  font-size: var(--fz-sm);
+  line-height: 1.4;
+  color: var(--ink-2);
+  padding-left: 8px;
+  border-left: 2px solid var(--host);
 }
 /* the attached-context summary is the dropdown toggle for the chips below it */
 .context-strip-toggle {

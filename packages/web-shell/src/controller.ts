@@ -211,6 +211,8 @@ export interface ContextChip {
   kind: ContextKind;
   attached: boolean;
   preview?: string;
+  /** User-facing warning from the host, e.g. a selection too large to read in full. */
+  notice?: string;
   revealable?: boolean;
 }
 
@@ -555,6 +557,8 @@ export class PanelController {
   private readonly turnQueue = new TurnQueue();
   /** Which route each submitted request took, for "Copy diagnostics" (no request text). */
   private readonly routeLog: Array<{ at: string; route: string; verdict?: string }> = [];
+  /** Recent errors for Copy diagnostics, already redacted (see {@link redactForDiagnostics}). */
+  private readonly errorLog: DiagnosticError[] = [];
   /**
    * The fail-closed approval state machine (E-full): owns the per-write changeId + the resolver
    * promises the loop awaits (Finding #6). The `pendingWrite`/`pendingPlan`/`pendingShare` VIEW slice
@@ -891,6 +895,7 @@ export class PanelController {
             ? { revealable: true }
             : {}),
           ...(r.preview ? { preview: r.preview } : {}),
+          ...(r.notice ? { notice: r.notice } : {}),
         };
       });
       this.set({ chips });
@@ -1319,6 +1324,7 @@ export class PanelController {
             error: ev.reason ?? 'The response was blocked by policy.',
             activity: undefined,
           }));
+          this.logError('panel', ev.reason ?? 'Blocked by policy', { code: 'policy_block' });
           this.addStep('error', ev.reason ?? 'Blocked by policy');
         }
         return;
@@ -1330,6 +1336,7 @@ export class PanelController {
         // `SseEvent` error (stream-level): the CommandLoopEvent union has no `error` variant, so
         // this narrows to the SSE shape with `code`/`message`.
         this.patchMessage(replyId, () => ({ error: ev.message, activity: undefined }));
+        this.logError('panel', ev.message, { code: ev.code });
         this.addStep('error', ev.message);
         return;
       case 'code-execution':
@@ -1346,6 +1353,7 @@ export class PanelController {
         this.addStep('turn-start', `Turn ${ev.turn}`);
         return;
       case 'command':
+        if ('error' in ev.compiled) this.logError('command', ev.compiled.error);
         this.addStep('command', commandStepText(ev));
         return;
       case 'expr-result':
@@ -1385,6 +1393,11 @@ export class PanelController {
         this.addStep('plan-preview', summarizeEffects(ev.effects));
         return;
       case 'write-result':
+        if (ev.result.error)
+          this.logError('write', ev.result.error.message, {
+            kind: ev.result.kind,
+            code: ev.result.error.code,
+          });
         this.addStep('write-result', writeStepText(ev));
         // The decision has been consumed by the loop; drop the staged pending-write card.
         this.approvals.consumeWriteResult();
@@ -1487,6 +1500,21 @@ export class PanelController {
   /** Reject the staged share — resolves `approveShare` with `false`; nothing is written. */
   rejectPendingShare(): void {
     this.approvals.rejectShare();
+  }
+
+  private logError(
+    where: DiagnosticError['where'],
+    message: string,
+    extra: { kind?: string; code?: string } = {},
+  ): void {
+    this.errorLog.push({
+      at: new Date().toISOString(),
+      where,
+      ...(extra.kind ? { kind: extra.kind } : {}),
+      ...(extra.code ? { code: extra.code } : {}),
+      message: redactForDiagnostics(message),
+    });
+    if (this.errorLog.length > 30) this.errorLog.shift();
   }
 
   private addStep(
@@ -1847,6 +1875,7 @@ export class PanelController {
         this.currentTurnProvenance = undefined;
       } else {
         this.patchMessage(reply.id, () => ({ error: errorText(error) }));
+        this.logError('panel', errorText(error));
         this.addStep('error', errorText(error));
       }
     } finally {
@@ -1906,10 +1935,11 @@ export class PanelController {
   }
 
   /**
-   * A support snapshot the user can paste to us: routes taken, planner verdicts, this run's steps
-   * and recent run outcomes. It carries NO document text, prompts or model output: only labels the
-   * panel builds itself (turn numbers, effect counts, write outcomes, command verbs, its own notices)
-   * keep their text; every other step exports its kind alone.
+   * A support snapshot the user can paste to us: routes taken, planner verdicts, this run's steps,
+   * recent run outcomes and recent errors. It carries NO document text, prompts or model output:
+   * only labels the panel builds itself (turn numbers, effect counts, write outcomes, command verbs,
+   * its own notices) keep their text; every other step exports its kind alone. Error messages are
+   * redacted first ({@link redactForDiagnostics}: quoted text and email addresses removed).
    */
   diagnostics(meta: { surface: string; build?: string }): string {
     return JSON.stringify(
@@ -1919,6 +1949,7 @@ export class PanelController {
         ...(meta.build ? { build: meta.build } : {}),
         routes: this.routeLog,
         steps: this.state.steps.map(diagnosticStep),
+        errors: this.errorLog,
         runs: (this.session.executions?.list() ?? []).slice(-10),
       },
       null,
@@ -2233,6 +2264,51 @@ const SELF_LABELLED_STEPS = new Set<RunStep['kind']>([
   'done',
   'exhausted',
 ]);
+
+/** One error in Copy diagnostics: where it came from, the write kind and code, and the message. */
+interface DiagnosticError {
+  at: string;
+  where: 'panel' | 'command' | 'write';
+  kind?: string;
+  code?: string;
+  message: string;
+}
+
+/** Office host error codes (`(PowerPoint: GeneralException)`) and HTTP statuses: content-free. */
+const HOST_CODE =
+  /\((?:PowerPoint|Word|Excel|Outlook|OneNote|Office|Graph)(?: error)?: ?[\w.-]{1,64}\)|\(\d{3}\)/g;
+/** Where a message stops being fixed wording: any quote, `:`, `!` (sheet refs) or " — ". */
+const CONTENT_START = /["'\u201c\u201d\u2018\u2019\u00ab\u00bb\u201e\u300c:!]| \u2014 /;
+
+/**
+ * An error message made safe for Copy diagnostics, which must carry no document text. Our messages
+ * start with fixed wording and put content after a quote, `:`, `!` or " — " (a quoted find text, a
+ * sheet reference, a response body), so only that leading wording is kept; the rest becomes "[…]".
+ * Office error codes and HTTP statuses are kept wherever they appear; URLs, paths and email
+ * addresses in the kept part are replaced. Input is capped first so a huge body cannot stall the
+ * pane, and the result is at most 300 characters.
+ */
+export function redactForDiagnostics(text: string): string {
+  const codes: string[] = [];
+  const marked = text
+    .slice(0, 2000)
+    .replace(/\s+/g, ' ')
+    .replace(HOST_CODE, (code) => `\uE000${codes.push(code) - 1}\uE000`)
+    .replace(/https?:\/\/\S+/g, '[url]')
+    .replace(/(^|\s)\/[^\s]+/g, '$1[path]');
+  const cut = marked.search(CONTENT_START);
+  let head = (cut >= 0 ? marked.slice(0, cut) : marked)
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]')
+    .trimEnd();
+  const kept = new Set<number>();
+  head = head.replace(/\uE000(\d+)\uE000/g, (_m, n: string) => {
+    kept.add(Number(n));
+    return codes[Number(n)] ?? '';
+  });
+  if (cut >= 0) head += ' […]';
+  const rest = codes.filter((_c, n) => !kept.has(n));
+  return (rest.length ? `${head} ${rest.join(' ')}` : head).slice(0, 300);
+}
 
 /** A step reduced to content-free fields for {@link PanelController.diagnostics}. */
 function diagnosticStep(step: RunStep): { kind: RunStep['kind']; text?: string } {

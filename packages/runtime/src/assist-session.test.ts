@@ -1693,6 +1693,38 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     await expect(run).rejects.toThrow(/may already have applied/);
   });
 
+  it('refuses to resend a write whose earlier identical attempt has an unknown outcome', async () => {
+    class UncertainBridge extends ComposeBridge {
+      calls = 0;
+      override actuate(request: ActuationRequest): Promise<ActuationResult> {
+        this.calls += 1;
+        return Promise.resolve({
+          ok: false,
+          changeId: request.changeId,
+          kind: request.kind,
+          recoveryPending: true,
+          error: { code: 'outcome_unknown', message: 'host did not confirm' },
+        });
+      }
+    }
+    const bridge = new UncertainBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nset A1 1\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    // The replay never reaches the host: a second attempt could duplicate a write that did land.
+    expect(bridge.calls).toBe(1);
+    const refused = events.find(
+      (e) => e.type === 'command' && 'error' in e.compiled && /unknown/.test(e.compiled.error),
+    );
+    expect(refused).toBeDefined();
+  });
+
   it('a clean failure followed only by an EARLIER different-kind success stays incomplete', async () => {
     class RejectSecondBridge extends ComposeBridge {
       private calls = 0;

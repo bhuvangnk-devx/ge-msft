@@ -23,6 +23,7 @@ import {
   CHAT_CHANGED_NOTHING,
   claimsDocumentChange,
   PanelController,
+  redactForDiagnostics,
   type AssistLike,
   type ContextLister,
   type PlanEffect,
@@ -359,6 +360,17 @@ function abortError(): Error {
 }
 
 describe('PanelController — context tray', () => {
+  it('carries a context notice (e.g. a selection too large to read) onto its chip', async () => {
+    const c = new PanelController(
+      new FakeAssist(),
+      lister([
+        { ...ref('xl:Sales!L:L', 'Sales!L:L'), notice: 'Your selection is too large to read.' },
+      ]),
+    );
+    await c.refreshContext();
+    expect(c.getState().chips[0]?.notice).toBe('Your selection is too large to read.');
+  });
+
   it('loads chips and attaches/detaches a specific ref', async () => {
     const assist = new FakeAssist();
     const c = new PanelController(assist, lister([ref('word:selection', 'Selection')]));
@@ -483,6 +495,48 @@ describe('provenance warnings on write steps', () => {
   });
 });
 
+describe('redactForDiagnostics', () => {
+  it.each([
+    // [input, what must never survive]
+    ['No occurrences of "the \\"Falcon\\" deal" were found.', 'Falcon'],
+    ['No occurrences of "line one\nCONFIDENTIAL line two" were found.', 'CONFIDENTIAL'],
+    ['not an A1 range: Salaries!A1:B9', 'Salaries'],
+    ["not an A1 range: 'Bob''s Team'!A1", 'Team'],
+    ['sed: invalid pattern — Project Falcon (', 'Falcon'],
+    ['Source changed: Layoffs2026!A1:F40', 'Layoffs'],
+    [
+      'https://discoveryengine.googleapis.com/v1/projects/123/sessions/s9 failed (403): {"error": "denied',
+      'projects/123',
+    ],
+    ['Graph GET /me/drive/special/approot:/Board%20Pay.xlsx:/content failed', 'Board'],
+    ['Shape id 2 not found. Shapes: id 2 (TextBox, title: \u201cCEO plan\u201d)', 'CEO'],
+    ['Write failed for boss@acme.com', 'boss@acme.com'],
+  ])('keeps the cause of %j but never its content', (input, secret) => {
+    const out = redactForDiagnostics(input);
+    expect(out).not.toContain(secret);
+    expect(out.length).toBeLessThanOrEqual(300);
+  });
+
+  it('keeps the host error code and HTTP status', () => {
+    expect(
+      redactForDiagnostics(
+        'PowerPoint did not confirm the new slide and its text (PowerPoint: GeneralException). Inspect the deck.',
+      ),
+    ).toBe(
+      'PowerPoint did not confirm the new slide and its text (PowerPoint: GeneralException). Inspect the deck.',
+    );
+    expect(redactForDiagnostics('https://x.example/a failed (403): {"error":"x"}')).toBe(
+      '[url] failed (403) […]',
+    );
+  });
+
+  it('stays fast on a huge input with no delimiters', () => {
+    const started = Date.now();
+    redactForDiagnostics('a'.repeat(200_000));
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+});
+
 describe('Copy diagnostics', () => {
   it('records routes and steps but never document text, prompts or model output', async () => {
     const SECRET = 'ACME-SALARY-98765';
@@ -515,6 +569,48 @@ describe('Copy diagnostics', () => {
     expect(parsed.steps.map((s) => s.kind)).toEqual(['turn-start', 'activity', 'command', 'done']);
     expect(parsed.steps[1]?.text).toBeUndefined(); // model activity
     expect(parsed.steps[2]?.text).toBeUndefined(); // compile error echoes values
+    // The error itself is exported, with the quoted document text redacted.
+    const errors = (JSON.parse(out) as { errors: Array<{ where: string; message: string }> })
+      .errors;
+    expect(errors).toContainEqual(
+      expect.objectContaining({ where: 'command', message: 'no sheet named […]' }),
+    );
+  });
+
+  it('exports write errors with their code and a redacted message', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({ type: 'turn-start', turn: 1 }),
+      ev({
+        type: 'write-result',
+        turn: 1,
+        changeId: 'c1',
+        result: {
+          ok: false,
+          changeId: asChangeId('c1'),
+          kind: 'insert-slide',
+          recoveryPending: true,
+          error: {
+            code: 'outcome_unknown',
+            message:
+              'PowerPoint did not confirm the new slide "Ringkasan Q3" (PowerPoint: GeneralException). Mail me at boss@acme.com.',
+          },
+        },
+      }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('slides');
+    const errors = (
+      JSON.parse(c.diagnostics({ surface: 'powerpoint' })) as {
+        errors: Array<{ where: string; kind?: string; code?: string; message: string }>;
+      }
+    ).errors;
+    expect(errors[0]).toMatchObject({
+      where: 'write',
+      kind: 'insert-slide',
+      code: 'outcome_unknown',
+      message: 'PowerPoint did not confirm the new slide […] (PowerPoint: GeneralException)',
+    });
   });
 
   it("keeps the panel's own notices but drops model activity that looks like one", async () => {

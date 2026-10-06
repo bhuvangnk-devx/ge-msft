@@ -60,6 +60,13 @@ export function ContextStrip({
           {expanded ? 'Done' : nearby.length ? `+ ${nearby.length} available` : 'Manage'}
         </button>
       </div>
+      {chips
+        .filter((chip) => chip.notice)
+        .map((chip) => (
+          <p key={`notice-${chip.id}`} className="context-notice" role="note">
+            {chip.notice}
+          </p>
+        ))}
       {open && (
         <div id="active-context-chips" className="smart-chips">
           {visible.map((chip) => (

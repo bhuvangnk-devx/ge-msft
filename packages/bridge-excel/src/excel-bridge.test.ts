@@ -1044,6 +1044,32 @@ describe('ExcelBridge.listContext (host wiring)', () => {
     expect(refs[2]?.live).toBeUndefined();
   });
 
+  it('does not load the values of a huge selection (Office caps a response at ~5 MB)', async () => {
+    const seed = salesSeed();
+    seed.selection = 'Sales!A1:Z1000'; // 26,000 cells: over the read budget, like a whole column
+    active = installExcel(seed);
+    const real = Object.getOwnPropertyDescriptor(FakeRange.prototype, 'values')!.get!;
+    const values = vi.spyOn(FakeRange.prototype, 'values', 'get').mockImplementation(function (
+      this: FakeRange,
+    ) {
+      const { rows, cols } = parseA1((this as unknown as { a1: string }).a1);
+      if (rows * cols > 10_000)
+        throw new Error('The response payload size has exceeded the limit.');
+      return real.call(this) as string[][];
+    });
+    try {
+      const refs = await new ExcelBridge().listContext();
+      expect(refs[0]?.id).toBe('xl:Sales!A1:Z1000');
+      // The user is told, on the chip, that the values were not read.
+      expect(refs[0]?.notice).toMatch(/26,000 cells\) is too large to read/);
+      // And the model is told too, in the snapshot's selection.
+      const snapshot = await new ExcelBridge().captureDocState();
+      expect(snapshot?.selection?.preview).toMatch(/too large to read/);
+    } finally {
+      values.mockRestore();
+    }
+  });
+
   it('lists workbook tables as openable table refs', async () => {
     const seed = salesSeed();
     seed.tables.push({ name: 'RevenueTable', sheet: 'Sales', address: 'A1:C4', hasHeaders: true });

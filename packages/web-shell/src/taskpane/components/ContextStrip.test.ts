@@ -47,6 +47,22 @@ describe('ContextStrip', () => {
     expect(container.querySelectorAll('.smart-chip').length).toBe(0);
   });
 
+  it('shows a context notice even while the dropdown is closed', () => {
+    mount([
+      ...chips,
+      {
+        id: 'xl:Sales!L:L',
+        title: 'Sales!L:L',
+        kind: 'range',
+        attached: false,
+        notice: 'Your selection is too large to read.',
+      },
+    ]);
+    expect(container.querySelector('.context-notice')?.textContent).toContain(
+      'Your selection is too large to read.',
+    );
+  });
+
   it('opens like a dropdown to show the attached chips', () => {
     mount(chips);
     act(() => container.querySelector<HTMLButtonElement>('.context-strip-toggle')?.click());
