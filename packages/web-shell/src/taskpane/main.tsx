@@ -467,13 +467,7 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
     const allowedIntents = intentsForManifest(capabilities);
 
     mount(
-      <App
-        controller={controller}
-        surface={prepared.surface}
-        allowedIntents={allowedIntents}
-        catalogClient={catalogClient}
-        onCatalogRouting={(routing) => client.configureRouting(routing)}
-      />,
+      <App controller={controller} surface={prepared.surface} allowedIntents={allowedIntents} />,
     );
     listenForAskSelectionSeeds(prepared.surface, controller);
     recordAuthDebug('app.mounted');
