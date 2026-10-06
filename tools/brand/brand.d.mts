@@ -5,6 +5,8 @@ export interface Brand {
   name: string;
   assistantName: string;
   fullName: string;
+  /** Optional line under the product name in the task-pane header. */
+  tagline?: string;
   fontStylesheet: string;
   iconsDir: string;
   themePath: string | null;
@@ -14,6 +16,7 @@ export interface BrandText {
   name: string;
   assistantName: string;
   fullName: string;
+  tagline?: string;
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];

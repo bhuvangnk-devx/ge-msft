@@ -163,6 +163,32 @@ export function Composer({
   const [sourcePicks, setSourcePicks] = useState<ComposerMention[]>([]);
   const [format, setFormat] = useState('');
   const [tone, setTone] = useState('');
+  // The pane opens ready to type: put the cursor in the box on load, whenever Office shows the
+  // pane again (it keeps a hidden task pane alive), and when the box becomes usable again (it is
+  // disabled during sign-in, a turn or an approval). Never take focus from another pane control.
+  const locked = busy || Boolean(disabled);
+  useEffect(() => {
+    const focusComposer = (): void => {
+      const box = textareaRef.current;
+      if (!box || box.disabled || document.visibilityState === 'hidden') return;
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== box) return;
+      // Desktop Office hosts the pane in a frame that may not hold keyboard focus yet.
+      if (!document.hasFocus()) window.focus();
+      box.focus({ preventScroll: true });
+    };
+    focusComposer();
+    // Office can finish laying out the pane after first paint; try once more when it settles.
+    const settle = window.setTimeout(focusComposer, 300);
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') focusComposer();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearTimeout(settle);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [locked]);
   useEffect(() => {
     if (draft) {
       setValue(draft.text);
@@ -603,6 +629,14 @@ export function Composer({
         </details>
         <span id="composer-help">Enter to send · Shift + Enter for a new line</span>
       </div>
+      <p className="cb-disclaimer">{disclaimerText()}</p>
     </form>
   );
+}
+
+/** The model can be wrong: say so under the ask box, in Indonesian for an Indonesian browser. */
+function disclaimerText(): string {
+  return /^id\b/i.test(globalThis.navigator?.language ?? '')
+    ? `${brand.name} dapat membuat kesalahan. Verifikasi informasi penting.`
+    : `${brand.name} can make mistakes. Check important information.`;
 }

@@ -7,6 +7,7 @@ import {
   mountStack,
   type ExcelSimulator,
   type MountedStack,
+  openPlanEffects,
 } from '../test-harness/index.js';
 
 /**
@@ -67,6 +68,7 @@ describe('Excel full-stack integration', () => {
     await ui!.waitFor((s) => s.pendingPlan !== undefined);
 
     // The plan-approval card shows the verbatim effect with the COMPUTED literal, not the pipeline.
+    openPlanEffects(ui!.container);
     const planCmd = ui!.container.querySelector('.plan-approval .cmd')?.textContent ?? '';
     expect(planCmd).toContain('set Summary!B2');
     expect(planCmd).toContain('550');
@@ -100,6 +102,7 @@ describe('Excel full-stack integration', () => {
       run = ui!.controller.runCommands('total East revenue from the named table');
     });
     await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    openPlanEffects(ui!.container);
     expect(ui!.container.querySelector('.plan-approval .cmd')?.textContent).toContain('550');
 
     await ui!.act(() => ui!.controller.approvePlan());
@@ -132,6 +135,7 @@ describe('Excel full-stack integration', () => {
     const plan = ui!.container.querySelector('.plan-approval');
     expect(plan).not.toBeNull();
     expect(plan?.querySelectorAll('.plan-effect').length).toBe(2);
+    openPlanEffects(ui!.container);
     const planText = plan?.textContent ?? '';
     expect(planText).toContain('set Sales!C8 =SUM(C2:C7)');
     expect(planText).toContain('comment Sales!C8');

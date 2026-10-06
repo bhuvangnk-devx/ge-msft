@@ -2661,10 +2661,16 @@ button.cite:hover {
   border-radius: var(--r-chip);
   padding: 1px 6px;
 }
-.plan-effect-head .cmd {
+.plan-effect-head .cmd,
+.plan-effect-detail .cmd {
   padding: 6px 10px;
   font-size: var(--fz-sm);
   line-height: 16px;
+}
+/* the exact command sits in the opened details; a long one scrolls inside its own box */
+.plan-effect-detail .cmd {
+  min-width: 0;
+  overflow-x: auto;
 }
 /* collapse marks are − / + set in mono — no rotating chevrons */
 .plan-effect-caret {
@@ -3328,11 +3334,50 @@ button.cite:hover {
   color: var(--ink-3);
 }
 .cb:focus-within textarea {
+  /* Clearly highlighted while active: a 2px brand underline (box-shadow keeps the layout still)
+   * on a light tint, so the user can see where they are typing. */
   border-bottom-color: var(--blue);
+  box-shadow: 0 1px 0 0 var(--blue);
+  background: var(--hover);
 }
 .cb textarea:disabled {
   color: var(--ink-3);
   border-bottom-color: var(--hairline-soft);
+}
+/* optional brand tagline, a second line under the product name in the header */
+.tw-tagline {
+  display: block;
+  font-size: var(--fz-xs);
+  font-weight: 400;
+  line-height: 14px;
+  color: var(--ink-3);
+}
+/* collapsed effect row: what it writes, and a flag on changes that leave the document or can't be undone */
+.effect-change {
+  display: block;
+  font-size: var(--fz-sm);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.effect-review {
+  margin-left: var(--s2);
+  padding: 0 6px;
+  border-radius: var(--r-chip);
+  font-size: var(--fz-xs);
+  font-weight: 600;
+  color: var(--red);
+  border: 0.5px solid var(--red);
+}
+.cmd-hidden-note {
+  display: block;
+}
+/* the model can be wrong: one quiet line under the composer */
+.cb-disclaimer {
+  margin: var(--s2) 0 0;
+  font-size: var(--fz-xs);
+  line-height: 15px;
+  color: var(--ink-3);
+  text-align: center;
 }
 /* send: the one primary action — a knob */
 .snd {

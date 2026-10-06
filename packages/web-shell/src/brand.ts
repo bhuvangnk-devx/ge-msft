@@ -10,6 +10,8 @@ export interface Brand {
   readonly assistantName: string;
   /** Long form, e.g. page titles. */
   readonly fullName: string;
+  /** Optional line under the name in the header, e.g. "CIMB Niaga AI Assistant". */
+  readonly tagline?: string;
 }
 
 declare const __GE_BRAND__: Brand | undefined;

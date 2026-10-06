@@ -563,7 +563,8 @@ describe('command surface — planner-confirm for complex free-text (full-stack,
     expect(ui.controller.getState().pendingCommandPlan).toBeUndefined();
     expect(ui.container.querySelector('.plan-approval')).not.toBeNull();
     const threadText = ui.container.querySelector('.thread')?.textContent ?? '';
-    expect(threadText).toContain('/execute approved rewrite plan');
+    expect(threadText).toContain('Confirmed the plan');
+    expect(threadText).not.toContain('/execute');
     expect(threadText).not.toContain('<confirmed_plan>');
     expect(threadText).not.toContain('Treat the plan as approved intent');
     expect((sim as WordSimulator).snapshot().inserts.length).toBe(0); // still nothing applied — gated

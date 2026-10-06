@@ -34,11 +34,61 @@ function effectTarget(effect: PlanEffect): string | undefined {
   return t?.range ?? t?.matchText ?? t?.commentId ?? undefined;
 }
 
+/** Changes that reach outside the document, delete, or cannot be undone: always flagged for review. */
+const HIGH_IMPACT_KINDS: ReadonlySet<string> = new Set([
+  'resolve-revisions',
+  'manage-worksheet',
+  'delete-slide',
+  'find-replace',
+  'set-recipients',
+  'insert-hyperlink',
+  'add-attachment',
+]);
+
+function clipPreview(text: string, max = 60): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
 /**
- * One reviewable effect in the dry-run effect-set. Collapsed it shows the verbatim command line;
- * expanded it reveals the target and — when the runtime's no-write dry-run resolved it — the value
- * the effect will produce and/or a before→after preview. The command line is the SAME
- * `ActuationRequest` that executes on approval, so what is reviewed is exactly what runs.
+ * What an effect writes, in plain words, for its collapsed row: the value, the new text, the
+ * recipients, the link or the file. The exact command stays in the opened details; this preview is
+ * what lets a reviewer approve without opening every row.
+ */
+function effectChange(effect: PlanEffect): string | undefined {
+  const p = effect.request.params;
+  const after = effect.dryRun?.after;
+  if (after !== undefined && after !== '') return `→ ${after}`;
+  if (p.mail) {
+    const parts = (['to', 'cc', 'bcc'] as const)
+      .filter((k) => p.mail?.[k]?.length)
+      .map((k) => `${k}: ${p.mail?.[k]?.join(', ')}`);
+    if (p.mail.subject) parts.push(`subject: ${p.mail.subject}`);
+    if (p.mail.body) parts.push(`body: ${p.mail.body}`);
+    if (parts.length) return parts.join(' · ');
+  }
+  if (p.hyperlink?.url) return `link: ${p.hyperlink.url}`;
+  if (p.attachment) return `attach: ${p.attachment.name ?? p.attachment.uri ?? 'a file'}`;
+  if (p.findReplace) return `"${p.findReplace.find}" → "${p.findReplace.replace}"`;
+  if (p.worksheet) {
+    const ws = p.worksheet;
+    return [ws.action, ws.name, ws.newName ? `→ ${ws.newName}` : undefined]
+      .filter(Boolean)
+      .join(' ');
+  }
+  if (p.revisions)
+    return [p.revisions.action, p.revisions.scope ?? 'revisions'].filter(Boolean).join(' ');
+  if (p.text) return `→ ${p.text}`;
+  const cell = p.cells?.[0]?.[0];
+  if (cell !== undefined && cell !== null && String(cell) !== '') return `→ ${String(cell)}`;
+  return undefined;
+}
+
+/**
+ * One reviewable effect in the dry-run effect-set. Collapsed it shows only what changes and where;
+ * expanded it reveals the target, the value or before→after preview the no-write dry-run resolved,
+ * and the verbatim command line. The command line is the SAME `ActuationRequest` that executes on
+ * approval, so what is reviewed is exactly what runs; it is one click away, not shown by default.
  */
 function EffectRow({
   effect,
@@ -53,7 +103,9 @@ function EffectRow({
   const command = renderCommandLine(effect.request);
   const target = effectTarget(effect);
   const dry = effect.dryRun;
-  const description = effectTarget(effect) ?? effectKindLabel(effect.request.kind);
+  const change = effectChange(effect);
+  const description = target ?? (change ? '' : effectKindLabel(effect.request.kind));
+  const highImpact = HIGH_IMPACT_KINDS.has(effect.request.kind);
   const detailsId = `plan-effect-${effect.request.changeId}`;
   return (
     <li className="plan-effect">
@@ -65,16 +117,20 @@ function EffectRow({
         onClick={() => setOpen((v) => !v)}
       >
         <span className="plan-effect-kind eyebrow">{effectKindLabel(effect.request.kind)}</span>
-        <span className="effect-target-summary">{description}</span>
-        <pre className="cmd" aria-label={`Effect ${index} command, shown verbatim`}>
-          {command}
-        </pre>
+        <span className="effect-target-summary">
+          {description}
+          {highImpact && <span className="effect-review">Review</span>}
+          {change && <span className="effect-change">{clipPreview(change)}</span>}
+        </span>
         <span className="plan-effect-caret" aria-hidden="true">
-          {open ? '-' : '+'}
+          {open ? '▴' : '▾'}
         </span>
       </button>
       {open && (
         <div id={detailsId} className="plan-effect-detail">
+          <pre className="cmd" aria-label={`Effect ${index} command, shown verbatim`}>
+            {command}
+          </pre>
           {target && (
             <div className="plan-effect-row">
               <span className="k">Target</span>

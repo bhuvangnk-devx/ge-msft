@@ -424,10 +424,17 @@
   font-size: var(--fz-md);
   color: var(--ink);
   overflow-wrap: anywhere;
+  min-width: 0;
 }
+/* The head is a grid (styles.css), so the command takes its own full-width row. Without the span it
+ * sat in the first column, and its unwrappable text widened that column until the summary beside it
+ * broke one letter per line. A long command scrolls inside its own box instead. */
 .plan-effect-head .cmd {
   flex-basis: 100%;
   order: 3;
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-x: auto;
 }
 .qa-prompt-preview {
   font-size: var(--fz-sm);

@@ -1,20 +1,68 @@
 /* CNGPT (CIMB Niaga) theme: loaded after the task-pane styles, so these rules win.
- * Generated from the colour and font changes CIMB had made directly in styles.css and
- * workspace.css; upstream keeps its own look in those files. */
+ * Colours follow CIMB's colour-asset guide (2026-10-01): one brand red, a neutral zinc grey
+ * scale and shadcn-style semantic tokens. The guide's tokens are declared first, then mapped onto
+ * the pane's own variable names; upstream keeps its own look in styles.css / workspace.css. */
 
 :root {
-  --blue: #ec2428;
-  --blue-hover: #c91d21;
-  --blue-active: #a8181c;
-  --blue-ink: #b3141a;
-  --lamp-on: #1b1c1c;
-  --host: #ec2428;
-  --link: #b3141a;
+  /* CIMB guide tokens (light). */
+  --cimb-red: #c8102e;
+  --cimb-dark: #1a1a1a;
+  --primary: var(--cimb-red);
+  --primary-foreground: #ffffff;
+  --primary-hover: #a00d26;
+  --primary-active: #8e0b1f;
+  --primary-tint: #fdf2f4;
+  --primary-tint-border: #f3c1ca;
+  --background: #ffffff;
+  --foreground: #0f0f10;
+  --card: #ffffff;
+  --muted: #f3f3f5;
+  --muted-foreground: #63636f;
+  --accent: #f3f3f5;
+  --border: #e4e4e7;
+  --field-border: #8a8a96;
+  --destructive: #ef4444;
+  --destructive-strong: #b91c1c;
+  --ring: var(--cimb-red);
+  --scrim: rgb(0 0 0 / 0.45);
+
+  /* Mapped onto the pane's variables. */
+  --blue: var(--primary);
+  --blue-hover: var(--primary-hover);
+  --blue-active: var(--primary-active);
+  --blue-ink: var(--primary-hover); /* AA for small text on white */
+  --lamp-on: var(--primary);
+  --lamp-err: var(--destructive);
+  --host: var(--primary);
+  --link: var(--primary-hover);
+
+  --ink: var(--foreground);
+  --ink-2: #3f3f46;
+  --ink-3: var(--muted-foreground);
+  --paper: var(--background);
+  --surface: var(--card);
+  --hover: var(--muted);
+  --press: var(--border);
+  --press-2: #d4d4d8;
+  --hairline: var(--field-border);
+  --hairline-soft: var(--border);
+  --rule: var(--border); /* the guide has no dark rule lines */
+
+  --red: var(--destructive-strong);
+  --red-active: #991b1b;
+  --red-tint: #fef2f2;
+
+  --plate: var(--cimb-dark);
+
   --sans: 'Noto Sans', 'Helvetica Neue', Helvetica, 'Segoe UI', Arial, sans-serif;
 }
 
 ::selection {
-  background: #fad4d5;
+  background: #f9d6dc;
+}
+
+:focus-visible {
+  outline-color: var(--ring);
 }
 
 .av,
@@ -33,46 +81,99 @@
 }
 
 .smart-chip[data-attached='true'] {
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: var(--primary-tint);
+  border-color: var(--primary-tint-border);
 }
 
 .smart-chip-remove {
-  border-left: 1px solid #efc9ca;
+  border-left: 1px solid var(--primary-tint-border);
 }
 
 .smart-chip-remove:hover,
 .smart-chip-title:not(:disabled):hover {
-  background: #fbe0e1;
+  background: #fbe4e8;
 }
 
 .library-run:hover:not(:disabled) {
-  background: #fdf0f0;
+  background: var(--primary-tint);
 }
 
 .composer-source-results button[aria-pressed='true'] {
-  background: #fdf0f0;
+  background: var(--primary-tint);
 }
 
-.answer-actions button:hover:not(:disabled) {
-  background: #fdf0f0;
+.answer-actions button:hover:not(:disabled),
+.run-steps-diagnostics button:hover {
+  background: var(--primary-tint);
 }
 
 .panel .tw-icon:hover,
 .panel .tw-icon.on {
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: var(--primary-tint);
+  border-color: var(--primary-tint-border);
 }
 
 .panel .scope-option[data-selected='true'] {
-  background: #fdf0f0;
-  border-color: #f2b8ba;
+  background: var(--primary-tint);
+  border-color: var(--primary-tint-border);
 }
 
 .analysis-body .analysis-artifact[aria-pressed='true'] {
-  background: #fdf0f0;
+  background: var(--primary-tint);
 }
 
 .analysis-body .analysis-findings button {
-  background: #fdf0f0;
+  background: var(--primary-tint);
+}
+
+/* ---- CN-GPT chat look (matches the CN-GPT web app) ---- */
+
+/* User message: a solid brand-red bubble, white text, right-aligned. */
+.m.u .text {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 16px 16px 4px 16px;
+}
+.m.u .msg-token {
+  color: var(--primary-foreground);
+  border-color: rgb(255 255 255 / 0.55);
+  background: rgb(255 255 255 / 0.12);
+}
+
+/* Assistant message: the mascot beside a light grey card. */
+.m.a .ic {
+  width: 26px;
+  height: 26px;
+  margin-top: 0;
+  border-radius: 9999px;
+}
+.m.a .c {
+  background: var(--muted);
+  border-radius: 4px 16px 16px 16px;
+  padding: 10px 14px;
+}
+
+/* Composer: a rounded card with a square red send button, not an underlined field. */
+.cb {
+  align-items: center;
+  gap: var(--s3);
+  padding: 6px 6px 6px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+.cb textarea,
+.cb:focus-within textarea {
+  border-bottom: none;
+  box-shadow: none;
+  background: transparent;
+}
+.cb:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-tint-border);
+}
+.snd {
+  border-radius: 10px;
 }

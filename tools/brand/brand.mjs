@@ -59,6 +59,9 @@ export function loadBrand(id = selectedBrand()) {
       throw new Error(`brands/${id}/brand.json: "${key}" must be a non-empty string.`);
     }
   }
+  if (raw.tagline !== undefined && (typeof raw.tagline !== 'string' || !raw.tagline.trim())) {
+    throw new Error(`brands/${id}/brand.json: "tagline" must be a non-empty string when set.`);
+  }
   if (
     !raw.fontStylesheet.startsWith('https://fonts.googleapis.com/') ||
     /["'<>\s]/.test(raw.fontStylesheet)
@@ -76,6 +79,7 @@ export function loadBrand(id = selectedBrand()) {
     name: raw.name,
     assistantName: raw.assistantName,
     fullName: raw.fullName,
+    ...(raw.tagline ? { tagline: raw.tagline } : {}),
     fontStylesheet: raw.fontStylesheet,
     iconsDir,
     themePath: existsSync(themePath) ? themePath : null,
@@ -85,7 +89,12 @@ export function loadBrand(id = selectedBrand()) {
 
 /** The part of the brand the task-pane code reads at runtime (see packages/web-shell/src/brand.ts). */
 export function brandText(brand) {
-  return { name: brand.name, assistantName: brand.assistantName, fullName: brand.fullName };
+  return {
+    name: brand.name,
+    assistantName: brand.assistantName,
+    fullName: brand.fullName,
+    ...(brand.tagline ? { tagline: brand.tagline } : {}),
+  };
 }
 
 /** Replace %GE_BRAND_*% placeholders in an HTML page with the brand's (HTML-escaped) values. */

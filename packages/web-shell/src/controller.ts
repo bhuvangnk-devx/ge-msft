@@ -405,14 +405,9 @@ function renderConfirmedPlanTask(pending: PendingCommandPlan): string {
 }
 
 function renderConfirmedPlanDisplayText(pending: PendingCommandPlan): string {
-  const { plan } = pending;
-  const scope = plan.scope
-    ? plan.scope.ref
-      ? `${plan.scope.kind} ${plan.scope.ref}`
-      : plan.scope.kind
-    : 'current context';
-  const stepCount = plan.steps.length === 1 ? '1 step' : `${plan.steps.length} steps`;
-  return `/execute approved ${plan.intent} plan · ${plan.surface} · ${scope} · ${stepCount}`;
+  // Plain language in the user's bubble: the confirmed task itself is internal and never shown.
+  const n = pending.plan.steps.length;
+  return `Confirmed the plan (${n === 1 ? '1 step' : `${n} steps`}). Review its changes below.`;
 }
 
 /** One narrated step of the command loop, surfaced so the user can see the loop's progress. */

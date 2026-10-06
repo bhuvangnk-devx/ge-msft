@@ -7,6 +7,7 @@ import {
   mountStack,
   type WordSimulator,
   type MountedStack,
+  openPlanEffects,
 } from '../test-harness/index.js';
 
 /**
@@ -80,6 +81,7 @@ describe('Word stale-anchor degrade (full-stack interplay)', () => {
     await ui!.waitFor((s) => s.pendingPlan !== undefined);
 
     // The plan-approval card renders the verbatim suggest command targeting the live anchor text.
+    openPlanEffects(ui!.container);
     const cmd = ui!.container.querySelector('.plan-approval .cmd')?.textContent ?? '';
     expect(cmd).toContain('suggest');
     expect(cmd).toContain(ANCHOR);

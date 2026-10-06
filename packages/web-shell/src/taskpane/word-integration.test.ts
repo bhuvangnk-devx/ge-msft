@@ -7,6 +7,7 @@ import {
   mountStack,
   type WordSimulator,
   type MountedStack,
+  openPlanEffects,
 } from '../test-harness/index.js';
 
 /**
@@ -62,6 +63,7 @@ describe('Word full-stack integration', () => {
     await ui!.waitFor((s) => s.pendingPlan !== undefined);
 
     // The approval card shows the verbatim suggest command (old => new), shown to the user exactly.
+    openPlanEffects(ui!.container);
     const cmd = ui!.container.querySelector('.plan-approval .cmd')?.textContent ?? '';
     expect(cmd).toContain('suggest');
     expect(cmd).toContain('The SLA is 99.5%.');

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { openPlanEffects } from '../test-harness/mount-stack.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -162,6 +163,7 @@ describe('<App/> render smoke', () => {
       FIXTURE_STATE.pendingPlan?.effects.length,
     );
     // Each effect renders its verbatim command line.
+    openPlanEffects(container);
     expect(plan?.textContent).toContain('set Sales!F2 =C2-D2');
     expect(plan?.textContent).toContain('comment Sales!F2');
     // The approve/reject actions gate real writes — both must be reachable buttons.

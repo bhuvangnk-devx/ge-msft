@@ -144,3 +144,16 @@ export function mountStack(opts: MountStackOptions): MountedStack {
     unmount,
   };
 }
+
+/**
+ * Open every collapsed effect in the plan-approval card, as a reviewer would. The card shows each
+ * effect's exact command only once the effect is opened, so tests that check the command call this
+ * first.
+ */
+export function openPlanEffects(container: ParentNode): void {
+  for (const head of container.querySelectorAll<HTMLButtonElement>(
+    '.plan-effect-head[aria-expanded="false"]',
+  )) {
+    act(() => head.click());
+  }
+}

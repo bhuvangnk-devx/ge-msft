@@ -7,6 +7,7 @@ import {
   mountStack,
   type ExcelSimulator,
   type MountedStack,
+  openPlanEffects,
 } from '../test-harness/index.js';
 
 /**
@@ -108,6 +109,7 @@ describe('grammar ↔ orchestrator ↔ bridge effect parity', () => {
 
     // The dry-run resolved the pipeline over seeded data: the previewed write carries the COMPUTED
     // literal (550), not the raw `($east | sum revenue)` formula — pure compute fed the effect.
+    openPlanEffects(ui!.container);
     const planCmd = ui!.container.querySelector('.plan-approval .cmd')?.textContent ?? '';
     expect(planCmd).toContain('set Summary!B2');
     expect(planCmd).toContain('550');
@@ -269,6 +271,7 @@ describe('grammar ↔ orchestrator ↔ bridge effect parity', () => {
     // dry-run (never a plan slot, never a bridge call).
     const plan = ui!.controller.getState().pendingPlan!;
     expect(plan.effects).toHaveLength(1);
+    openPlanEffects(ui!.container);
     const planCmd = ui!.container.querySelector('.plan-approval .cmd')?.textContent ?? '';
     expect(planCmd).toContain('550');
 

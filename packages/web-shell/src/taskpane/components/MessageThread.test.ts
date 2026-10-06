@@ -38,6 +38,49 @@ function openFirstCitation(): void {
 }
 
 describe('MessageThread', () => {
+  it('never shows the add-in command blocks a reply contains, only its prose', () => {
+    render([
+      {
+        id: 'a1',
+        role: 'assistant',
+        text: 'Formatting the header row.\n```cmd\nformat Sheet1!A1:H1 bold=true\ndone\n```\nDone.',
+      },
+    ]);
+    expect(container.textContent).toContain('Formatting the header row.');
+    expect(container.textContent).toContain('Done.');
+    expect(container.textContent).not.toContain('format Sheet1!A1:H1');
+    expect(container.querySelector('.md-code')).toBeNull();
+  });
+
+  it('replaces a commands-only reply with a short note instead of the commands', () => {
+    render([{ id: 'a1', role: 'assistant', text: '```cmd\nset B2 100\n```' }]);
+    expect(container.textContent).not.toContain('set B2 100');
+    expect(container.querySelector('.cmd-hidden-note')?.textContent).toMatch(
+      /1 command block sent to the add-in/,
+    );
+  });
+
+  it('keeps the rest of a finished answer visible after an unclosed command fence', () => {
+    render([{ id: 'a1', role: 'assistant', text: 'Intro.\n```cmd\nset B2 100\nStill here.' }]);
+    expect(container.textContent).toContain('Still here.');
+  });
+
+  it('hides an unclosed command fence while the reply is still streaming', () => {
+    render([{ id: 'a1', role: 'assistant', text: 'Intro.\n```cmd\nset B2 1', streaming: true }]);
+    expect(container.textContent).toContain('Intro.');
+    expect(container.textContent).not.toContain('set B2 1');
+  });
+
+  it('strips only exact cmd and plan fences', () => {
+    render([{ id: 'a1', role: 'assistant', text: '```cmd-notes\nkeep me\n```' }]);
+    expect(container.textContent).toContain('keep me');
+  });
+
+  it('still shows ordinary code blocks', () => {
+    render([{ id: 'a1', role: 'assistant', text: '```js\nconst x = 1;\n```' }]);
+    expect(container.querySelector('.md-code')?.textContent).toBe('const x = 1;');
+  });
+
   it('shows the grounded empty-state invitation when there are no messages', () => {
     render([]);
     expect(container.textContent).toContain('Ask about this document or selection');

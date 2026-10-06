@@ -73,6 +73,65 @@ afterEach(() => {
   container.remove();
 });
 
+describe('Composer — disclaimer under the ask box', () => {
+  it('says the assistant can make mistakes, in English by default', () => {
+    render();
+    const note = container.querySelector('.cb-disclaimer');
+    expect(note?.textContent).toMatch(/can make mistakes\. Check important information\./);
+  });
+
+  it('is in Indonesian when the browser language is Indonesian', () => {
+    const lang = vi.spyOn(navigator, 'language', 'get').mockReturnValue('id-ID');
+    try {
+      render();
+      expect(container.querySelector('.cb-disclaimer')?.textContent).toMatch(
+        /dapat membuat kesalahan\. Verifikasi informasi penting\./,
+      );
+    } finally {
+      lang.mockRestore();
+    }
+  });
+});
+
+describe('Composer — ready to type when the pane opens', () => {
+  it('puts the cursor in the ask box on open', () => {
+    render();
+    expect(document.activeElement).toBe(container.querySelector('#ask'));
+  });
+
+  it('takes the cursor once the box is enabled again (after a turn or an approval)', () => {
+    render({ busy: true });
+    const box = container.querySelector<HTMLTextAreaElement>('#ask')!;
+    expect(document.activeElement).not.toBe(box);
+    act(() => {
+      root.render(
+        createElement(Composer, {
+          busy: false,
+          onSend: vi.fn(),
+          onCancel: vi.fn(),
+          scopes: [SELECTION],
+        } as unknown as ComposerProps),
+      );
+    });
+    expect(document.activeElement).toBe(box);
+  });
+
+  it('puts it back when Office shows the pane again, unless another control has focus', () => {
+    render();
+    const box = container.querySelector<HTMLTextAreaElement>('#ask')!;
+    box.blur();
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(document.activeElement).toBe(box);
+
+    const other = document.createElement('button');
+    document.body.appendChild(other);
+    other.focus();
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(document.activeElement).toBe(other);
+    other.remove();
+  });
+});
+
 describe('Composer', () => {
   it('routes a non-empty submit to onSend when no onInvoke is given', () => {
     const { onSend } = render();

@@ -183,6 +183,7 @@ export function Toolbar({
         <span className="tw-brand" aria-hidden="true" />
         <span className="tw-name" title={agentLabel ?? 'Grounded on your research unit'}>
           {brand.name}
+          {brand.tagline ? <span className="tw-tagline">{brand.tagline}</span> : null}
         </span>
         <span className="tw-spacer" />
         <span

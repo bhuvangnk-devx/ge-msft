@@ -817,6 +817,31 @@ function AnswerActions({
   );
 }
 
+/**
+ * Remove the add-in's own protocol blocks (exactly ```cmd and ```plan, as the runtime parses them)
+ * from a reply. They are how the model drives the add-in, not part of the answer: the approval card
+ * and Activity show what they do, and the reply says how many were hidden. An unclosed block is
+ * hidden only while the reply is still streaming; a finished reply keeps everything after a stray
+ * fence visible.
+ */
+export function stripCommandBlocks(
+  text: string,
+  streaming = false,
+): { text: string; hidden: number } {
+  let hidden = 0;
+  let out = text.replace(/^[ \t]*```(?:cmd|plan)[ \t]*\n[\s\S]*?^[ \t]*```[ \t]*$/gm, () => {
+    hidden++;
+    return '';
+  });
+  if (streaming) {
+    out = out.replace(/^[ \t]*```(?:cmd|plan)[ \t]*(?:\n[\s\S]*)?$/m, () => {
+      hidden++;
+      return '';
+    });
+  }
+  return { text: out.replace(/\n{3,}/g, '\n\n').trim(), hidden };
+}
+
 function Message({
   message,
   disabled,
@@ -833,8 +858,23 @@ function Message({
   onInsertArtifact?: (artifact: InsertableArtifact) => void;
   onRevealLocation?: (location: string) => void;
   insertArtifactDisabledReason?: string;
-}): JSX.Element {
+}): JSX.Element | null {
   const isUser = message.role === 'user';
+  const stripped = isUser
+    ? { text: message.text, hidden: 0 }
+    : stripCommandBlocks(message.text, Boolean(message.streaming));
+  const text = stripped.text;
+  if (
+    !isUser &&
+    !text &&
+    stripped.hidden === 0 &&
+    !message.activity &&
+    !message.error &&
+    !message.cancelled &&
+    !message.note &&
+    !(message.sources && message.sources.length > 0)
+  )
+    return null;
   return (
     <div className={`m ${isUser ? 'u' : 'a'}`}>
       {!isUser && <span className="ic" aria-hidden="true" />}
@@ -844,7 +884,7 @@ function Message({
             <UserMessageContent text={message.text} />
           ) : (
             <MarkdownContent
-              text={message.text}
+              text={text}
               surface={surface}
               onInsertArtifact={
                 message.streaming || message.cancelled || message.error
@@ -861,6 +901,13 @@ function Message({
               <span>{message.activity}</span>
             </span>
           ) : null}
+          {stripped.hidden > 0 && (
+            <span className="cmd-hidden-note muted small">
+              {stripped.hidden === 1
+                ? '1 command block sent to the add-in. See Activity.'
+                : `${stripped.hidden} command blocks sent to the add-in. See Activity.`}
+            </span>
+          )}
           {message.streaming && <span className="caret" aria-label="streaming" />}
         </div>
         {message.error && (
@@ -882,8 +929,8 @@ function Message({
             ))}
           </div>
         )}
-        {!isUser && message.text && !message.streaming && !message.cancelled && !message.error && (
-          <AnswerActions text={message.text} onFollowUp={onFollowUp} disabled={disabled} />
+        {!isUser && text && !message.streaming && !message.cancelled && !message.error && (
+          <AnswerActions text={text} onFollowUp={onFollowUp} disabled={disabled} />
         )}
       </div>
     </div>
