@@ -71,18 +71,16 @@ function mountComposer(extra = {}): ReturnType<typeof vi.fn> {
 }
 
 describe('structured workspace interactions', () => {
-  it('routes picked intent and output controls into the invocation, preserving the original request', () => {
+  it('routes a typed verb and the Settings response controls into the invocation', () => {
     const invoke = mountComposer();
-    change('[aria-label="Task intent"]', 'rewrite');
     change('[aria-label="Response format"]', 'Decision brief');
     change('[aria-label="Writing style"]', 'Executive');
-    change('textarea', 'Preserve the 99.9% commitment.');
+    change('textarea', '/rewrite Preserve the 99.9% commitment.');
     submit();
     expect(invoke).toHaveBeenCalledOnce();
     expect(invocationToSeed(invoke.mock.calls[0]![0])).toMatch(/^\/rewrite Preserve/);
     expect(invoke.mock.calls[0]![0]).toMatchObject({
       intent: 'rewrite',
-      raw: 'Preserve the 99.9% commitment.',
       scope: { kind: 'selection' },
     });
     expect(invocationToSeed(invoke.mock.calls[0]![0])).toContain(
@@ -113,9 +111,8 @@ describe('structured workspace interactions', () => {
     submit();
     expect(invoke.mock.calls[0]![0].mentions).toEqual([]);
   });
-  it('typed verbs override the intent control and an unsupported verb cannot inherit a write', () => {
+  it('an unsupported typed verb cannot become a write', () => {
     const invoke = mountComposer();
-    change('[aria-label="Task intent"]', 'rewrite');
     change('textarea', '/summarize the document');
     submit();
     expect(invoke.mock.calls[0]![0].intent).toBe('summarize');
@@ -195,6 +192,7 @@ describe('structured workspace interactions', () => {
         onRefresh: vi.fn(),
       }),
     );
+    click('.context-strip-toggle');
     click('.smart-chip-remove');
     expect(toggle).not.toHaveBeenCalled();
   });

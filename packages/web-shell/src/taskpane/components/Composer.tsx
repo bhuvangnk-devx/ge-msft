@@ -2,12 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ComposerSources, mentionKey, mentionLabel } from './ComposerSources.js';
 import { extractDirectCommandProgram } from '../direct-command.js';
 import type { Surface, Intent, CommandScope, GroundSource } from '@ge/contracts';
-import {
-  commandPaletteFor,
-  type CommandVerb,
-  type CommandPaletteSpec,
-  type ScopeOption,
-} from '@ge/contracts';
+import { commandPaletteFor, type CommandVerb, type CommandPaletteSpec } from '@ge/contracts';
 import { brand } from '../../brand.js';
 
 /** One typed `@`-mention: the ground kind and an optional addressable handle (e.g. a person/doc id). */
@@ -159,7 +154,6 @@ export function Composer({
 }: ComposerProps): JSX.Element {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [intentChoice, setIntentChoice] = useState<Intent | ''>('');
   const [sourcePicks, setSourcePicks] = useState<ComposerMention[]>([]);
   const [format, setFormat] = useState('');
   const [tone, setTone] = useState('');
@@ -192,7 +186,6 @@ export function Composer({
   useEffect(() => {
     if (draft) {
       setValue(draft.text);
-      setIntentChoice('');
       setSourcePicks([]);
       setFormat('');
       setTone('');
@@ -200,8 +193,6 @@ export function Composer({
     }
   }, [draft]);
   useEffect(() => {
-    setScopeIdx(0);
-    setIntentChoice('');
     setSourcePicks([]);
     setFormat('');
     setTone('');
@@ -212,10 +203,9 @@ export function Composer({
     [surface, allowedIntents],
   );
 
-  const scopeOptions: ScopeOption[] = palette?.scopeOptions ?? [];
-  // The selected scope index — defaults to the per-surface first option (EXPERIENCE.md §1, Tier 2).
-  const [scopeIdx, setScopeIdx] = useState(0);
-  const scope: CommandScope = scopeOptions[scopeIdx]?.scope ?? { kind: 'selection' };
+  // Every request acts on the live selection. The old Selection / Whole document / This section chips
+  // only appended a `scope:` token; they never attached that content, so they were removed.
+  const scope: CommandScope = { kind: 'selection' };
 
   // The trailing token decides which affordance is open: `/…` → verb palette, `@…` → ground kinds
   // (or, once a kind + `:` is typed and that kind has options, the REFINEMENT list of concrete picks).
@@ -297,10 +287,8 @@ export function Composer({
 
   const parsed = parseComposerInput(value, scope, palette);
   const directProgram = Boolean(extractDirectCommandProgram(value));
-  const pickedIntent = palette?.verbs.some((verb) => verb.intent === intentChoice)
-    ? intentChoice || undefined
-    : undefined;
-  const activeIntent = parsed.intent ?? pickedIntent;
+  // The planner chooses the intent; only a typed `/verb` sets one here.
+  const activeIntent = parsed.intent;
   const typedSourceKeys = new Set(parsed.mentions.map(mentionKey));
   const allSources = [
     ...parsed.mentions,
@@ -341,56 +329,6 @@ export function Composer({
         submit();
       }}
     >
-      <div className="composer-intent-row">
-        <label className="composer-intent">
-          <span className="visually-hidden">Task intent</span>
-          <select
-            aria-label="Task intent"
-            disabled={busy || disabled || directProgram || value.trim().startsWith('/')}
-            value={parsed.intent ?? intentChoice}
-            onChange={(event) => setIntentChoice(event.target.value as Intent | '')}
-          >
-            <option value="">Auto</option>
-            {palette?.verbs.map((verb) => (
-              <option key={verb.intent} value={verb.intent}>
-                {verb.intent[0]?.toUpperCase()}
-                {verb.intent.slice(1)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="composer-intent-hint">
-          {directProgram
-            ? 'Command program'
-            : activeIntent && !['ask', 'summarize', 'explain'].includes(activeIntent)
-              ? 'Preview before applying'
-              : 'Grounded answer'}
-        </span>
-      </div>
-      {scopeOptions.length > 1 && (
-        <div
-          className="comp-scope"
-          role="radiogroup"
-          aria-label="Scope"
-          data-testid="scope-control"
-        >
-          {scopeOptions.map((opt, i) => (
-            <button
-              key={opt.label}
-              type="button"
-              className="scope-option"
-              role="radio"
-              aria-checked={i === scopeIdx}
-              data-scope-kind={opt.scope.kind}
-              data-selected={i === scopeIdx ? 'true' : 'false'}
-              disabled={busy || disabled}
-              onClick={() => setScopeIdx(i)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
       {showVerbs && verbMatches.length > 0 && (
         <ul
           id="composer-options"
@@ -514,7 +452,6 @@ export function Composer({
         <textarea
           ref={textareaRef}
           id="ask"
-          aria-describedby="composer-help"
           aria-controls={paletteOpen ? 'composer-options' : undefined}
           aria-activedescendant={paletteOpen ? optionId(clampedActive) : undefined}
           value={value}
@@ -594,7 +531,9 @@ export function Composer({
           onChange={setSourcePicks}
         />
         <details className="composer-options">
-          <summary>Response{format || tone ? ' •' : ''}</summary>
+          <summary>
+            <span aria-hidden="true">⚙</span> Settings{format || tone ? ' •' : ''}
+          </summary>
           <div className="composer-options-popover">
             <label>
               Format
@@ -627,7 +566,6 @@ export function Composer({
             </label>
           </div>
         </details>
-        <span id="composer-help">Enter to send · Shift + Enter for a new line</span>
       </div>
       <p className="cb-disclaimer">{disclaimerText()}</p>
     </form>

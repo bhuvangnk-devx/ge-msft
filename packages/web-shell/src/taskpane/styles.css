@@ -2144,6 +2144,12 @@ button.cite:hover {
   border-color: var(--ink);
   color: var(--ink);
 }
+/* `.panel button { font: inherit }` outranks `.cite`; without this the source pills inherit the body
+ * size and font and look larger than the answer they cite. */
+.cites .cite {
+  font-family: var(--mono);
+  font-size: var(--fz-xs);
+}
 .cite-d {
   flex: none;
   width: 6px;
@@ -3343,6 +3349,28 @@ button.cite:hover {
 .cb textarea:disabled {
   color: var(--ink-3);
   border-bottom-color: var(--hairline-soft);
+}
+/* the attached-context summary is the dropdown toggle for the chips below it */
+.context-strip-toggle {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+/* closed: the heading is the strip's only line, so no gap is left for chips that are not shown */
+.context-strip-heading:last-child {
+  margin-bottom: 0;
+}
+.context-strip:has(> .context-strip-heading:last-child) {
+  padding-bottom: 10px;
+}
+.context-strip-caret {
+  margin-left: 6px;
+  font-size: var(--fz-xs);
+  color: var(--ink-3);
 }
 /* optional brand tagline, a second line under the product name in the header */
 .tw-tagline {

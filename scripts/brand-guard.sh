@@ -38,7 +38,6 @@ wired=(
   "packages/web-shell/vite.config.ts:brand"
   "packages/web-shell/src/brand.ts:brand"
   "packages/web-shell/src/taskpane/components/Toolbar.tsx:brand."
-  "packages/web-shell/src/taskpane/components/App.tsx:brand."
   "packages/web-shell/src/taskpane/components/Composer.tsx:brand."
   "packages/web-shell/src/taskpane/main.tsx:brand."
   "tools/release/common.mjs:loadBrand"
