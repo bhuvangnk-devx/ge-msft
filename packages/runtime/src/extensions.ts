@@ -60,7 +60,11 @@ export function installRuntimeExtensions(
   }
 }
 
-/** An actual verifier: a parsed `done` does not make failed effects or an exhausted loop successful. */
+/**
+ * An actual verifier: a parsed `done` does not make failed effects or an exhausted loop successful.
+ * A policy-'blocked' task can still carry failed (not uncertain) effects, so a guard that cares
+ * about writes should read `outcome.effects`, not the status alone.
+ */
 export const completedEffectsExtension: RuntimeExtension = {
   id: 'core.outcomes',
   setup(api) {

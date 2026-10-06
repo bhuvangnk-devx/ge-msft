@@ -672,15 +672,22 @@ export class AssistSession {
                 completion !== undefined &&
                 ['verified', 'unverified'].includes(assessActuationResult(other)))),
         );
-      task.status = task.effects.some(
-        (result, i) =>
-          !['verified', 'unverified'].includes(assessActuationResult(result)) &&
-          !retried(result, i),
-      )
-        ? 'incomplete'
-        : task.status === 'running'
-          ? 'completed'
-          : task.status;
+      // A content-policy block (Model Armor; modelStream marks the task blocked) stays the outcome the
+      // user sees, so its own message is not replaced by the generic "did not complete" one. Unless
+      // a write's outcome is uncertain: then "incomplete" keeps the "may already have applied" warning.
+      task.status =
+        task.status === 'blocked' &&
+        !task.effects.some((result) => assessActuationResult(result) === 'uncertain')
+          ? 'blocked'
+          : task.effects.some(
+                (result, i) =>
+                  !['verified', 'unverified'].includes(assessActuationResult(result)) &&
+                  !retried(result, i),
+              )
+            ? 'incomplete'
+            : task.status === 'running'
+              ? 'completed'
+              : task.status;
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;

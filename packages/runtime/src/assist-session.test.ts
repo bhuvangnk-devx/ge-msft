@@ -21,6 +21,9 @@ import type { CommandLoopEvent, PlanEffect } from './assist-session.js';
 import type { ReadIntent } from './command-protocol.js';
 import { BRIEF_REF_ID } from './context-model.js';
 import type { DocBridge } from './bridge.js';
+import { RuntimeHooks } from './hooks.js';
+import { completedEffectsExtension, installRuntimeExtensions } from './extensions.js';
+import { TriggerRegistry } from '@ge/triggers';
 
 /** A typed probe onto `AssistSession`'s private `runReadIntent` — avoids `any` in DocFs-verb tests. */
 interface ReadIntentProbe {
@@ -1627,6 +1630,67 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     await collectLoop(session.runCommands('write', { approvePlan: () => true }));
     expect(bridge.applied.map((r) => r.kind)).toEqual(['insert-chart']);
     expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  /** A command loop where turn 1 writes (the bridge answers with `receipt`) and turn 2 is blocked by
+   * Model Armor, run with the production verify guard installed. */
+  async function blockedAfterWrite(receipt: Partial<ActuationResult>) {
+    class ReceiptBridge extends ComposeBridge {
+      override actuate(request: ActuationRequest): Promise<ActuationResult> {
+        return Promise.resolve({
+          changeId: request.changeId,
+          kind: request.kind,
+          ok: false,
+          ...receipt,
+        } as ActuationResult);
+      }
+    }
+    let call = 0;
+    const fetchImpl = vi.fn(async () => {
+      call += 1;
+      const chunk =
+        call === 1
+          ? {
+              sessionInfo: { session: 'sess_1' },
+              answer: {
+                state: 'SUCCEEDED',
+                replies: [{ groundedContent: { content: { text: '```cmd\nset A1 1\n```' } } }],
+              },
+            }
+          : { answer: { customerPolicyEnforcementResult: { verdict: 'BLOCK' } } };
+      return new Response(streamOf([JSON.stringify([chunk])]), { status: 200 });
+    });
+    const hooks = new RuntimeHooks();
+    installRuntimeExtensions([completedEffectsExtension], {
+      hooks,
+      triggers: new TriggerRegistry(),
+    });
+    const client = new StreamAssistClient(tokens, cfg, fetchImpl as unknown as typeof fetch);
+    const session = new AssistSession(new ReceiptBridge(), client, {
+      unit,
+      hooks,
+      context: { docState: false },
+    });
+    return { session, run: collectLoop(session.runCommands('write', { approvePlan: () => true })) };
+  }
+
+  it('a Model Armor block after a clean failed write ends blocked, keeping the policy message', async () => {
+    const { session, run } = await blockedAfterWrite({
+      error: { code: 'no_hits', message: 'nothing matched' },
+    });
+    const events = await run; // the generic "did not complete" guard does not replace the block
+    expect(events.some((e) => e.type === 'policy' && e.verdict === 'block')).toBe(true);
+    const record = session.executions.list().at(-1);
+    expect(record?.status).toBe('blocked');
+    expect(record?.effects).toHaveLength(1);
+  });
+
+  it('a Model Armor block after an uncertain write still warns that changes may have applied', async () => {
+    const { run } = await blockedAfterWrite({
+      recoveryPending: true,
+      error: { code: 'outcome_unknown', message: 'host did not confirm' },
+    });
+    await expect(run).rejects.toThrow(/may already have applied/);
   });
 
   it('a clean failure followed only by an EARLIER different-kind success stays incomplete', async () => {
