@@ -72,10 +72,19 @@ describe('MessageThread', () => {
     }
   });
 
-  it('shows a streaming reply bubble (with its caret) before any text arrives', () => {
+  it('shows a streaming reply bubble with only the loader before any text arrives', () => {
     render([{ id: 'a1', role: 'assistant', text: '', streaming: true }]);
     expect(container.querySelectorAll('.m.a').length).toBe(1);
-    expect(container.querySelector('.caret')).not.toBeNull();
+    expect(container.querySelectorAll('.typing-dots > i').length).toBe(3);
+    expect(container.querySelector('.caret')).toBeNull();
+  });
+
+  it('shows the loader instead of the caret while a working step runs', () => {
+    render([
+      { id: 'a1', role: 'assistant', text: 'Comparing', streaming: true, activity: 'Checking…' },
+    ]);
+    expect(container.querySelector('.message-activity')?.textContent).toBe('Checking…');
+    expect(container.querySelector('.caret')).toBeNull();
   });
 
   it('keeps the rest of a finished answer visible after an unclosed command fence', () => {

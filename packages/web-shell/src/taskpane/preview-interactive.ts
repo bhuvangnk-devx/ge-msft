@@ -80,8 +80,38 @@ const SAMPLE: Record<
   },
 };
 
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Stream scripted text the way a live reply arrives: a short working step, then a few words at a
+ * time. `pace` is the delay per chunk in milliseconds; 0 sends the text at once (tests).
+ */
+async function* streamScripted(
+  text: string,
+  pace: number,
+  signal?: AbortSignal,
+  activity?: string,
+): AsyncGenerator<{ type: 'activity'; text: string } | { type: 'token'; text: string }> {
+  if (pace <= 0) {
+    yield { type: 'token', text };
+    return;
+  }
+  if (activity) {
+    yield { type: 'activity', text: activity };
+    await sleep(pace * 25);
+  }
+  for (const chunk of text.match(/\S+\s*|\s+/g) ?? []) {
+    if (signal?.aborted) return;
+    yield { type: 'token', text: chunk };
+    await sleep(pace);
+  }
+}
+
 /** A real controller over an explicitly scripted session. No credentials, network, or Office writes. */
-export function makeDemoController(surface: Surface): PanelController {
+export function makeDemoController(
+  surface: Surface,
+  { pace = 30 }: { pace?: number } = {},
+): PanelController {
   const sample = SAMPLE[surface];
   let sequence = 0;
   const refs: ContextRef[] = [
@@ -105,8 +135,9 @@ export function makeDemoController(surface: Surface): PanelController {
     context: { size: 0 },
     attachRef: async () => undefined,
     detach: () => undefined,
-    async *ask() {
-      yield { type: 'token', text: sample.answer };
+    async *ask(_query, opts) {
+      yield* streamScripted(sample.answer, pace, opts?.signal, `Reading ${sample.title}…`);
+      if (opts?.signal?.aborted) return;
       yield { type: 'citation', source: { title: sample.title, excerpt: sample.body } };
       yield { type: 'done' };
     },
@@ -129,15 +160,21 @@ export function makeDemoController(surface: Surface): PanelController {
           },
         },
       ];
-      yield { type: 'token', text: 'This is a scripted preview. Review the sample change below.' };
+      yield* streamScripted(
+        'This is a scripted preview. Review the sample change below.',
+        pace,
+        options?.signal,
+        'Preparing the sample change…',
+      );
       const approved = await options?.approvePlan?.(effects);
       if (options?.signal?.aborted) return;
-      yield {
-        type: 'token',
-        text: approved
+      yield* streamScripted(
+        approved
           ? '\n\nSample change approved. No Office document was modified.'
           : '\n\nSample change rejected. Nothing was applied.',
-      };
+        pace,
+        options?.signal,
+      );
       yield { type: 'done' };
     },
     async plan(task) {

@@ -825,17 +825,22 @@ function AnswerActions({
 
 /**
  * A step that sends nothing visible for a while (planning, reading the document) must not look
- * frozen: three bouncing dots beside the activity label.
+ * frozen: three bouncing dots, beside the activity label when there is one.
  */
-function WorkingIndicator({ activity }: { activity: string }): JSX.Element {
+function WorkingIndicator({ activity }: { activity?: string }): JSX.Element {
   return (
-    <span className="message-activity" role="status" aria-live="polite">
+    <span
+      className="message-activity"
+      role="status"
+      aria-live="polite"
+      aria-label={activity ? undefined : 'Working'}
+    >
       <span className="typing-dots" aria-hidden="true">
         <i />
         <i />
         <i />
       </span>
-      <span>{activity}</span>
+      {activity ? <span>{activity}</span> : null}
     </span>
   );
 }
@@ -931,7 +936,7 @@ function Message({
     ? { text: message.text, hidden: 0 }
     : stripCommandBlocks(message.text, Boolean(message.streaming));
   const text = stripped.text;
-  // Only a finished reply that ended up empty is dropped; a streaming one keeps its bubble and caret.
+  // Only a finished reply that ended up empty is dropped; a streaming one keeps its bubble.
   if (
     !isUser &&
     !text &&
@@ -964,7 +969,9 @@ function Message({
               insertArtifactDisabledReason={insertArtifactDisabledReason}
             />
           )}
-          {message.streaming && message.activity ? (
+          {/* While waiting (a working step, or no text yet) show only the loader; the caret starts
+              with the text. */}
+          {message.streaming && (message.activity || !text) ? (
             <WorkingIndicator activity={message.activity} />
           ) : null}
           {stripped.hidden > 0 && (
@@ -974,7 +981,9 @@ function Message({
                 : `${stripped.hidden} command blocks sent to the add-in. See Activity.`}
             </span>
           )}
-          {message.streaming && <span className="caret" aria-label="streaming" />}
+          {message.streaming && text && !message.activity && (
+            <span className="caret" aria-label="streaming" />
+          )}
         </div>
         {message.error && (
           <div className="msg-error" role="alert">

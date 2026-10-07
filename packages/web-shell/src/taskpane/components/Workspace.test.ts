@@ -231,7 +231,7 @@ describe('structured workspace interactions', () => {
     expect(follow).toHaveBeenCalledOnce();
   });
   it('uses a live controller in the demo and suspends execution at the real approval coordinator', async () => {
-    const controller = makeDemoController('word');
+    const controller = makeDemoController('word', { pace: 0 });
     await controller.refreshContext();
     const id = controller.getState().chips[0]!.id;
     await controller.attach(id);

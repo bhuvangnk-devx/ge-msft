@@ -498,11 +498,6 @@
   }
 }
 /* Keep the narrow-pane controls legible; the chrome must not inherit the browser's button size. */
-.panel .tw-name {
-  text-transform: none;
-  font-size: 13px;
-  font-weight: 600;
-}
 .panel .tw-label {
   font-size: 11px;
 }

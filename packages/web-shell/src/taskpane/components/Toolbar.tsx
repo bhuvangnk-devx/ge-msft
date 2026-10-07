@@ -43,24 +43,6 @@ export interface ToolbarProps {
 
 type Panel = 'context' | 'actions' | 'skills' | 'sessions' | 'settings';
 
-const HOST_GLYPH: Readonly<Record<Surface, string>> = {
-  word: 'W',
-  excel: 'X',
-  powerpoint: 'P',
-  onenote: 'N',
-  outlook: 'O',
-  teams: 'T',
-};
-
-const HOST_NAME: Readonly<Record<Surface, string>> = {
-  word: 'Word',
-  excel: 'Excel',
-  powerpoint: 'PowerPoint',
-  onenote: 'OneNote',
-  outlook: 'Outlook',
-  teams: 'Teams',
-};
-
 const PANEL_TITLE: Readonly<Record<Panel, string>> = {
   context: 'Context and grounding',
   actions: 'Find your next action',
@@ -70,8 +52,8 @@ const PANEL_TITLE: Readonly<Record<Panel, string>> = {
 };
 
 /**
- * The single icon toolbar that replaces the stacked chrome: product mark, host glyph + readiness
- * dot, and one icon per disclosure (Context / Actions / Skills) plus a settings gear. Each icon
+ * The single icon toolbar that replaces the stacked chrome: the product mark, then one icon per
+ * disclosure (Context / Actions / Skills) plus a settings gear. Each icon
  * opens one in-pane modal holding the existing section component in `embedded` mode. The modal owns
  * the available viewport and its own scrolling, so Office's narrow task panes cannot clip long quick
  * task or routing lists behind the composer. Closing: backdrop, close button, or Escape.
@@ -79,9 +61,7 @@ const PANEL_TITLE: Readonly<Record<Panel, string>> = {
 export function Toolbar({
   surface,
   allowedIntents,
-  agentLabel,
   busy,
-  hasGate,
   chips,
   attachedCount,
   availableCount,
@@ -173,33 +153,12 @@ export function Toolbar({
     return () => document.removeEventListener('keydown', shortcut);
   }, [choose]);
 
-  const state = hasGate ? 'gate' : busy ? 'busy' : 'ready';
-  const status = hasGate ? 'Decision needed' : busy ? 'Working' : 'Ready';
   const hasSkills = skills.length > 0;
 
   return (
     <div className="tw" ref={rootRef}>
-      <div className="tw-identity">
-        <span className="tw-brand" aria-hidden="true" />
-        <span className="tw-name" title={agentLabel ?? 'Grounded on your research unit'}>
-          {brand.name}
-          {brand.tagline ? <span className="tw-tagline">{brand.tagline}</span> : null}
-        </span>
-        <span className="tw-spacer" />
-        <span
-          className="tw-host"
-          title={`${HOST_NAME[surface]} · ${status}`}
-          aria-label={`${HOST_NAME[surface]}, ${status}`}
-        >
-          <span className="tw-host-glyph" aria-hidden="true">
-            {HOST_GLYPH[surface]}
-          </span>
-          <span className="tw-host-dot" data-state={state} aria-hidden="true" />
-          <span className="tw-host-name">{HOST_NAME[surface]}</span>
-        </span>
-      </div>
-
       <div className="tw-bar" role="toolbar" aria-label={`${brand.name} controls`}>
+        <span className="tw-brand" role="img" aria-label={brand.name} title={brand.name} />
         <button
           type="button"
           className={`tw-icon${panel === 'context' ? ' on' : ''}`}

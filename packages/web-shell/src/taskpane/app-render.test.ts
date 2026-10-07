@@ -79,9 +79,9 @@ describe('<App/> render smoke', () => {
     expect(container.querySelector('.cites')?.getAttribute('aria-label')).toBe('Citations');
   });
 
-  it('renders the streaming caret on the in-flight assistant message', () => {
+  it('renders the loader, not the caret, on the in-flight assistant message while it works', () => {
     render();
-    expect(container.querySelector('.caret')).not.toBeNull();
+    expect(container.querySelector('.caret')).toBeNull();
     const activity = container.querySelector('.message-activity[role="status"]');
     expect(activity?.textContent).toContain('Checking the selected policy');
   });

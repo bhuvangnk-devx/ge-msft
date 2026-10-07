@@ -262,24 +262,18 @@ body {
   background: var(--paper);
   border-bottom: 0.5px solid var(--hairline);
 }
-.tw-identity {
-  min-height: 34px;
-  padding: 4px var(--s5);
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-}
 .tw-bar {
-  padding: 0 var(--s5) var(--s2);
+  padding: var(--s2) var(--s5);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  grid-template-columns: 22px repeat(auto-fit, minmax(48px, 1fr));
   align-items: stretch;
   gap: var(--s1);
 }
 .tw-brand {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   flex: none;
+  align-self: center;
   border-radius: var(--r-chip);
   background: var(--plate);
   display: grid;
@@ -291,54 +285,6 @@ body {
   font-size: 8px;
   font-weight: 700;
   color: var(--paper);
-}
-.tw-name {
-  min-width: 0;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fz-md);
-  font-weight: 700;
-  text-transform: lowercase;
-}
-.tw-host {
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 6px;
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r-chip);
-  font-family: var(--mono);
-  font-size: var(--fz-xs);
-  text-transform: lowercase;
-}
-.tw-host-glyph {
-  color: var(--ink);
-}
-.tw-host-name {
-  color: var(--ink-2);
-}
-.tw-host-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: var(--lamp-hold);
-}
-.tw-host-dot[data-state='ready'] {
-  background: var(--lamp-on);
-}
-.tw-host-dot[data-state='busy'] {
-  background: var(--lamp-on);
-  animation: lampPulse 1.6s ease-in-out infinite;
-}
-.tw-host-dot[data-state='gate'] {
-  background: var(--lamp-err);
-}
-.tw-spacer {
-  flex: 1;
-  min-width: var(--s2);
 }
 .tw-icon {
   position: relative;
@@ -3417,14 +3363,6 @@ button.cite:hover {
   font-size: var(--fz-xs);
   color: var(--ink-3);
 }
-/* optional brand tagline, a second line under the product name in the header */
-.tw-tagline {
-  display: block;
-  font-size: var(--fz-xs);
-  font-weight: 400;
-  line-height: 14px;
-  color: var(--ink-3);
-}
 /* collapsed effect row: what it writes, and a flag on changes that leave the document or can't be undone */
 .effect-change {
   display: block;
@@ -3652,7 +3590,6 @@ button.cite:hover {
 /* ============ responsive ============ */
 @media (max-width: 380px) {
   .ph,
-  .tw-identity,
   .tw-bar,
   .surface-center,
   .unit,
@@ -3706,7 +3643,6 @@ button.cite:hover {
 /* wide browser preview: hold a measured column, spec-sheet style */
 @media (min-width: 520px) {
   .ph,
-  .tw-identity,
   .tw-bar,
   .surface-center,
   .unit,
