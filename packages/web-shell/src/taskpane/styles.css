@@ -2110,10 +2110,6 @@ body {
 .typing-dots > i:nth-child(3) {
   animation-delay: 0.3s;
 }
-.activity-elapsed {
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
 @keyframes typingBounce {
   0%,
   60%,

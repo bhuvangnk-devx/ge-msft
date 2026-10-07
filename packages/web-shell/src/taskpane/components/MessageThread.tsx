@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ChatMessage } from '../../controller.js';
 import {
@@ -825,16 +825,9 @@ function AnswerActions({
 
 /**
  * A step that sends nothing visible for a while (planning, reading the document) must not look
- * frozen: three bouncing dots, and an elapsed-seconds counter once it has taken over 3 seconds.
+ * frozen: three bouncing dots beside the activity label.
  */
 function WorkingIndicator({ activity }: { activity: string }): JSX.Element {
-  const [started] = useState(() => Date.now());
-  const [now, setNow] = useState(started);
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const seconds = Math.floor((now - started) / 1000);
   return (
     <span className="message-activity" role="status" aria-live="polite">
       <span className="typing-dots" aria-hidden="true">
@@ -843,7 +836,6 @@ function WorkingIndicator({ activity }: { activity: string }): JSX.Element {
         <i />
       </span>
       <span>{activity}</span>
-      {seconds >= 3 && <span className="activity-elapsed">{seconds}s</span>}
     </span>
   );
 }

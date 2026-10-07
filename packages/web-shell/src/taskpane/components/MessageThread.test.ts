@@ -60,14 +60,13 @@ describe('MessageThread', () => {
     );
   });
 
-  it('shows a lively working indicator with an elapsed counter while a step is slow', () => {
+  it('shows a lively working indicator without an elapsed counter while a step is slow', () => {
     vi.useFakeTimers();
     try {
       render([{ id: 'a1', role: 'assistant', text: '', streaming: true, activity: 'Planning…' }]);
       expect(container.querySelectorAll('.typing-dots > i').length).toBe(3);
-      expect(container.querySelector('.activity-elapsed')).toBeNull();
       act(() => vi.advanceTimersByTime(5000));
-      expect(container.querySelector('.activity-elapsed')?.textContent).toBe('5s');
+      expect(container.querySelector('.message-activity')?.textContent).toBe('Planning…');
     } finally {
       vi.useRealTimers();
     }
