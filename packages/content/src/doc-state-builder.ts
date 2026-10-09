@@ -167,10 +167,15 @@ export function buildDocStateSnapshot(input: BuildDocStateInput): DocStateSnapsh
         anchor: headingAnchor(block),
       };
       outlineAll.push(entry);
+      // A slide's title heading: its number is this builder's count, kept apart from the quoted
+      // title, so a slide titled "Slide 2: …" cannot pass for slide 2.
+      const isSlide = block.locator?.startsWith('slide:') === true;
+      if (isSlide) slideCount += 1;
       inventoryAll.push({
-        kind: 'paragraph',
+        kind: isSlide ? 'slide' : 'paragraph',
         id: block.locator ?? `heading:${outlineAll.length}`,
         title: clip(headingText, ANCHOR_PREFIX_CHARS),
+        ...(isSlide ? { summary: `slide ${slideCount}` } : {}),
       });
       continue;
     }

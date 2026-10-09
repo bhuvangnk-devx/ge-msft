@@ -83,12 +83,15 @@ describe('powerpoint capture (pure)', () => {
     expect(ctx.some((c) => c.ref.anchor?.locator === 'slide:sx')).toBe(true);
   });
 
-  it('slideElementsToDocStateBlocks mirrors the native slide blocks (outline source)', () => {
+  it('slideElementsToDocStateBlocks lists each slide once, by its title, without its body', () => {
     const blocks = slideElementsToDocStateBlocks([
-      { index: 0, slideId: 's1', title: 'Agenda', body: ['Intro'] },
+      { index: 0, slideId: 's1', title: 'Agenda', body: ['Intro', 'Scope'] },
+      { index: 1, slideId: 's2', title: '', body: ['Only a body'] },
     ]);
-    expect(blocks[0]?.locator).toBe('slide:s1');
-    expect(blocks.some((b) => b.text.includes('Agenda'))).toBe(true);
+    expect(blocks.map((b) => [b.kind, b.text, b.locator])).toEqual([
+      ['heading', '## Agenda', 'slide:s1'],
+      ['heading', '## Slide 2', 'slide:s2'],
+    ]);
   });
 });
 

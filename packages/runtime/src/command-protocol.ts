@@ -1,9 +1,11 @@
 import {
   ActuationRequestSchema,
   COMMAND_HELP,
+  POWERPOINT_GEOMETRIES,
   commandIntentText,
   WRITE_VERB_TO_KIND,
   grammarFor,
+  powerpointGeometry,
   registryEntryForKindAndSurface,
   type ActuationKind,
   type ActuationRequest,
@@ -327,15 +329,21 @@ export function compileCommand(
         target: { range: cmd.range },
         cells: cmd.cells ?? [],
       });
-    case 'invoke':
+    case 'invoke': {
       // ADR-0008 §two-tier — the `/<kind>` specialized surface. The kind was validated against the
       // catalogue at parse; per-surface availability is enforced by the plan type-check (its kind must
       // be in manifest.actuations). Map the typed args into the kind's `ActuationParams`.
+      if (cmd.kind === 'add-shape') {
+        // An unknown shape type is refused here, before an approval card.
+        const shape = addShapeKind(cmd.props);
+        if ('error' in shape) return shape;
+      }
       return compileWrite(
         cmd.kind as ActuationKind,
         ctx,
         paramsFromInvoke(cmd.kind, cmd.props, cmd.args),
       );
+    }
   }
 }
 
@@ -552,11 +560,11 @@ function paramsFromInvoke(
     case 'set-page-title':
       p.pageTitle = props.title ?? args[0] ?? '';
       break;
-    case 'add-shape':
+    case 'add-shape': {
       withPositionalSlide(p, args);
+      const kind = addShapeKind(props);
       p.shape = {
-        shapeType: shapeTypeFromProp(props.shapeType ?? props.type),
-        ...(props.geometryType ? { geometryType: props.geometryType } : {}),
+        ...('error' in kind ? { shapeType: 'textBox' } : kind),
         ...(props.connectorType === 'straight' ||
         props.connectorType === 'elbow' ||
         props.connectorType === 'curve'
@@ -570,6 +578,7 @@ function paramsFromInvoke(
         ...numberProp(props, 'height'),
       };
       break;
+    }
     case 'add-table-slide': {
       withPositionalSlide(p, args);
       // The shape models write unprompted: `/add-table-slide "Title" "A | B" "1 | 2" …` — a title then
@@ -749,9 +758,30 @@ function addressList(value: string | undefined): string[] {
 
 type ShapeType = NonNullable<ActuationRequest['params']['shape']>['shapeType'];
 
-function shapeTypeFromProp(value: string | undefined): ShapeType {
-  if (value === 'geometric' || value === 'line') return value;
-  return 'textBox';
+/**
+ * The kind of shape an `/add-shape` asks for. Models name the geometry as the type
+ * (`shapeType=rectangle`) more often than `shapeType=geometric geometryType=Rectangle`; both work.
+ * Any other type is an error. It used to become a text box: live 2026-10-09, "add a blue rectangle"
+ * was refused as "textBox needs text" through seven approvals, and the model gave up by recolouring
+ * the slide title.
+ */
+function addShapeKind(
+  props: Record<string, string>,
+): { shapeType: ShapeType; geometryType?: string } | { error: string } {
+  const type = (props.shapeType ?? props.type)?.trim();
+  const named = props.geometryType ?? props.geometry;
+  const key = type?.toLowerCase();
+  if (key === 'textbox' || key === 'text') return { shapeType: 'textBox' };
+  if (key === 'line' || key === 'connector') return { shapeType: 'line' };
+  if (!type && named === undefined) return { shapeType: 'textBox' };
+  const asked = key === undefined || key === 'geometric' ? named : type;
+  const geometry = powerpointGeometry(asked);
+  if (geometry) return { shapeType: 'geometric', geometryType: geometry };
+  return {
+    error:
+      `/add-shape cannot draw ${JSON.stringify((asked ?? '').slice(0, 40))}: shapeType is textBox, ` +
+      `line, or a geometry (${POWERPOINT_GEOMETRIES.join(', ')}).`,
+  };
 }
 
 function rowsFromProp(value: string): string[][] {
@@ -1115,8 +1145,10 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
   }
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
-    'Program control: finish when=verified completes only after every effect verifies and no error remains. Use where host readback is supported.',
-    'Otherwise inspect the outcome; emit done alone when complete. Never claim unsupported verification. Always emit the closing fence.',
+    // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint
+    // programs kept ending with `finish when=verified`, which no PowerPoint write can satisfy.
+    'Program control: finish when=verified completes only after every effect verifies and no error remains. Only Excel cell writes return readback.',
+    'For any other write, inspect the outcome and emit done alone when complete. Never claim unsupported verification. Always emit the closing fence.',
   );
   let prompt = lines.join('\n');
   // Rank on what the user asked for, never on the confirmed-plan wrapper's protocol wording.

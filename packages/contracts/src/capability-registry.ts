@@ -805,7 +805,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-shape',
     title: 'PowerPoint shape/textbox insertion',
     useWhen:
-      'add a text box, geometric shape, or line to an addressed slide with explicit geometry',
+      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside',
     hostApis: [
       'PowerPoint.ShapeCollection.addTextBox',
       'PowerPoint.ShapeCollection.addGeometricShape',
@@ -820,6 +820,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Emit one /add-shape command; never infer placement from prose alone.',
     ],
     examples: [
+      '/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60',
       '/add-shape slide=2 shapeType=textBox text="Key risk" left=72 top=300 width=400 height=50',
     ],
     preview: ['target slide', 'shape type', 'geometry', 'text/style fields'],
@@ -837,7 +838,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-table-slide',
     title: 'PowerPoint native slide table',
     useWhen:
-      'add a native table (rows and columns) to a new slide (slide=new title="…") or an existing slide, instead of flattening the rows into bullet text',
+      'add a native table (rows and columns) to a new slide (slide=new title="…") or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text',
     hostApis: ['PowerPoint.ShapeCollection.addTable'],
     requirementSets: [{ name: 'PowerPointApi', minVersion: '1.8' }],
     contextKinds: ['slide', 'table'],

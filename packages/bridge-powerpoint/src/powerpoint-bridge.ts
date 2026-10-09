@@ -1,4 +1,4 @@
-import { unknownActuationResult } from '@ge/contracts';
+import { powerpointGeometry, unknownActuationResult } from '@ge/contracts';
 import { createBridgeDispatch } from '@ge/runtime';
 import type {
   ActuationKind,
@@ -7,6 +7,7 @@ import type {
   CapabilityManifest,
   ContextRef,
   DocStateSnapshot,
+  PowerPointGeometry,
   ResolvedContext,
 } from '@ge/contracts';
 import type { DocBridge } from '@ge/runtime';
@@ -465,6 +466,8 @@ export class PowerPointBridge implements DocBridge {
               ? slide.shapes.addLine(op.connector, options)
               : slide.shapes.addGeometricShape(op.geometry, options);
         if (op.fill !== undefined) added.fill.foregroundColor = op.fill;
+        // A geometric shape holds text too ("a blue box saying AI CoE"); it was dropped before.
+        if (op.type === 'geometric' && op.text) added.textFrame.textRange.text = op.text;
         added.load('id');
         await ctx.sync();
         const mintedId = added.id;
@@ -854,28 +857,6 @@ export class PowerPointBridge implements DocBridge {
   }
 }
 
-/**
- * Geometric shapes {@link PowerPointBridge.actuate} `add-shape` accepts — typed against the
- * literal-union overload of `ShapeCollection.addGeometricShape` (PowerPointApi 1.4, l.184157) so
- * the whitelist doubles as the host parameter type (no casts, nothing outside this set is sent).
- */
-const GEOMETRIC_SHAPES = [
-  'Rectangle',
-  'RoundRectangle',
-  'Ellipse',
-  'Triangle',
-  'Diamond',
-  'Pentagon',
-  'Hexagon',
-  'Octagon',
-  'Star5',
-  'Chevron',
-  'RightArrow',
-  'LeftRightArrow',
-  'Cloud',
-] as const;
-type GeometricShapeName = (typeof GEOMETRIC_SHAPES)[number];
-
 /** Contract connector names → the host's `ConnectorType` literals (`addLine`, PowerPointApi 1.4). */
 const CONNECTOR_TYPES: Record<'straight' | 'elbow' | 'curve', 'Straight' | 'Elbow' | 'Curve'> = {
   straight: 'Straight',
@@ -910,7 +891,7 @@ interface AddShapeGeometry {
 type AddShapeOp =
   | (AddShapeGeometry & { type: 'textBox'; text: string })
   | (AddShapeGeometry & { type: 'line'; connector?: 'Straight' | 'Elbow' | 'Curve' })
-  | (AddShapeGeometry & { type: 'geometric'; geometry: GeometricShapeName });
+  | (AddShapeGeometry & { type: 'geometric'; geometry: PowerPointGeometry; text?: string });
 
 type AddShapeResolution =
   | { ok: true; op: AddShapeOp }
@@ -970,7 +951,8 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
       },
     };
   }
-  const geometry = GEOMETRIC_SHAPES.find((candidate) => candidate === shape.geometryType);
+  // The contracts' whitelist doubles as the host parameter type: nothing outside it is sent.
+  const geometry = powerpointGeometry(shape.geometryType);
   if (!geometry) {
     return {
       ok: false,
@@ -978,7 +960,8 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
       message: `add-shape geometry "${shape.geometryType ?? ''}" is not supported.`,
     };
   }
-  return { ok: true, op: { ...base, type: 'geometric', geometry } };
+  const text = shape.text?.trim();
+  return { ok: true, op: { ...base, type: 'geometric', geometry, ...(text ? { text } : {}) } };
 }
 
 async function deckInsertOptions(
@@ -1468,9 +1451,9 @@ async function resolveShapeTarget(
   return {
     error:
       `Shape ${JSON.stringify(key.slice(0, 64))} was not found on that slide (there are no shape ` +
-      `numbers). For the slide title use title as the shape: shape pp:shape:${slideKey}:title "…" ` +
-      `(or shape=title on /format-shape). Otherwise use one of its shape ids: ` +
-      `${shown || 'the slide has no shapes'}.`,
+      `numbers or names). Use one of its shape ids: ${shown || 'the slide has no shapes'}. A ` +
+      `shape you added has the id in its add-shape result. For the slide title use title as the ` +
+      `shape: shape pp:shape:${slideKey}:title "…" (or shape=title on /format-shape).`,
   };
 }
 
