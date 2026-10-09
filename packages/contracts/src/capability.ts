@@ -13,6 +13,33 @@ export const CHART_SOURCE_PATTERN = new RegExp(
 );
 
 /**
+ * The geometric shapes `add-shape` draws: PowerPoint `GeometricShapeType` literals (PowerPointApi
+ * 1.4) that the bridge passes to the host unchanged.
+ */
+export const POWERPOINT_GEOMETRIES = [
+  'Rectangle',
+  'RoundRectangle',
+  'Ellipse',
+  'Triangle',
+  'Diamond',
+  'Pentagon',
+  'Hexagon',
+  'Octagon',
+  'Star5',
+  'Chevron',
+  'RightArrow',
+  'LeftRightArrow',
+  'Cloud',
+] as const;
+export type PowerPointGeometry = (typeof POWERPOINT_GEOMETRIES)[number];
+
+/** The geometry a name means in any case (`rectangle` → `Rectangle`); undefined for any other name. */
+export function powerpointGeometry(name: string | undefined): PowerPointGeometry | undefined {
+  const key = name?.trim().toLowerCase();
+  return POWERPOINT_GEOMETRIES.find((g) => g.toLowerCase() === key);
+}
+
+/**
  * The capability foundation (part 2 of 2): **actuation**.
  *
  * Everything a surface can *write* is advertised as an `Actuation` and invoked via an

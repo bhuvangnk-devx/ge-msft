@@ -267,6 +267,21 @@ const QUESTION_RE = new RegExp(
 );
 
 /**
+ * A leading `/word` that is not one of this surface's verbs carries no intent (the composer resolves
+ * verbs against the surface palette only), so route the line, without its slash, as free text. Users type
+ * command names they have seen: live 2026-10-09, "/shape Add a blue rectangle to the top right of
+ * slide 2" skipped the planner, reached chat, which cannot write, and was told shapes are not
+ * supported. A bare `/word` with nothing after it is left alone.
+ */
+export function withoutUnknownVerb(inv: ComposerInvocation): ComposerInvocation {
+  const raw = inv.raw.trim();
+  if (inv.intent !== undefined || !raw.startsWith('/') || !inv.instruction.trim()) return inv;
+  // Only the slash goes: the word can be the user's verb ("/delete slide 3").
+  const text = raw.slice(1);
+  return { ...inv, raw: text, instruction: text };
+}
+
+/**
  * Thin router predicate, not an intent classifier. It decides only whether free text goes to the
  * command planner or straight to chat; the planner owns intent selection, exclusions and
  * clarification, and can still answer in chat. On a surface that can write, anything that is not
@@ -430,24 +445,25 @@ export function App({
   // typed `@`-mentions are CONSUMED into STRUCTURED grounding (Finding #2/#B-wire) via
   // `invocationToGrounding` → `resolveGrounding`, and passed as the turn's grounding — never discarded
   // nor forwarded only as raw text. No new gate is introduced; grounding only scopes the existing route.
-  const dispatch = (inv: ComposerInvocation): void => {
+  const dispatch = (typed: ComposerInvocation): void => {
     if (actionBlocked) return;
-    recordQuestion(inv.raw);
-    const clarificationAnswer = inv.raw.trim();
+    recordQuestion(typed.raw);
+    const clarificationAnswer = typed.raw.trim();
     if (
       state.pendingPlanClarification &&
       clarificationAnswer &&
-      inv.intent === undefined &&
+      typed.intent === undefined &&
       !clarificationAnswer.startsWith('/')
     ) {
       void controller.answerPlanClarification(clarificationAnswer);
       return;
     }
-    const directProgram = extractDirectCommandProgram(inv.raw);
+    const directProgram = extractDirectCommandProgram(typed.raw);
     if (directProgram) {
       void controller.runDirectCommands(directProgram);
       return;
     }
+    const inv = withoutUnknownVerb(typed);
     const effectiveIntent = inferImplicitIntent(surface, allowedIntents, inv);
     const routedInv =
       effectiveIntent !== undefined && effectiveIntent !== inv.intent
@@ -458,7 +474,7 @@ export function App({
     // a literal placeholder to the model. A parameterized chip is collected via QuickActionParamForm
     // first, so this guard only fires on a defective seed; drop it rather than actuate on raw braces.
     if (hasUnfilledPlaceholder(seed)) return;
-    if (!inv.raw.trim()) recordQuestion(seed); // a quick action: its own catalog prompt
+    if (!typed.raw.trim()) recordQuestion(seed); // a quick action: its own catalog prompt
     const grounding = invocationToGrounding(inv);
     // EXPERIENCE.md §F — the planner-confirm front door. Composer-origin natural-language actions
     // always go to the command planner first, whether the user typed `/rewrite ...`, "create a

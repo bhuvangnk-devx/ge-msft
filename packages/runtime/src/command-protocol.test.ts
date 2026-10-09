@@ -962,6 +962,59 @@ describe('compileCommand', () => {
     });
   });
 
+  it('draws the geometry an /add-shape names, and refuses one it cannot draw before approval', () => {
+    const compile = (line: string) => {
+      const parsed = parseCommandLine(line);
+      if ('error' in parsed) throw new Error(parsed.error);
+      return compileCommand(parsed, { surface: 'powerpoint', mintChangeId: mint });
+    };
+    const shapeOf = (line: string) => {
+      const c = compile(line);
+      if (!('request' in c)) throw new Error(JSON.stringify(c));
+      expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+      return c.request.params.shape;
+    };
+    // Live 2026-10-09: this line became an empty text box, refused as "textBox needs text".
+    expect(
+      shapeOf('/add-shape slide=2 shapeType=rectangle left=576 top=36 width=144 height=72'),
+    ).toEqual({
+      shapeType: 'geometric',
+      geometryType: 'Rectangle',
+      left: 576,
+      top: 36,
+      width: 144,
+      height: 72,
+    });
+    expect(shapeOf('/add-shape slide=2 shapeType=Triangle fill=#0000FF text="AI CoE"')).toEqual({
+      shapeType: 'geometric',
+      geometryType: 'Triangle',
+      text: 'AI CoE',
+      fill: '#0000FF',
+    });
+    expect(shapeOf('/add-shape slide=2 shapeType=geometric geometryType=ellipse')).toMatchObject({
+      shapeType: 'geometric',
+      geometryType: 'Ellipse',
+    });
+    expect(shapeOf('/add-shape slide=2 geometryType=roundRectangle')).toMatchObject({
+      shapeType: 'geometric',
+      geometryType: 'RoundRectangle',
+    });
+    expect(shapeOf('/add-shape slide=2 shapeType=textbox text="Draft"')).toMatchObject({
+      shapeType: 'textBox',
+      text: 'Draft',
+    });
+    expect(shapeOf('/add-shape slide=2 shapeType=line connectorType=elbow')).toMatchObject({
+      shapeType: 'line',
+      connectorType: 'elbow',
+    });
+
+    const unknown = compile('/add-shape slide=2 shapeType=hexagram left=1 top=1');
+    expect(unknown).toEqual({ error: expect.stringContaining('cannot draw "hexagram"') });
+    expect(compile('/add-shape slide=2 shapeType=geometric')).toEqual({
+      error: expect.stringContaining('cannot draw ""'),
+    });
+  });
+
   it('compiles specialized /format-shape into typed PowerPoint shape formatting params', () => {
     const c = compileCommand(
       {

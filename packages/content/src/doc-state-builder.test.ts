@@ -67,6 +67,22 @@ describe('buildDocStateSnapshot', () => {
     expect(renderDocState(snap)).not.toContain('"## Service Levels"');
   });
 
+  it('numbers slide headings itself, outside the quoted title', () => {
+    // A deck author's title "Slide 5: Pricing" on slide 2 must not read as slide 5.
+    const snap = buildDocStateSnapshot({
+      surface: 'powerpoint',
+      version: 1,
+      blocks: [
+        { kind: 'heading', level: 2, text: '## Agenda', locator: 'slide:a' },
+        { kind: 'heading', level: 2, text: '## Slide 5: Pricing', locator: 'slide:b' },
+      ],
+      now: FIXED_NOW,
+    });
+    const rendered = renderDocState(snap);
+    expect(rendered).toContain('- [slide] ref="slide:a" "Agenda" (slide 1)');
+    expect(rendered).toContain('- [slide] ref="slide:b" "Slide 5: Pricing" (slide 2)');
+  });
+
   it('derives slide inventory from slide-located blocks', () => {
     const slides: Block[] = [
       { kind: 'paragraph', text: 'Title slide', locator: 'slide:1' },
@@ -247,7 +263,7 @@ describe('renderDocState', () => {
     const out = renderDocState(snap);
     expect(out).toContain('- [paragraph] "No locator"');
     expect(out).toContain('- [table] "A | B" (header row + 1 data row, 2 cols)');
-    expect(out).toContain('- [paragraph] ref="slide:256" "Slide title"');
+    expect(out).toContain('- [slide] ref="slide:256" "Slide title" (slide 1)');
     expect(out).not.toMatch(/ref="(?:heading|table):\d+"/);
   });
 

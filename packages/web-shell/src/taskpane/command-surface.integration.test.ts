@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { quickActionsForSurface } from '@ge/contracts';
+import { commandPaletteFor, quickActionsForSurface } from '@ge/contracts';
 import { quickActionSeed } from './components/quick-action-seed.js';
 import {
   installFakeExcel,
@@ -12,7 +12,12 @@ import {
   type WordSimulator,
   type MountedStack,
 } from '../test-harness/index.js';
-import { inferImplicitIntent, shouldUsePlannerForFreeText } from './components/App.js';
+import {
+  inferImplicitIntent,
+  shouldUsePlannerForFreeText,
+  withoutUnknownVerb,
+} from './components/App.js';
+import { parseComposerInput } from './components/Composer.js';
 
 /**
  * FULL-STACK interplay for the command surface. Each test installs an in-memory Word host, then
@@ -320,6 +325,36 @@ describe('command surface — implicit intent inference', () => {
         shouldUsePlannerForFreeText(['draft', 'rewrite'], { ...base, raw, instruction: raw }),
         raw,
       ).toBe(false);
+  });
+
+  it('routes the request after a /word that is not a surface verb (live 2026-10-09)', () => {
+    // "/shape …" went to chat, which cannot write, and answered that shapes are not supported.
+    const palette = commandPaletteFor('powerpoint', ['ask', 'summarize', 'explain', 'draft']);
+    const route = (raw: string) => {
+      const inv = withoutUnknownVerb(parseComposerInput(raw, { kind: 'this-item' }, palette));
+      return {
+        raw: inv.raw,
+        intent: inferImplicitIntent('powerpoint', ['draft'], inv),
+        planner: shouldUsePlannerForFreeText(['draft'], inv),
+      };
+    };
+    expect(route('/shape Add a blue rectangle to the top right of slide 2.')).toMatchObject({
+      raw: 'shape Add a blue rectangle to the top right of slide 2.',
+      planner: true,
+    });
+    expect(
+      route(
+        '/slide Add a summary slide with the three key findings: Revenue is 500; Profit is 200; Two pipeline rows have no owner.',
+      ).planner,
+    ).toBe(true);
+    // A question after the word still goes to chat; a palette verb and a bare word are unchanged.
+    expect(route('/shape what is on slide 2?').planner).toBe(false);
+    expect(route('/draft a closing slide')).toMatchObject({
+      raw: '/draft a closing slide',
+      intent: 'draft',
+    });
+    expect(route('/delete slide 3')).toMatchObject({ raw: 'delete slide 3', planner: true });
+    expect(route('/shape')).toMatchObject({ raw: '/shape', planner: false });
   });
 
   it('routes arbitrary action-like Excel text to the planner instead of classifying exact intent', () => {

@@ -190,12 +190,14 @@ export function selectedShapeToContext(
 
 /**
  * Captured slides → the `Block[]` the surface-agnostic `buildDocStateSnapshot` consumes for the
- * `<doc_state>` outline/inventory (ADR-0003 Layer B element 1). Reuses {@link slideElementsToBlocks}
- * so the snapshot's slide inventory comes from the SAME native mapping as grounding context — each
- * slide's title becomes a `slide:<id>` heading the builder lists under `inventory`.
+ * `<doc_state>` outline/inventory (ADR-0003 Layer B element 1): one `slide:<id>` title heading per
+ * slide, which the builder numbers in order, so `slides` must start at the deck's first slide. Body
+ * lines are left to `read slide:N`. Listing each bullet as well filled the 60-entry inventory by
+ * about slide 11 (live 2026-10-09, a 15-slide deck): a slide just added at the end was missing, and
+ * the model spent its remaining turns searching for it instead of adding the table it was asked for.
  */
 export function slideElementsToDocStateBlocks(slides: SlideElement[]): Block[] {
-  return slideElementsToBlocks(slides);
+  return slides.flatMap((s, i) => native.slide(i, s.title, [], s.slideId));
 }
 
 /** Cap on slides scanned/returned by a lazy `searchDocument` so a common term can't blow the budget. */

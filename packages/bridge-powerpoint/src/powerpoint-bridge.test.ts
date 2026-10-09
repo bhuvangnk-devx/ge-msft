@@ -1085,6 +1085,24 @@ describe('PowerPointBridge.captureDocState', () => {
     expect(second?.version).toBe(2);
   });
 
+  it('lists the last slide of a long deck by number (live 2026-10-09)', async () => {
+    // One inventory entry per bullet filled the cap by about slide 11 of 15, hiding a new slide.
+    const fifteen: SlideSeed[] = Array.from({ length: 15 }, (_, i) => ({
+      id: `p${i}`,
+      shapes: [{ text: `Topic ${i + 1}` }, { text: 'one\ntwo\nthree\nfour' }],
+    }));
+    installed = install(deck(fifteen, [0]));
+    const snap = await new PowerPointBridge().captureDocState();
+    expect(snap?.truncated).toBeUndefined();
+    expect(snap?.inventory).toHaveLength(15);
+    expect(snap?.inventory.at(-1)).toEqual({
+      kind: 'slide',
+      id: 'slide:p14',
+      title: 'Topic 15',
+      summary: 'slide 15',
+    });
+  });
+
   it('reads at most MAX_READ_SLIDES slides (bounded per-turn read, ADR-0006)', async () => {
     // Give every slide a unique title; the snapshot must not list beyond the cap.
     const many: SlideSeed[] = Array.from({ length: MAX_READ_SLIDES + 10 }, (_, i) => ({
@@ -2101,6 +2119,30 @@ describe('PowerPointBridge.actuate add-shape', () => {
     expect(d.slides[0]?.shapes[2]?.fillColor).toBe('#0F6CBD');
   });
 
+  it('writes text= inside a geometric shape instead of dropping it', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate(
+      addShape({
+        target: { slideId: 's2' },
+        shape: {
+          shapeType: 'geometric',
+          geometryType: 'triangle',
+          text: 'AI CoE',
+          fill: '#0000FF',
+          left: 560,
+          top: 20,
+          width: 140,
+          height: 60,
+        },
+      }),
+    );
+
+    expect(res.ok).toBe(true);
+    expect(d.addedShapes[0]).toMatchObject({ kind: 'geometric', detail: 'Triangle' });
+    expect(d.slides[1]?.shapes[2]).toMatchObject({ text: 'AI CoE', fillColor: '#0000FF' });
+  });
+
   it('maps the contract connector name onto the host ConnectorType for lines', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);
@@ -2242,6 +2284,22 @@ function styledDeck(): DeckSeed {
 }
 
 describe('PowerPointBridge.actuate format-shape', () => {
+  it('lists shape ids before the title hint when a shape name is not found', async () => {
+    // Live 2026-10-09: told "For the slide title use title" first, the model recoloured the title.
+    installed = install(styledDeck());
+    const res = await new PowerPointBridge().actuate(
+      formatShape({
+        target: { slideId: '1', shapeId: 'myRectangle' },
+        shapeFormat: { fill: '#0000FF' },
+      }),
+    );
+
+    expect(res).toMatchObject({ ok: false, error: { code: 'target_conflict' } });
+    const message = res.error?.message ?? '';
+    expect(message.indexOf('Use one of its shape ids')).toBeLessThan(message.indexOf('title'));
+    expect(message).toContain('the id in its add-shape result');
+  });
+
   it('retains uncertainty when one format facet landed before the next prior-state read failed', async () => {
     const d = styledDeck();
     installed = install(d);

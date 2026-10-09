@@ -16,9 +16,12 @@ import {
 import { CommandContextSession } from './command-context-session.js';
 import {
   approvalClassOf,
+  commandIntentText,
+  CONFIRMED_PLAN_OPEN,
   intentsForManifest,
   isReversibleKind,
   isAnalysisBindingKind,
+  planDescribesChange,
   VERBS_BY_SURFACE,
 } from '@ge/contracts';
 import type {
@@ -806,6 +809,11 @@ export class AssistSession {
    * an estate-class write.
    */
   private shareCountThisTask = 0;
+  /**
+   * The task is a confirmed plan that asks for a change and has not yet had its first `done`
+   * without any write refused. Cleared once that refusal is given, so a second `done` stands.
+   */
+  private changeAwaited = false;
   private readonly citations: SourceRef[] = [];
   private readonly compaction: Required<CompactionOptions>;
   /**
@@ -1387,6 +1395,9 @@ export class AssistSession {
     this.composeEnv.clear();
     this.resetCommandState(task);
     this.shareCountThisTask = 0;
+    this.changeAwaited =
+      task.includes(CONFIRMED_PLAN_OPEN) &&
+      planDescribesChange({ steps: commandIntentText(task).split('\n') });
 
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
@@ -2006,8 +2017,12 @@ export class AssistSession {
       return;
     }
     if (isCommandParseError(entry)) {
-      // A corrective parse error feeds straight back; the model self-corrects next turn.
-      plan.results.push({ error: entry.error });
+      // A corrective parse error feeds straight back; the model self-corrects next turn. The bare
+      // fence error did not: live 2026-10-09, the same unclosed program came back three times.
+      const fix = entry.error.startsWith('finish when=verified requires a closed cmd fence')
+        ? ': end the block with a line of three backticks, or end it with done instead'
+        : '';
+      plan.results.push({ error: entry.error + fix });
       return;
     }
     const command = entry;
@@ -2042,6 +2057,25 @@ export class AssistSession {
           advisory({
             error:
               'done cannot be batched with a read; review the read result, then continue the task or emit a block containing only done.',
+          }),
+        );
+        return;
+      }
+      // A plan that asks for a change is not done before any write was tried (live: a confirmed
+      // "add a summary slide" plan ended `slides`, then `done "The SIT Slide has been successfully
+      // imported and verified."`, with nothing added, and was reported complete). Refused once; a
+      // write the user rejected, or a share, still counts as tried, so neither brings it back.
+      if (
+        this.changeAwaited &&
+        this.task?.mode === 'command' &&
+        this.task.effects.length === 0 &&
+        this.shareCountThisTask === 0
+      ) {
+        this.changeAwaited = false;
+        plan.results.push(
+          advisory({
+            error:
+              'done refused: nothing has been changed yet, and the confirmed plan asks for a change. Emit the write commands now. If the change cannot be made or is already in place, emit a block containing only done.',
           }),
         );
         return;
@@ -2697,7 +2731,12 @@ export class AssistSession {
         return;
       }
       const active = new Map((options.context ?? []).map((entry) => [entry.ref.id, entry]));
-      for (const entry of this.model.pendingBrief()?.entries ?? []) active.set(entry.ref.id, entry);
+      // Without write outcomes: an isolated request never marks the brief sent, so they piled up
+      // across tasks, and a new task's planner and executor read earlier tasks' "Applied
+      // insert-slide …" / "Attempted add-shape … no_text" as its own (live 2026-10-09). This task's
+      // own outcomes reach the model as its result blocks; the deck itself, as the fresh snapshot.
+      for (const entry of this.model.pendingBrief({ withoutActuations: true })?.entries ?? [])
+        active.set(entry.ref.id, entry);
       options.context = [...active.values()];
       const bytes = byteLength(JSON.stringify({ query, context: options.context, grounding }));
       const limit = Math.min(this.options.commandCapsuleBytes ?? 64 * 1024, 1024 * 1024);
