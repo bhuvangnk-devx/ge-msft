@@ -37,6 +37,7 @@ import {
 } from '@ge/contracts';
 import type {
   AgentView,
+  ConversationSession,
   ConversationSummary,
   EngineDataStore,
   ResolvedGrounding,
@@ -171,6 +172,13 @@ export interface AssistLike {
     signal?: AbortSignal;
   }): Promise<{ conversations: ConversationSummary[]; nextPageToken?: string }>;
   resumeSession?(sessionIdOrName: string): void;
+  /** One past session with its turns; `includeAnswerDetails` adds the answer text. */
+  getConversation?(
+    sessionIdOrName: string,
+    opts?: { includeAnswerDetails?: boolean; signal?: AbortSignal },
+  ): Promise<ConversationSession>;
+  /** Drop the current session so the next chat turn opens a new one. */
+  startNewSession?(): void;
   /**
    * The planner pre-stage (EXPERIENCE.md §F): stream one turn that proposes a confirmable
    * {@link CommandPlan} for a complex free-text request, WITHOUT reading or writing the document.
@@ -559,6 +567,8 @@ export class PanelController {
   private readonly routeLog: Array<{ at: string; route: string; verdict?: string }> = [];
   /** Recent errors for Copy diagnostics, already redacted (see {@link redactForDiagnostics}). */
   private readonly errorLog: DiagnosticError[] = [];
+  /** Bumped by each history load or new chat, so a slow load cannot overwrite a newer thread. */
+  private historyLoad = 0;
   /**
    * The fail-closed approval state machine (E-full): owns the per-write changeId + the resolver
    * promises the loop awaits (Finding #6). The `pendingWrite`/`pendingPlan`/`pendingShare` VIEW slice
@@ -1706,18 +1716,102 @@ export class PanelController {
     }
   }
 
-  resumeConversation(name: string): void {
-    if (!this.session.resumeSession) return;
+  /**
+   * Continue a past conversation: later turns go to that server session, and its earlier questions
+   * and answers are loaded from Gemini Enterprise into the thread (only chat turns are stored there;
+   * document-edit tasks run outside the chat session).
+   */
+  async resumeConversation(name: string): Promise<void> {
+    if (this.switchBlocked() || !this.session.resumeSession) return;
     this.session.resumeSession(name);
+    const load = ++this.historyLoad;
+    this.resetDiagnostics();
+    const loading: ChatMessage = {
+      id: this.id('h'),
+      role: 'assistant',
+      text: '',
+      streaming: true,
+      activity: 'Loading conversation…',
+    };
     this.set({
-      conversations: {
-        ...this.state.conversations,
-        items: this.state.conversations.items.map((item) => ({
-          ...item,
-          active: item.name === name || item.id === name,
-        })),
-      },
+      messages: this.session.getConversation ? [loading] : [],
+      steps: [],
+      suggestions: [],
+      pendingPlanClarification: undefined,
+      error: undefined,
+      conversations: this.markActive((item) => item.name === name || item.id === name),
     });
+    if (!this.session.getConversation) return;
+    let messages: ChatMessage[];
+    try {
+      const conversation = await this.session.getConversation(name, { includeAnswerDetails: true });
+      messages = conversation.turns.flatMap((turn) => this.historyMessages(turn));
+    } catch (err) {
+      messages = [
+        {
+          id: this.id('h'),
+          role: 'assistant',
+          text: '',
+          error: `Could not load the earlier messages (${errorText(err)}). New messages still continue this conversation.`,
+        },
+      ];
+    }
+    if (load !== this.historyLoad) return;
+    // Anything sent while the history was loading stays, after the earlier messages.
+    const sentMeanwhile = this.state.messages.filter((m) => m.id !== loading.id);
+    this.set({ messages: [...messages, ...sentMeanwhile] });
+  }
+
+  /** Start a new chat in place, without reloading the pane. */
+  newConversation(): void {
+    if (this.switchBlocked() || !this.session.startNewSession) return;
+    this.session.startNewSession();
+    this.historyLoad++;
+    this.resetDiagnostics();
+    this.set({
+      messages: [],
+      steps: [],
+      suggestions: [],
+      pendingPlanClarification: undefined,
+      error: undefined,
+      conversations: this.markActive(() => false),
+    });
+  }
+
+  /** A run or an approval still waiting on the user belongs to the conversation on screen. */
+  private switchBlocked(): boolean {
+    const s = this.state;
+    return Boolean(
+      s.busy || s.pendingCommandPlan || s.pendingPlan || s.pendingWrite || s.pendingShare,
+    );
+  }
+
+  private markActive(isActive: (item: ConversationItem) => boolean): ConversationsState {
+    return {
+      ...this.state.conversations,
+      items: this.state.conversations.items.map((item) => ({ ...item, active: isActive(item) })),
+    };
+  }
+
+  /** Routes and errors describe the conversation on screen (run outcomes stay: content-free). */
+  private resetDiagnostics(): void {
+    this.routeLog.length = 0;
+    this.errorLog.length = 0;
+  }
+
+  private historyMessages(turn: ConversationSession['turns'][number]): ChatMessage[] {
+    // Only the user's own words: `queryText` also holds the document context the add-in sent.
+    const question = turn.userText;
+    const answer = turn.answerText ?? '';
+    const note = turn.answerHasMedia
+      ? 'A chart or file in this answer is not shown in history.'
+      : answer
+        ? undefined
+        : 'No answer was saved for this question.';
+    return [
+      ...(question ? [{ id: this.id('h'), role: 'user' as const, text: question }] : []),
+      { id: this.id('h'), role: 'assistant', text: answer, ...(note ? { note } : {}) },
+    ];
   }
 
   // ---- skills (ADR-0005 `def`) — READ-ONLY presenters ---------------------

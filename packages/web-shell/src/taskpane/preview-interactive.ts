@@ -205,6 +205,7 @@ export function makeDemoController(
       location: 'Scripted preview only',
     }),
     ingest: async () => undefined,
+    startNewSession: () => undefined,
   };
   const controller = new PanelController(session, {
     listContext: async () => refs,

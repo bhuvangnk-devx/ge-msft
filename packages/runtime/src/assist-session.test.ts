@@ -345,6 +345,17 @@ describe('AssistSession — the reusable loop', () => {
     expect(session.sessionId).toBe('sess_prior');
   });
 
+  it('starts a new conversation: the session id is dropped until the next turn opens one', () => {
+    const bridge = new FakeBridge();
+    const client = new StreamAssistClient(tokens, cfg, geminiFetch() as never);
+    const session = new AssistSession(bridge, client, {
+      unit,
+      resumeSessionId: asSessionId('sess_prior'),
+    });
+    session.startNewSession();
+    expect(session.sessionId).toBeUndefined();
+  });
+
   it('threads the abort signal through to the transport fetch', async () => {
     const bridge = new FakeBridge();
     let seenSignal: AbortSignal | undefined;

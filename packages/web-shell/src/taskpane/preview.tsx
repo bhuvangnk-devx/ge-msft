@@ -190,6 +190,7 @@ function Preview(): JSX.Element {
         style={{ width: frameWidth, height: frameHeight }}
       >
         <App
+          diagnosticsScope="preview"
           key={`${surface}-${interactive}`}
           controller={controller}
           surface={surface}

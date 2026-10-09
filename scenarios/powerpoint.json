@@ -81,6 +81,23 @@
     "expect": { "applied": { "insert-slide": 1 } }
   },
   {
+    "id": "ppt-add-3-slides-topic",
+    "surface": "powerpoint",
+    "title": "Add N slides about a topic (live 2026-10-07: only one landed)",
+    "prompt": "add 3 slides about work life balance",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [{ "text": "Team offsite", "type": "Placeholder", "placeholderType": "Title" }]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": { "applied": { "insert-slide": 3 } }
+  },
+  {
     "id": "ppt-replace-shape-text",
     "surface": "powerpoint",
     "title": "Replace shape text (prompt filled in: sheet was cut off)",

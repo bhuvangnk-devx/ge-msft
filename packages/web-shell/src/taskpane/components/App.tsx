@@ -1,7 +1,7 @@
 import { AnalysisWorkbench } from './AnalysisWorkbench.js';
 import { WorkflowWorkbench } from './WorkflowWorkbench.js';
 import { EvidencePanel } from './EvidencePanel.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   deriveOutput,
   actionParameters,
@@ -23,6 +23,7 @@ import {
 } from '@ge/gemini-client';
 import type { ContextChip, PanelController } from '../../controller.js';
 import { usePanelState } from '../usePanelState.js';
+import { SavedDiagnostics, browserStorage } from '../../saved-diagnostics.js';
 import { MessageThread } from './MessageThread.js';
 import { Composer, type ComposerInvocation, type ComposerMention } from './Composer.js';
 import { invocationToSeed, quickActionToInvocation } from './quick-action-seed.js';
@@ -54,6 +55,8 @@ export interface AppProps {
   allowedIntents?: Iterable<Intent>;
   catalogClient?: DiscoveryCatalogClient;
   onCatalogRouting?: (selection: ReturnType<typeof applyCatalogSelection>) => void;
+  /** The signed-in account's hash for saved diagnostics; without it nothing is saved. */
+  diagnosticsScope?: string;
 }
 
 const SURFACE_PLACEHOLDER: Readonly<Record<string, string>> = {
@@ -349,8 +352,41 @@ export function App({
   allowedIntents,
   catalogClient,
   onCatalogRouting,
+  diagnosticsScope,
 }: AppProps): JSX.Element {
   const state = usePanelState(controller);
+  const savedStore = useMemo(
+    () => new SavedDiagnostics(browserStorage(), diagnosticsScope),
+    [diagnosticsScope],
+  );
+  const [savedDiagnostics, setSavedDiagnostics] = useState(() => savedStore.list());
+  // The question saved with diagnostics is what the user TYPED (or the quick action they chose),
+  // captured when they sent it. Never read back from the thread: a bubble can hold an inserted
+  // answer or history loaded from the server, which must not reach browser storage.
+  const typedQuestion = useRef<{ id: string; text: string }>();
+  const paneLoad = useMemo(() => Date.now().toString(36), []);
+  const questionSeq = useRef(0);
+  const recordQuestion = (text: string): void => {
+    const t = text.trim();
+    if (t) typedQuestion.current = { id: `${paneLoad}:${++questionSeq.current}`, text: t };
+  };
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    const question = typedQuestion.current;
+    if (wasBusy.current && !state.busy && question) {
+      try {
+        savedStore.save({
+          id: question.id,
+          question: question.text,
+          diagnostic: JSON.parse(controller.diagnostics({ surface })) as unknown,
+        });
+        setSavedDiagnostics(savedStore.list());
+      } catch {
+        /* Diagnostics are best effort; never break the pane over them. */
+      }
+    }
+    wasBusy.current = state.busy;
+  }, [state.busy, controller, surface, savedStore]);
   const [composerDraft, setComposerDraft] = useState<{ id: number; text: string }>();
   // The parameterized action awaiting its `{{name}}` fill values (Workstream H), or undefined.
   const [paramFill, setParamFill] = useState<QuickAction | undefined>(undefined);
@@ -395,6 +431,7 @@ export function App({
   // nor forwarded only as raw text. No new gate is introduced; grounding only scopes the existing route.
   const dispatch = (inv: ComposerInvocation): void => {
     if (actionBlocked) return;
+    recordQuestion(inv.raw);
     const clarificationAnswer = inv.raw.trim();
     if (
       state.pendingPlanClarification &&
@@ -420,6 +457,7 @@ export function App({
     // a literal placeholder to the model. A parameterized chip is collected via QuickActionParamForm
     // first, so this guard only fires on a defective seed; drop it rather than actuate on raw braces.
     if (hasUnfilledPlaceholder(seed)) return;
+    if (!inv.raw.trim()) recordQuestion(seed); // a quick action: its own catalog prompt
     const grounding = invocationToGrounding(inv);
     // EXPERIENCE.md §F — the planner-confirm front door. Composer-origin natural-language actions
     // always go to the command planner first, whether the user typed `/rewrite ...`, "create a
@@ -498,7 +536,19 @@ export function App({
         onRevealChip={(id) => void controller.reveal(id)}
         onRefreshContext={() => void controller.refreshContext()}
         onRefreshConversations={() => void controller.refreshConversations()}
-        onResumeConversation={(name) => controller.resumeConversation(name)}
+        onResumeConversation={(name) => {
+          typedQuestion.current = undefined;
+          void controller.resumeConversation(name);
+        }}
+        onNewConversation={() => {
+          typedQuestion.current = undefined;
+          controller.newConversation();
+        }}
+        savedDiagnostics={savedDiagnostics}
+        onClearSavedDiagnostics={() => {
+          savedStore.clear();
+          setSavedDiagnostics([]);
+        }}
         onInvokeSkill={(name, args) => void controller.invokeSkill(name, args)}
         onQuickAction={onQuickAction}
       />

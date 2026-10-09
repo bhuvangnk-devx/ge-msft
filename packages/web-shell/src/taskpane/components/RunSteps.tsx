@@ -138,7 +138,7 @@ function WorkspaceArtifactCard({
 }
 
 /** `document.execCommand('copy')` through a hidden textarea; false when the host refuses it. */
-function legacyCopy(text: string): boolean {
+export function legacyCopy(text: string): boolean {
   const area = document.createElement('textarea');
   area.value = text;
   area.setAttribute('readonly', '');

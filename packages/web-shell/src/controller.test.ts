@@ -14,6 +14,7 @@ import { asChangeId, approvalClassOf, isReversibleKind } from '@ge/contracts';
 import type { AnalysisProgram, CommandLoopEvent, RunCommandsOptions } from '@ge/runtime';
 import type {
   AgentView,
+  ConversationSession,
   ConversationSummary,
   EngineDataStore,
   ResolvedGrounding,
@@ -347,6 +348,23 @@ class FakeAssist implements AssistLike {
   resumeSession(sessionIdOrName: string): void {
     this.resumedSession = sessionIdOrName;
   }
+  pastTurns: ConversationSession['turns'] | Error = [];
+  newSessions = 0;
+  getConversation(name: string): Promise<ConversationSession> {
+    if (this.pastTurns instanceof Error) return Promise.reject(this.pastTurns);
+    const id = name.split('/').pop() ?? name;
+    return Promise.resolve({
+      name,
+      id,
+      title: id,
+      turnCount: 0,
+      isPinned: false,
+      turns: this.pastTurns,
+    });
+  }
+  startNewSession(): void {
+    this.newSessions++;
+  }
 }
 
 function lister(refs: ContextRef[]): ContextLister {
@@ -463,9 +481,106 @@ describe('PanelController — conversation history', () => {
       active: false,
     });
 
-    c.resumeConversation(assist.conversations[0]!.name);
+    await c.resumeConversation(assist.conversations[0]!.name);
     expect(assist.resumedSession).toBe(assist.conversations[0]!.name);
     expect(c.getState().conversations.items[0]?.active).toBe(true);
+  });
+
+  it("loads a past session's questions and answers into the thread", async () => {
+    const assist = new FakeAssist();
+    assist.pastTurns = [
+      { userText: 'can you chart this?', answerText: 'Here is a chart.', answerHasMedia: true },
+      { userText: 'total for Q3?', answerText: '$1,023,000' },
+      { userText: 'and Q4?' },
+    ];
+    const c = new PanelController(assist, lister([]));
+
+    const loading = c.resumeConversation('sessions/s-1');
+    expect(c.getState().messages[0]).toMatchObject({ activity: 'Loading conversation…' });
+    await loading;
+
+    expect(c.getState().messages.map((m) => [m.role, m.text, m.note])).toEqual([
+      ['user', 'can you chart this?', undefined],
+      ['assistant', 'Here is a chart.', 'A chart or file in this answer is not shown in history.'],
+      ['user', 'total for Q3?', undefined],
+      ['assistant', '$1,023,000', undefined],
+      ['user', 'and Q4?', undefined],
+      ['assistant', '', 'No answer was saved for this question.'],
+    ]);
+  });
+
+  it('keeps the session when its earlier messages cannot be loaded', async () => {
+    const assist = new FakeAssist();
+    assist.pastTurns = new Error('403 Forbidden');
+    const c = new PanelController(assist, lister([]));
+
+    await c.resumeConversation('sessions/s-1');
+
+    expect(assist.resumedSession).toBe('sessions/s-1');
+    expect(c.getState().messages[0]?.error).toMatch(
+      /Could not load the earlier messages \(403 Forbidden\)/,
+    );
+  });
+
+  it('starts a new chat in place: clears the thread and drops the session', async () => {
+    const assist = new FakeAssist();
+    assist.pastTurns = [{ userText: 'hi', answerText: 'hello' }];
+    const c = new PanelController(assist, lister([]));
+    await c.resumeConversation('sessions/s-1');
+
+    c.newConversation();
+
+    expect(assist.newSessions).toBe(1);
+    expect(c.getState().messages).toEqual([]);
+    expect(JSON.parse(c.diagnostics({ surface: 'word' })).routes).toEqual([]);
+  });
+
+  it('keeps a message sent while the history was still loading', async () => {
+    const assist = new FakeAssist();
+    assist.pastTurns = [{ userText: 'old', answerText: 'old answer' }];
+    const c = new PanelController(assist, lister([]));
+
+    const loading = c.resumeConversation('sessions/s-1');
+    const sending = c.send('new question');
+    await loading;
+    await sending;
+
+    const texts = c.getState().messages.map((m) => m.text);
+    expect(texts.slice(0, 3)).toEqual(['old', 'old answer', 'new question']);
+    expect(c.getState().messages.some((m) => m.activity === 'Loading conversation…')).toBe(false);
+  });
+
+  it('does not switch away while a plan waits for the user, and drops a pending clarification', async () => {
+    const assist = new FakeAssist();
+    const c = new PanelController(assist, lister([]));
+    (c as unknown as { set(p: object): void }).set({
+      pendingCommandPlan: { id: 'p1' },
+      messages: [{ id: 'u-1', role: 'user', text: 'keep me' }],
+    });
+    c.newConversation();
+    await c.resumeConversation('sessions/s-1');
+    expect(assist.newSessions).toBe(0);
+    expect(assist.resumedSession).toBeUndefined();
+    expect(c.getState().messages).toHaveLength(1);
+
+    (c as unknown as { set(p: object): void }).set({
+      pendingCommandPlan: undefined,
+      pendingPlanClarification: { question: 'Which slide?' },
+    });
+    c.newConversation();
+    expect(c.getState().pendingPlanClarification).toBeUndefined();
+  });
+
+  it('a slow history load cannot overwrite a newer chat', async () => {
+    const assist = new FakeAssist();
+    assist.pastTurns = [{ userText: 'old', answerText: 'old answer' }];
+    const c = new PanelController(assist, lister([]));
+
+    const loading = c.resumeConversation('sessions/s-1');
+    c.newConversation();
+    await loading;
+
+    expect(c.getState().messages).toEqual([]);
   });
 });
 

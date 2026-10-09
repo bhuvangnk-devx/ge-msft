@@ -269,6 +269,26 @@ body {
   align-items: stretch;
   gap: var(--s1);
 }
+/* the ⋯ (earlier diagnostics) sits narrow at the end, only when there is something to show */
+.tw-bar.has-more {
+  grid-template-columns: 22px repeat(auto-fit, minmax(48px, 1fr)) 28px;
+}
+.tw-more {
+  grid-column: -2 / -1;
+  min-width: 0;
+  padding-inline: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+.saved-diagnostics-intro {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fz-md);
+  line-height: 17px;
+}
+.saved-diagnostics-clear {
+  justify-self: start;
+}
 .tw-brand {
   width: 22px;
   height: 22px;

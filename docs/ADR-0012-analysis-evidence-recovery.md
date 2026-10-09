@@ -33,3 +33,22 @@ Office provides neither atomic source-check/write nor cross-device journal compa
 Same-origin locks and hashes reduce races; they do not establish transaction isolation or exactly-once
 execution. New bridges can implement the snapshot/storage ports, but must define their own identity,
 freshness, readback and inverse semantics before exposing recovery controls.
+
+## Amendment (2026-10-09): saved diagnostics in browser storage
+
+Approved by the product owner so users can send support diagnostics after the pane or Office was
+closed. The pane keeps `{ question, diagnostic }` per request in `localStorage`
+(`web-shell/src/saved-diagnostics.ts`), the one place request text persists on the client:
+
+- **Scope:** only the text the user typed in the composer (or the quick action they chose), capped at
+  1,000 characters, plus the content-free `diagnostics()` snapshot (routes, step kinds, redacted
+  errors, run outcomes). Never document text, model output, inserted answers, history loaded from the
+  server, or credentials.
+- **Per user:** the key holds a SHA-256 of the signed-in account id, never the raw id. Without a
+  signed-in account nothing is stored.
+- **Retention, enforced at rest:** the newest 20 entries, none older than 7 days, about 512 K
+  characters; expired entries are deleted, and the user can clear them.
+- **Caveat:** people sharing one OS account and Office account on one device see the same list.
+
+Conversation history itself is not stored on the client: the pane loads past chat turns from
+Gemini Enterprise (`sessions.get`) when the user opens one.

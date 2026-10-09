@@ -3410,7 +3410,15 @@ export class AssistSession {
 
   resumeSession(sessionIdOrName: string): void {
     this.lastCommandDocState = undefined;
+    this.citations.length = 0;
     this.session = asSessionId(sessionIdOrName);
+  }
+
+  /** Start a fresh conversation: the next chat turn opens a new server session. */
+  startNewSession(): void {
+    this.lastCommandDocState = undefined;
+    this.citations.length = 0;
+    this.session = undefined;
   }
 
   listConversations(

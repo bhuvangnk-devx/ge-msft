@@ -260,6 +260,7 @@ describe('ConversationClient', () => {
     expect(out.turns).toEqual([
       {
         queryText: '/visualize this',
+        userText: '/visualize this',
         createTime: '2026-07-07T02:00:00Z',
         answerState: 'SUCCEEDED',
       },
@@ -267,6 +268,69 @@ describe('ConversationClient', () => {
     expect((f.mock.calls[0] as unknown as [string, RequestInit])[0]).toBe(
       `${sessionUrl(cfg(), 'sess-2')}?includeAnswerDetails=true`,
     );
+  });
+
+  it("keeps the user's own words and the visible answer, not context or thoughts", async () => {
+    const f = vi.fn(async () =>
+      jsonResponse({
+        name: 'projects/proj/locations/eu/collections/default_collection/engines/eng1/sessions/sess-3',
+        turns: [
+          {
+            createdAt: '2026-10-02T09:15:30Z',
+            query: {
+              text: 'ignored when parts exist',
+              parts: [
+                { mimeType: 'text/plain', text: '<doc_state surface=excel>…</doc_state>' },
+                { mimeType: 'text/plain', text: 'Working-document read — "Sheet1!A1:E11"' },
+                { text: 'can you chart this?' },
+              ],
+            },
+            detailedAssistAnswer: {
+              state: 'SUCCEEDED',
+              replies: [
+                { groundedContent: { content: { text: '**Planning**', thought: true } } },
+                { groundedContent: { content: { text: 'Here is a chart. ' } } },
+                { groundedContent: { content: { file: { mimeType: 'image/png' } } } },
+                { groundedContent: { content: { text: 'Q3 is highest.' } } },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    const client = new ConversationClient(tokens, cfg(), f as never);
+
+    const [turn] = (await client.getConversation('sess-3', { includeAnswerDetails: true })).turns;
+
+    expect(turn).toMatchObject({
+      userText: 'can you chart this?',
+      createTime: '2026-10-02T09:15:30Z',
+      answerText: 'Here is a chart. Q3 is highest.',
+      answerHasMedia: true,
+    });
+  });
+
+  it("never shows document context as the user's words", async () => {
+    const f = vi.fn(async () =>
+      jsonResponse({
+        name: 'projects/proj/locations/eu/collections/default_collection/engines/eng1/sessions/sess-4',
+        turns: [
+          {
+            query: {
+              text: '<doc_state surface=word>secret</doc_state>',
+              parts: [
+                { mimeType: 'text/plain', text: '<doc_state surface=word>secret</doc_state>' },
+                { text: '<doc_state surface=word>no mime type</doc_state>' },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    const client = new ConversationClient(tokens, cfg(), f as never);
+    const out = await client.getConversation('sess-4');
+    expect(out.turns[0]?.userText).toBeUndefined();
+    expect(out.title).toBe('sess-4');
   });
 });
 

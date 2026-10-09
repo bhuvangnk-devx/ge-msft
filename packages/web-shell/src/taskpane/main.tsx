@@ -45,6 +45,7 @@ import {
   warmUpSkillsFromEnv,
   type RawEnv,
 } from './config.js';
+import { diagnosticsScope } from '../saved-diagnostics.js';
 import './styles.css';
 import './workspace.css';
 
@@ -466,8 +467,19 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
       : rawCapabilities;
     const allowedIntents = intentsForManifest(capabilities);
 
+    // Saved diagnostics are kept per signed-in account (a hash of its id, never the raw id).
+    const identity = await auth.getIdentity().catch(() => undefined);
+    const savedScope = identity
+      ? await diagnosticsScope(identity.oid ?? identity.username)
+      : undefined;
+
     mount(
-      <App controller={controller} surface={prepared.surface} allowedIntents={allowedIntents} />,
+      <App
+        controller={controller}
+        surface={prepared.surface}
+        allowedIntents={allowedIntents}
+        {...(savedScope ? { diagnosticsScope: savedScope } : {})}
+      />,
     );
     listenForAskSelectionSeeds(prepared.surface, controller);
     recordAuthDebug('app.mounted');

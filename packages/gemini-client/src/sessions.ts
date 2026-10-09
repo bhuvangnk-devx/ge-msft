@@ -23,14 +23,21 @@ export interface ConversationListResult {
 export interface ConversationSession extends ConversationSummary {
   turns: Array<{
     queryText?: string;
+    /** The user's own words: the query parts without a MIME type (context parts carry one). */
+    userText?: string;
     createTime?: string;
     answerState?: string;
+    /** The visible answer: non-thought reply text, joined (only with `includeAnswerDetails`). */
+    answerText?: string;
+    /** The answer also had a file or code reply (e.g. a chart) that text cannot show. */
+    answerHasMedia?: boolean;
   }>;
 }
 
 const QueryPartSchema = z
   .object({
     text: z.string().optional(),
+    mimeType: z.string().optional(),
   })
   .passthrough();
 
@@ -42,10 +49,28 @@ const QuerySchema = z
   })
   .passthrough();
 
+const AssistReplySchema = z
+  .object({
+    groundedContent: z
+      .object({
+        content: z
+          .object({ text: z.string().optional(), thought: z.boolean().optional() })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
 const SessionTurnSchema = z
   .object({
     query: QuerySchema.optional(),
-    detailedAssistAnswer: z.object({ state: z.string().optional() }).passthrough().optional(),
+    createdAt: z.string().optional(),
+    detailedAssistAnswer: z
+      .object({ state: z.string().optional(), replies: z.array(AssistReplySchema).optional() })
+      .passthrough()
+      .optional(),
     detailedAnswer: z.object({ state: z.string().optional() }).passthrough().optional(),
   })
   .passthrough();
@@ -104,7 +129,11 @@ export class ConversationClient {
       ...toSummary(parsed),
       turns: (parsed.turns ?? []).map((turn) => ({
         ...(queryText(turn.query) ? { queryText: queryText(turn.query) } : {}),
-        ...(turn.query?.createTime ? { createTime: turn.query.createTime } : {}),
+        ...(userText(turn.query) ? { userText: userText(turn.query) } : {}),
+        ...((turn.query?.createTime ?? turn.createdAt)
+          ? { createTime: turn.query?.createTime ?? turn.createdAt }
+          : {}),
+        ...answerOf(turn),
         ...((turn.detailedAssistAnswer?.state ?? turn.detailedAnswer?.state)
           ? { answerState: turn.detailedAssistAnswer?.state ?? turn.detailedAnswer?.state }
           : {}),
@@ -116,13 +145,18 @@ export class ConversationClient {
 function toSummary(session: z.infer<typeof SessionSchema>): ConversationSummary {
   const turns = session.turns ?? [];
   const lastQuery = [...turns].reverse().find((turn) => queryText(turn.query))?.query;
+  const lastTurnAt = [...turns].reverse().find((turn) => turn.createdAt)?.createdAt;
   const updatedAt =
-    session.updateTime ?? lastQuery?.createTime ?? session.endTime ?? session.startTime;
+    session.updateTime ??
+    lastQuery?.createTime ??
+    lastTurnAt ??
+    session.endTime ??
+    session.startTime;
   const id = session.name.split('/').pop() ?? session.name;
   return {
     name: session.name,
     id,
-    title: session.displayName?.trim() || queryText(turns[0]?.query) || id,
+    title: session.displayName?.trim() || userText(turns[0]?.query) || id,
     turnCount: turns.length,
     isPinned: session.isPinned ?? false,
     ...(session.state ? { state: session.state } : {}),
@@ -140,6 +174,41 @@ function queryText(query: z.infer<typeof QuerySchema> | undefined): string | und
     .map((part) => part.text?.trim())
     .filter((text): text is string => Boolean(text));
   return parts.length ? parts.join(' ') : undefined;
+}
+
+/** Context the add-in sends, in case a part ever arrives without its MIME type. */
+const CONTEXT_PART = /^(?:<doc_state\b|Working-document read\b|Working context so far\b)/;
+
+/**
+ * The user's own words. The add-in sends context (the `<doc_state>` snapshot, attached reads) as
+ * parts with a MIME type and the typed question as a bare text part.
+ */
+function userText(query: z.infer<typeof QuerySchema> | undefined): string | undefined {
+  if (!query) return undefined;
+  if (!query.parts?.length) return query.text?.trim() || undefined;
+  const own = query.parts
+    .filter((part) => !part.mimeType)
+    .map((part) => part.text?.trim())
+    .filter((text): text is string => Boolean(text) && !CONTEXT_PART.test(text!));
+  return own.length ? own.join('\n') : undefined;
+}
+
+/** The answer as the user saw it: reply text without the model's thoughts. */
+function answerOf(turn: z.infer<typeof SessionTurnSchema>): {
+  answerText?: string;
+  answerHasMedia?: boolean;
+} {
+  const replies = turn.detailedAssistAnswer?.replies ?? [];
+  const content = replies.map((reply) => reply.groundedContent?.content);
+  const text = content
+    .filter((c) => c?.text && c.thought !== true)
+    .map((c) => c!.text!)
+    .join('')
+    .trim();
+  const hasMedia = content.some(
+    (c) => c && c.thought !== true && !c.text && ('file' in c || 'executableCode' in c),
+  );
+  return { ...(text ? { answerText: text } : {}), ...(hasMedia ? { answerHasMedia: true } : {}) };
 }
 
 function clampPageSize(pageSize: number | undefined): number {

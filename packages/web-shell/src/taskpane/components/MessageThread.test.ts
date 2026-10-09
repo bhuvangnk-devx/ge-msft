@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MessageThread, type MessageThreadProps } from './MessageThread.js';
+import { MessageThread, stripCommandBlocks, type MessageThreadProps } from './MessageThread.js';
 import type { ChatMessage } from '../../controller.js';
 
 /**
@@ -70,6 +70,12 @@ describe('MessageThread', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('hides an unlabelled fence whose quoted bullets run onto a second line', () => {
+    const text =
+      '```\nslide "Support & Resources" "• Employee assistance\n• Leadership training"\n```\ndone "Added it."\n\nAdded it.';
+    expect(stripCommandBlocks(text)).toEqual({ text: 'Added it.', hidden: 2 });
   });
 
   it('shows a streaming reply bubble with only the loader before any text arrives', () => {

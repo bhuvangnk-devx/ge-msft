@@ -859,6 +859,21 @@ function isNarratedCommand(line: string): boolean {
   return /^[a-z]/.test(t) && COMMAND_STRUCTURE.test(t) && !isCommandParseError(parseCommandLine(t));
 }
 
+/** Rejoin a command whose quoted argument runs onto the next line (`slide "T" "• a⏎• b"`). */
+function joinQuotedLines(lines: string[]): string[] {
+  const out: string[] = [];
+  let open = '';
+  for (const line of lines) {
+    open = open ? `${open} ${line}` : line;
+    if ((open.match(/"/g)?.length ?? 0) % 2 === 0) {
+      out.push(open);
+      open = '';
+    }
+  }
+  if (open) out.push(open);
+  return out;
+}
+
 /**
  * Remove commands from a reply. They are how the model drives the add-in, not part of the answer; the
  * approval card and Activity show what they do, and the reply says how many blocks were hidden.
@@ -885,7 +900,8 @@ export function stripCommandBlocks(
       const label = (fence[1] ?? '').toLowerCase();
       const protocol = label === 'cmd' || label === 'plan';
       const allCommands =
-        body.some((l) => l.trim()) && body.every((l) => !l.trim() || isNarratedCommand(l));
+        body.some((l) => l.trim()) &&
+        joinQuotedLines(body).every((l) => !l.trim() || isNarratedCommand(l));
       if ((protocol && (closed || streaming)) || (closed && allCommands)) {
         hidden++;
         inNarration = false;

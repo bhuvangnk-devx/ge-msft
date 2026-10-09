@@ -13,6 +13,8 @@ import { SkillsPanel } from './SkillsPanel.js';
 import { ActionLibrary } from './ActionLibrary.js';
 import { ConversationHistoryPanel } from './ConversationHistoryPanel.js';
 import { brand } from '../../brand.js';
+import type { SavedDiagnostic } from '../../saved-diagnostics.js';
+import { SavedDiagnosticsPanel } from './SavedDiagnosticsPanel.js';
 
 export interface ToolbarProps {
   surface: Surface;
@@ -39,9 +41,14 @@ export interface ToolbarProps {
   onResumeConversation: (name: string) => void;
   onInvokeSkill: (name: string, args: Record<string, string>) => void;
   onQuickAction: (action: QuickAction) => void;
+  /** Start a new chat in place; the button is hidden when not provided. */
+  onNewConversation?: () => void;
+  /** Earlier requests' diagnostics; the ⋯ button shows only when there are some. */
+  savedDiagnostics?: SavedDiagnostic[];
+  onClearSavedDiagnostics?: () => void;
 }
 
-type Panel = 'context' | 'actions' | 'skills' | 'sessions' | 'settings';
+type Panel = 'context' | 'actions' | 'skills' | 'sessions' | 'settings' | 'diagnostics';
 
 const PANEL_TITLE: Readonly<Record<Panel, string>> = {
   context: 'Context and grounding',
@@ -49,6 +56,7 @@ const PANEL_TITLE: Readonly<Record<Panel, string>> = {
   skills: 'Session skills',
   sessions: 'Conversation history',
   settings: 'Catalog and routing',
+  diagnostics: 'Earlier diagnostics',
 };
 
 /**
@@ -77,6 +85,9 @@ export function Toolbar({
   onResumeConversation,
   onInvokeSkill,
   onQuickAction,
+  onNewConversation,
+  savedDiagnostics = [],
+  onClearSavedDiagnostics,
 }: ToolbarProps): JSX.Element {
   const [panel, setPanel] = useState<Panel | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -157,8 +168,26 @@ export function Toolbar({
 
   return (
     <div className="tw" ref={rootRef}>
-      <div className="tw-bar" role="toolbar" aria-label={`${brand.name} controls`}>
+      <div
+        className={`tw-bar${savedDiagnostics.length > 0 ? ' has-more' : ''}`}
+        role="toolbar"
+        aria-label={`${brand.name} controls`}
+      >
         <span className="tw-brand" role="img" aria-label={brand.name} title={brand.name} />
+
+        {onNewConversation && (
+          <button
+            type="button"
+            className="tw-icon"
+            aria-label="New chat"
+            title="Start a new chat"
+            disabled={busy}
+            onClick={onNewConversation}
+          >
+            <ToolbarIcon name="new" />
+            <span className="tw-label">New</span>
+          </button>
+        )}
         <button
           type="button"
           className={`tw-icon${panel === 'context' ? ' on' : ''}`}
@@ -235,6 +264,20 @@ export function Toolbar({
           >
             <ToolbarIcon name="settings" />
             <span className="tw-label">Routing</span>
+          </button>
+        )}
+        {savedDiagnostics.length > 0 && (
+          <button
+            type="button"
+            className={`tw-icon tw-more${panel === 'diagnostics' ? ' on' : ''}`}
+            aria-expanded={panel === 'diagnostics'}
+            aria-haspopup="dialog"
+            aria-controls="tw-panel-diagnostics"
+            aria-label="Earlier diagnostics"
+            title="Earlier diagnostics"
+            onClick={(event) => choose('diagnostics', event.currentTarget)}
+          >
+            <span aria-hidden="true">⋯</span>
           </button>
         )}
       </div>
@@ -318,6 +361,26 @@ export function Toolbar({
               />
             </div>
 
+            {savedDiagnostics.length > 0 ? (
+              <div
+                id="tw-panel-diagnostics"
+                className="tw-modal-pane"
+                hidden={panel !== 'diagnostics'}
+              >
+                <SavedDiagnosticsPanel
+                  entries={savedDiagnostics}
+                  {...(onClearSavedDiagnostics
+                    ? {
+                        onClear: () => {
+                          onClearSavedDiagnostics();
+                          close();
+                        },
+                      }
+                    : {})}
+                />
+              </div>
+            ) : null}
+
             {hasSettings ? (
               <div id="tw-panel-settings" className="tw-modal-pane" hidden={panel !== 'settings'}>
                 {settingsPanel}
@@ -330,10 +393,16 @@ export function Toolbar({
   );
 }
 
-type ToolbarIconName = 'context' | 'actions' | 'skills' | 'sessions' | 'settings';
+type ToolbarIconName = 'new' | 'context' | 'actions' | 'skills' | 'sessions' | 'settings';
 
 function ToolbarIcon({ name }: { name: ToolbarIconName }): JSX.Element {
   const paths: Record<ToolbarIconName, JSX.Element> = {
+    new: (
+      <>
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.3A2.5 2.5 0 0 1 4 13.5z" />
+        <path d="M12 6.5v6M9 9.5h6" />
+      </>
+    ),
     context: (
       <>
         <circle cx="12" cy="12" r="3" />
