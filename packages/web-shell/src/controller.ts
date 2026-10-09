@@ -300,6 +300,8 @@ export interface ConversationItem {
   startedAt?: string;
   endedAt?: string;
   updatedAt?: string;
+  /** The Office app the chat ran in, when known. */
+  surface?: string;
 }
 
 export interface ConversationsState {
@@ -515,6 +517,8 @@ export interface PanelState {
    */
   availableDataStores: EngineDataStore[];
   conversations: ConversationsState;
+  /** The app a continued chat started in, when it differs from this one (shown as a note). */
+  conversationFrom?: string;
   busy: boolean;
   error?: string;
 }
@@ -1695,7 +1699,8 @@ export class PanelController {
       },
     });
     try {
-      const result = await this.session.listConversations({ pageSize: 20 });
+      // The History panel filters to this app by default; fetch enough that the filter still fills it.
+      const result = await this.session.listConversations({ pageSize: 50 });
       this.set({
         conversations: {
           items: result.conversations.map((item) => this.toConversationItem(item)),
@@ -1733,6 +1738,9 @@ export class PanelController {
       streaming: true,
       activity: 'Loading conversation…',
     };
+    const from = this.state.conversations.items.find(
+      (item) => item.name === name || item.id === name,
+    )?.surface;
     this.set({
       messages: this.session.getConversation ? [loading] : [],
       steps: [],
@@ -1740,6 +1748,7 @@ export class PanelController {
       pendingPlanClarification: undefined,
       error: undefined,
       conversations: this.markActive((item) => item.name === name || item.id === name),
+      conversationFrom: from,
     });
     if (!this.session.getConversation) return;
     let messages: ChatMessage[];
@@ -1775,6 +1784,7 @@ export class PanelController {
       pendingPlanClarification: undefined,
       error: undefined,
       conversations: this.markActive(() => false),
+      conversationFrom: undefined,
     });
   }
 
@@ -2075,6 +2085,7 @@ export class PanelController {
       ...(item.startedAt ? { startedAt: item.startedAt } : {}),
       ...(item.endedAt ? { endedAt: item.endedAt } : {}),
       ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+      ...(item.surface ? { surface: item.surface } : {}),
     };
   }
 }

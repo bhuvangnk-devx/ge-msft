@@ -13,6 +13,8 @@ export interface ConversationSummary {
   startedAt?: string;
   endedAt?: string;
   updatedAt?: string;
+  /** The Office app the chat ran in, read from the add-in's `<doc_state surface=…>` context part. */
+  surface?: string;
 }
 
 export interface ConversationListResult {
@@ -153,6 +155,7 @@ function toSummary(session: z.infer<typeof SessionSchema>): ConversationSummary 
     session.endTime ??
     session.startTime;
   const id = session.name.split('/').pop() ?? session.name;
+  const surface = surfaceOf(turns);
   return {
     name: session.name,
     id,
@@ -163,7 +166,19 @@ function toSummary(session: z.infer<typeof SessionSchema>): ConversationSummary 
     ...(session.startTime ? { startedAt: session.startTime } : {}),
     ...(session.endTime ? { endedAt: session.endTime } : {}),
     ...(updatedAt ? { updatedAt } : {}),
+    ...(surface ? { surface } : {}),
   };
+}
+
+/** The first `<doc_state surface=…>` part the add-in sent; chats from elsewhere have none. */
+function surfaceOf(turns: Array<z.infer<typeof SessionTurnSchema>>): string | undefined {
+  for (const turn of turns) {
+    for (const part of turn.query?.parts ?? []) {
+      const match = /^<doc_state surface=([a-z]+)\b/.exec(part.text ?? '');
+      if (match) return match[1];
+    }
+  }
+  return undefined;
 }
 
 function queryText(query: z.infer<typeof QuerySchema> | undefined): string | undefined {

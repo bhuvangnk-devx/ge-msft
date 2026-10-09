@@ -332,6 +332,35 @@ describe('ConversationClient', () => {
     expect(out.turns[0]?.userText).toBeUndefined();
     expect(out.title).toBe('sess-4');
   });
+
+  it('reads which Office app a chat ran in from its document snapshot', async () => {
+    const f = vi.fn(async () =>
+      jsonResponse({
+        sessions: [
+          {
+            name: 'projects/p/locations/eu/collections/c/engines/e/sessions/xl',
+            turns: [
+              {
+                query: {
+                  parts: [
+                    { mimeType: 'text/plain', text: '<doc_state surface=excel version=1>\n…' },
+                    { text: 'chart this' },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: 'projects/p/locations/eu/collections/c/engines/e/sessions/web',
+            turns: [{ query: { text: 'hi' } }],
+          },
+        ],
+      }),
+    );
+    const client = new ConversationClient(tokens, cfg(), f as never);
+    const { conversations } = await client.listConversations();
+    expect(conversations.map((c) => c.surface)).toEqual(['excel', undefined]);
+  });
 });
 
 describe('contentHash', () => {

@@ -352,6 +352,7 @@ export function Toolbar({
             <div id="tw-panel-sessions" className="tw-modal-pane" hidden={panel !== 'sessions'}>
               <ConversationHistoryPanel
                 conversations={conversations}
+                surface={surface}
                 disabled={busy}
                 onRefresh={onRefreshConversations}
                 onResume={(name) => {

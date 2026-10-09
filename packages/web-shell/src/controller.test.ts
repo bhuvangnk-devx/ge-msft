@@ -509,6 +509,26 @@ describe('PanelController — conversation history', () => {
     ]);
   });
 
+  it('remembers which app a continued chat started in, and forgets it on a new chat', async () => {
+    const assist = new FakeAssist();
+    assist.conversations = [
+      {
+        name: 'sessions/ol',
+        id: 'ol',
+        title: 'Email',
+        turnCount: 1,
+        isPinned: false,
+        surface: 'outlook',
+      },
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.refreshConversations();
+    await c.resumeConversation('sessions/ol');
+    expect(c.getState().conversationFrom).toBe('outlook');
+    c.newConversation();
+    expect(c.getState().conversationFrom).toBeUndefined();
+  });
+
   it('keeps the session when its earlier messages cannot be loaded', async () => {
     const assist = new FakeAssist();
     assist.pastTurns = new Error('403 Forbidden');

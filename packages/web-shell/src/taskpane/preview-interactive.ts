@@ -206,6 +206,44 @@ export function makeDemoController(
     }),
     ingest: async () => undefined,
     startNewSession: () => undefined,
+    resumeSession: () => undefined,
+    // Two sample chats so History, the app filter and the other-app confirmation can be tried.
+    listConversations: async () => ({
+      conversations: [
+        {
+          name: 'sessions/demo-here',
+          id: 'demo-here',
+          title: `Earlier ${surface} chat (sample)`,
+          turnCount: 1,
+          isPinned: false,
+          surface,
+          updatedAt: '2026-10-08T09:00:00Z',
+        },
+        {
+          name: 'sessions/demo-outlook',
+          id: 'demo-outlook',
+          title: 'Launch readiness email (sample)',
+          turnCount: 1,
+          isPinned: false,
+          surface: surface === 'outlook' ? 'word' : 'outlook',
+          updatedAt: '2026-10-07T15:30:00Z',
+        },
+      ],
+    }),
+    getConversation: async (name) => ({
+      name,
+      id: name,
+      title: name,
+      turnCount: 1,
+      isPinned: false,
+      turns: [
+        {
+          userText: 'What does this email ask for?',
+          answerText:
+            'It asks to **confirm the launch date**. Two integration checks are still open, so the date cannot be confirmed yet.',
+        },
+      ],
+    }),
   };
   const controller = new PanelController(session, {
     listContext: async () => refs,

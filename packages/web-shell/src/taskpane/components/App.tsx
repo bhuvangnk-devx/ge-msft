@@ -40,6 +40,7 @@ import { surfacePrimaryActions } from './SurfaceCommandCenter.js';
 import { ContextStrip } from './ContextStrip.js';
 import { WorkspaceHome } from './WorkspaceHome.js';
 import { Toolbar } from './Toolbar.js';
+import { appItem, appName } from './app-names.js';
 import { extractDirectCommandProgram } from '../direct-command.js';
 import { buildInsertArtifactProgram, type InsertableArtifact } from '../insert-artifact.js';
 
@@ -593,6 +594,12 @@ export function App({
             onAction={onQuickAction}
           />
         )}
+        {state.conversationFrom && state.conversationFrom !== surface ? (
+          <p className="conversation-from" role="note">
+            This chat started in {appName(state.conversationFrom)}. Earlier answers are about that{' '}
+            {appItem(state.conversationFrom)}; new questions use this {appItem(surface)}.
+          </p>
+        ) : null}
         <MessageThread
           messages={state.messages}
           showEmpty={false}

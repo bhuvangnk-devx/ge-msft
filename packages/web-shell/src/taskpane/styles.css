@@ -561,6 +561,41 @@ body {
   border-color: var(--red);
   color: var(--red);
 }
+.sessions-confirm {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--primary-tint-border, var(--hairline));
+  border-radius: var(--r);
+  background: var(--primary-tint, var(--hover));
+  font-size: var(--fz-md);
+  line-height: 18px;
+}
+.sessions-confirm p {
+  margin: 0;
+}
+.sessions-confirm-actions {
+  display: flex;
+  gap: var(--s2);
+}
+/* a continued chat from another Office app says so above the thread */
+.conversation-from {
+  margin: var(--s2) var(--s5) 0;
+  padding: 6px 10px;
+  border-radius: var(--r);
+  background: var(--hover);
+  color: var(--ink-2);
+  font-size: var(--fz-sm);
+  line-height: 16px;
+}
+.sessions-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fz-md);
+  color: var(--ink-2);
+  cursor: pointer;
+}
 .sessions-list {
   display: grid;
   gap: var(--s2);
