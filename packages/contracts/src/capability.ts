@@ -807,9 +807,29 @@ export const ActuationResultSchema = z.object({
   // Teams): expected, not a failure. Distinct from `provenanceDropped` (a host that can store it
   // tried and failed). The record still exists in the panel's own store and the run ledger.
   provenanceUnsupported: z.boolean().optional(),
-  error: z.object({ code: z.string(), message: z.string() }).optional(),
+  // `reason` refines `code` for diagnostics, which never export `message` (it can quote document
+  // text). A closed enum, so no host or document text can ever ride it.
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      reason: z.lazy(() => ActuationErrorReasonSchema).optional(),
+    })
+    .optional(),
 });
 export type ActuationResult = z.infer<typeof ActuationResultSchema>;
+
+/** Content-free refinements of an actuation error `code`, exported to Copy diagnostics. */
+export const ActuationErrorReasonSchema = z.enum([
+  'no_slides',
+  'slide_not_found',
+  'shape_not_found',
+  'shape_gone',
+  'no_text',
+  'reread_failed',
+  'format_failed',
+]);
+export type ActuationErrorReason = z.infer<typeof ActuationErrorReasonSchema>;
 
 /**
  * The read verbs a surface can serve (ADR-0006 capability closure). The CLI grammar scopes host read

@@ -46,8 +46,10 @@ to an unsupported Office.js path.
   bullets). It goes at the end unless you add `at=N`, which makes it slide N: "add a slide as the
   second slide" → `slide "Title" "bullet" at=2`; "after slide 3" → `at=4`. After an `at=` slide,
   address it as `slide=N`, not `slide=last`.
-- `shape <pp:shape:slideId:shapeId> "text"` replaces text in one existing shape/text box. Discover
-  the target with `list shape`, `properties <ref>`, `open <ref>`, and `inspect <ref>` first.
+- `shape <pp:shape:slideId:shapeId> "text"` replaces text in one existing shape/text box. The deck
+  outline lists each slide's shapes with their full ref (`shapes: pp:shape:256:2 Placeholder: SLA
+  Terms; …`): use that ref as written, or `pp:shape:<slide>:title` for the slide title. For more detail use `list shape`, `properties <ref>`,
+  `open <ref>`, and `inspect <ref>`.
 
 **Generated deck artifact path:** for multi-slide generated decks, the host app may compile a
 bounded DeckSpec/HTML-derived preview into one base64 `.pptx` artifact and invoke `/insert-slide`

@@ -224,8 +224,26 @@ const CHANGE_STEP =
  * steps must not be answered by chat, which cannot write and has claimed writes it never made.
  */
 export function planDescribesChange(plan: Pick<CommandPlan, 'steps'>): boolean {
-  return plan.steps.some((step) => CHANGE_STEP.test(step));
+  // Remove only the answer-shaping phrase, then look for a change in what is left: "compile the
+  // findings and add them as a comment" still changes the document. A step naming a document
+  // target is never treated as answer-only.
+  return plan.steps.some((step) =>
+    CHANGE_STEP.test(DOCUMENT_TARGET.test(step) ? step : step.replace(ANSWER_STEP, ' ')),
+  );
 }
+
+/**
+ * A step that shapes the ANSWER, not the document: "format the extracted action items as a clear
+ * list", "extract and format the list of identified obligations". Its "format" is about the reply;
+ * read as a change it sent questions to the executor, which then wrote (live 2026-10-09: an email
+ * body replaced by a list, a tracked change for "List the obligations").
+ */
+const ANSWER_STEP =
+  /\b(?:format|present|organi[sz]e|structure|compile)\b[^.;,]{0,60}\b(?:extracted|identified|found|answer|response|findings)\b(?:[^.;,]{0,40}\b(?:as|into)\s+(?:a\s+|an\s+)?(?:clear\s+|clean\s+|bulleted\s+|numbered\s+|markdown\s+)?(?:list|table|summary|bullets?))?/i;
+
+/** A cell/range or a named part of the document: a step that names one is a document change. */
+const DOCUMENT_TARGET =
+  /\b[A-Z]{1,3}\d+\b|\b(?:comment|slide|paragraph|sheet|cell|range|tracked change)\b|\bin the (?:document|email|body|workbook|deck)\b/i;
 
 /** The intent that carries general edits on a surface (`rewrite` where offered, else `draft`, …). */
 export function editIntentFor(surface: Surface): Intent | undefined {

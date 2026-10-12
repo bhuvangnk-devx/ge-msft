@@ -39,6 +39,24 @@ import { composeEvent, receivedEvent } from './events.js';
  * host wiring.
  */
 
+// No quotes: the snapshot renderer escapes them, which garbles a command example.
+// mail/compose open a separate window the add-in cannot edit or address (recipients are never
+// auto-filled): live 2026-10-09 the model followed them with set-recipients/set-body and repeats.
+// At most 240 characters (the snapshot renderer clips a summary there); the sender comes first so a
+// request to someone else reads as a new email, not a reply (live 2026-10-09).
+const receivedNote = (from: string | undefined): string =>
+  `received message${plainAddress(from) ? ` from ${plainAddress(from)}` : ''}: reply = mail; email to anyone else = compose. ` +
+  'Each opens a window the user reviews and addresses (no later edits): one completes it. set-* and add-attachment: drafts only';
+
+/** The sender only when it is a plain address: a quoted local part could carry `)` or `;`. */
+function plainAddress(from: string | undefined): string | undefined {
+  return from && /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}$/.test(from) && from.length <= 40
+    ? from
+    : undefined;
+}
+const DRAFT_NOTE =
+  'a draft being written: set-subject, set-body, set-recipients and add-attachment edit it';
+
 export class OutlookBridge implements DocBridge {
   private static readonly dispatcher = createBridgeDispatch<OutlookBridge>(
     'outlook',
@@ -118,12 +136,19 @@ export class OutlookBridge implements DocBridge {
     const blocks = mailItemToDocStateBlocks(mail);
     if (blocks.length === 0) return undefined;
     this.docStateVersion += 1;
-    return buildDocStateSnapshot({
+    const snapshot = buildDocStateSnapshot({
       surface: 'outlook',
       version: this.docStateVersion,
       ...(mail.subject?.trim() ? { title: mail.subject } : {}),
       blocks,
     });
+    // Say up front which writes this item takes. Without it the model learned only from a failed
+    // write: it edited a received message's body/recipients, and used compose (a NEW message) for a
+    // reply (live scenarios 2026-10-09).
+    const item = Office.context.mailbox?.item;
+    const entry = snapshot.inventory.find((e) => e.id === 'mail:item') ?? snapshot.inventory[0];
+    if (item && entry) entry.summary = draftView(item) ? DRAFT_NOTE : receivedNote(mail.from);
+    return snapshot;
   }
 
   /**

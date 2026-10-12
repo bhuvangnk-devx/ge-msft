@@ -1,0 +1,5022 @@
+[
+  {
+    "id": "mx-wd-read-01",
+    "surface": "word",
+    "title": "read",
+    "prompt": "What are the payment terms?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-02",
+    "surface": "word",
+    "title": "read",
+    "prompt": "Summarise this document in three bullets",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-03",
+    "surface": "word",
+    "title": "read",
+    "prompt": "Who are the parties to this agreement?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-04",
+    "surface": "word",
+    "title": "read",
+    "prompt": "Which sentence mentions the monthly report?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-05",
+    "surface": "word",
+    "title": "read",
+    "prompt": "How can either party end the agreement?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-06",
+    "surface": "word",
+    "title": "read",
+    "prompt": "Apa isi dokumen ini?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-07",
+    "surface": "word",
+    "title": "read",
+    "prompt": "Is there anything unclear in this agreement?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-08",
+    "surface": "word",
+    "title": "read",
+    "prompt": "What does the existing comment ask?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-09",
+    "surface": "word",
+    "title": "read",
+    "prompt": "List the obligations of the Supplier",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-read-10",
+    "surface": "word",
+    "title": "read",
+    "prompt": "How many days notice is needed to terminate?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "notApplied": [
+        "tracked-change",
+        "replace-selection",
+        "add-comment",
+        "comment-reply",
+        "find-replace",
+        "insert-ooxml",
+        "apply-style",
+        "insert-table",
+        "insert-paragraph",
+        "insert-text"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-01",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Rewrite the selected paragraph to be more formal",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-02",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Make the payment terms sentence clearer as a tracked change",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-03",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Change 45 days to 30 days in the payment terms",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-04",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Rewrite the monthly report sentence with a clear deadline of the 5th working day",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-05",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Perbaiki kalimat yang dipilih supaya lebih jelas",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-06",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Tighten the confidentiality sentence",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-07",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Rewrite the termination clause to require 60 days notice",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-08",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Make the selected text shorter",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-09",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Suggest a better wording for the first paragraph",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-tracked-10",
+    "surface": "word",
+    "title": "tracked",
+    "prompt": "Rewrite the selected sentence in plain English",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["tracked-change", "replace-selection"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-01",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Add a comment on any sentence that has an unclear deadline",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-02",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Comment on the payment terms asking legal to review",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-03",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Add a comment to the confidentiality sentence asking which data is covered",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-04",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Flag the termination clause with a comment",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-05",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Tambahkan komentar pada kalimat tentang laporan bulanan",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-06",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Review this document and comment on the risks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-07",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Add a comment on the title saying draft version",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-08",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Comment on the 45 days asking if it is standard",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-09",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Leave a comment on the first paragraph asking for the Supplier's legal name",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-comment-10",
+    "surface": "word",
+    "title": "comment",
+    "prompt": "Add review comments for anything vague",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "add-comment": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-01",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Reply to the comment saying 45 days is acceptable",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-02",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Answer the existing comment and resolve it",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-03",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Reply to the comment: please change it to 30 days",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-04",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Respond to the open comment with yes, approved",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-05",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Balas komentar tersebut dengan jawaban setuju",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-06",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Reply to the comment asking for more detail",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-07",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Resolve the comment after replying that it is fixed",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-08",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Reply to the 45 days comment with our standard is 30 days",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-09",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Answer the reviewer's question in the comment",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-reply-10",
+    "surface": "word",
+    "title": "reply",
+    "prompt": "Reply to the comment and mark it done",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "comment-reply": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-01",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace my selected sentence with: Invoices are paid within 30 days.",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-02",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace the selection with a more formal version",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-03",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Ganti teks yang dipilih dengan versi bahasa Indonesia",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-04",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace the selected text with a bullet list of the payment steps",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-05",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Swap the selection for: Payment is due 30 days after a valid invoice.",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-06",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace what I selected with a shorter sentence",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-07",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace the selected sentence and keep the meaning",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-08",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Change my selection to say 15 business days",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-09",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Replace the selected text with the same sentence in uppercase",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-replace-10",
+    "surface": "word",
+    "title": "replace",
+    "prompt": "Rewrite my selection and replace it",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["replace-selection", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-01",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Replace every Supplier with Vendor",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-02",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Change all occurrences of agreement to contract",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-03",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Ganti semua kata Supplier menjadi Penyedia",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-04",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Replace CIMB Niaga with CIMB Niaga Tbk everywhere",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-05",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Find all mentions of 45 days and change them to 30 days",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-06",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Replace the word shall with will throughout",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-07",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Change every Supplier to Service Provider",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-08",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Replace all instances of month with calendar month",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-09",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Update the document so Supplier becomes Partner everywhere",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-findreplace-10",
+    "surface": "word",
+    "title": "findreplace",
+    "prompt": "Find and replace IT support with technology support",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": ["find-replace", "tracked-change"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-01",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Insert a bold heading Summary followed by a short paragraph at the end",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-02",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Add a signature block at the end with names and dates",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-03",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Insert a formatted note in red saying Draft for review",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-04",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Add a section called Service Levels with three bullet points",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-05",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Tambahkan paragraf penutup di akhir dokumen",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-06",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Insert a heading Definitions and two defined terms",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-07",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Add a numbered list of the Supplier's duties at the end",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-08",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Insert a highlighted box with the key payment term",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-09",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Add an introduction paragraph after the title",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-rich-10",
+    "surface": "word",
+    "title": "rich",
+    "prompt": "Insert a short bolded disclaimer at the end",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "appliedAny": [
+        "insert-ooxml",
+        "insert-html",
+        "insert-paragraph",
+        "insert-text",
+        "insert-table"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-01",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Apply the Heading 2 style to the line Payment terms",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-02",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Make Payment terms a heading",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-03",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Apply the Title style to the first line",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-04",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Format the title as Heading 1",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-05",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Jadikan baris Payment terms sebagai judul bagian",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-06",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Apply Heading 2 to every section label",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-07",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Use the Quote style for the confidentiality sentence",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-08",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Style the selected paragraph as Intense Quote",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-09",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Make the first paragraph use the Subtitle style",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-style-10",
+    "surface": "word",
+    "title": "style",
+    "prompt": "Apply Heading 3 to Payment terms",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "apply-style": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-01",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Insert a table with columns Item, Owner, Due date and 3 example rows",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-02",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Add a table of the Supplier's obligations and deadlines",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-03",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Create a 3 by 4 table for the service levels",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-04",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Buat tabel berisi kewajiban dan tenggat waktu",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-05",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Insert a table summarising payment terms and notice periods",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-06",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Add a RACI table with four tasks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-07",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Insert a two-column table of terms and definitions",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-08",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Create a table of milestones with dates",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-09",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Add a contact table with name, role and email",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-wd-table-10",
+    "surface": "word",
+    "title": "table",
+    "prompt": "Insert a table comparing 30 and 45 day payment terms",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "paragraphs": [
+        {
+          "text": "Vendor Services Agreement",
+          "styleBuiltIn": "Heading1"
+        },
+        {
+          "text": "This agreement is between CIMB Niaga and the Supplier for IT support services.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Payment terms",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier will be paid within 45 days of a valid invoice.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier shall deliver the monthly report soon after the end of each month.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "The Supplier is responsible for keeping customer data confidential at all times.",
+          "styleBuiltIn": "Normal"
+        },
+        {
+          "text": "Either party may end this agreement with 30 days written notice.",
+          "styleBuiltIn": "Normal"
+        }
+      ],
+      "selectionText": "The Supplier will be paid within 45 days of a valid invoice.",
+      "comments": [
+        {
+          "id": "wc1",
+          "text": "Is 45 days acceptable?",
+          "replies": [],
+          "resolved": false,
+          "anchor": "45 days"
+        }
+      ]
+    },
+    "expect": {
+      "applied": {
+        "insert-table": 1
+      }
+    },
+    "timeoutMs": 180000
+  }
+]

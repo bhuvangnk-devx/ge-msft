@@ -1,0 +1,612 @@
+[
+  {
+    "id": "mx-ol-read-01",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Summarise this email",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-02",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "What is Rina asking for?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-03",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "List the open integration checks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-04",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Apa yang diminta dalam email ini?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-05",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "What is the deadline mentioned?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-06",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Who sent this and what do they need?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-07",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Is there any action item for me?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-08",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Summarise this email in one sentence",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-09",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "What are the risks mentioned?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-read-10",
+    "surface": "outlook",
+    "title": "read",
+    "prompt": "Extract the action items as a list",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "notApplied": ["reply-mail", "create-mail"]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-01",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Draft a polite reply saying we will confirm by Friday",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-02",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Reply that the payment gateway test is done and the security review is next week",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-03",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Balas email ini dengan sopan bahwa kami akan konfirmasi hari Jumat",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-04",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Draft a reply asking for one more week",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-05",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Reply with the owners: Budi for payment gateway, Sari for security review",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-06",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Write a short reply acknowledging the email",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-07",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Reply proposing 15 November as the launch date",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-08",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Draft a reply asking who owns the security review",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-09",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Reply saying I am on leave and Budi will respond",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-reply-10",
+    "surface": "outlook",
+    "title": "reply",
+    "prompt": "Draft a reply with the target dates for both checks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-01",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Draft a new email to the team about the Friday release freeze",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-02",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Write a new email to IT asking for the security review status",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-03",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Buat email baru ke tim tentang rapat koordinasi minggu depan",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-04",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Draft an email to Budi asking for the payment gateway test results",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-05",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Write a new email announcing the launch date",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-06",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Draft a new message to my manager summarising the open checks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-07",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Create a new email inviting the team to a launch rehearsal",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-08",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Write an email to the vendor asking for an update",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-09",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Draft a new email to all staff about the new mobile app",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-ol-newmail-10",
+    "surface": "outlook",
+    "title": "newmail",
+    "prompt": "Compose a new email requesting budget approval",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "subject": "Launch readiness for the new mobile banking app",
+      "body": "<p>Hi team,</p><p>Can we confirm the launch date for the new mobile banking app? Two integration checks are still open: the payment gateway test and the security review. Please send owners and target dates by Friday.</p><p>Thanks,<br>Rina</p>",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.com"
+      }
+    },
+    "expect": {
+      "applied": {
+        "create-mail": 1
+      }
+    },
+    "timeoutMs": 180000
+  }
+]

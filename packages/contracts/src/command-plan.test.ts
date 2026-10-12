@@ -284,6 +284,29 @@ describe('intent effects (fix G)', () => {
     expect(planDescribesChange({ steps: ['add excel formula in G12 to sum range G2:G11'] })).toBe(
       true,
     );
+    // Shaping the answer is not a document change (live 2026-10-09).
+    expect(
+      planDescribesChange({ steps: ['Format the extracted action items as a clear list'] }),
+    ).toBe(false);
+    expect(
+      planDescribesChange({
+        steps: ['extract and format the list of identified supplier obligations'],
+      }),
+    ).toBe(false);
+    expect(planDescribesChange({ steps: ['format the header row bold'] })).toBe(true);
+    expect(planDescribesChange({ steps: ['format B2:E11 as currency'] })).toBe(true);
+    // A real change in the same step is still a change (security review 2026-10-12).
+    expect(
+      planDescribesChange({
+        steps: ['Compile the findings and add them as a comment on paragraph 3'],
+      }),
+    ).toBe(true);
+    expect(
+      planDescribesChange({ steps: ['Format the identified totals in D2:D10 as currency'] }),
+    ).toBe(true);
+    expect(
+      planDescribesChange({ steps: ['Organize the extracted rows and write them to Sheet2'] }),
+    ).toBe(true);
     expect(planDescribesChange({ steps: ['identify the region with the highest total'] })).toBe(
       false,
     );

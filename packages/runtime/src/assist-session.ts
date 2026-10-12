@@ -2247,6 +2247,24 @@ export class AssistSession {
       yield { type: 'command', turn, command, compiled: { error } };
       return;
     }
+    if (
+      this.task &&
+      ONE_DRAFT_PER_TASK.has(resolved.request.kind) &&
+      (plan.planSlots.some((slot) => slot.effect.request.kind === resolved.request.kind) ||
+        [
+          ...(this.appliedWrites.get(this.task) ?? []),
+          ...(this.uncertainWrites.get(this.task) ?? []),
+        ].some((key) => (JSON.parse(key) as { kind: string }).kind === resolved.request.kind))
+    ) {
+      // A reply or new-message window cannot be read back, so the model kept checking and opening
+      // another (live 2026-10-09: four reply drafts for one request). One per task is the request;
+      // a refused one is NOT opened, and the model must say so rather than claim it.
+      const what = resolved.request.kind === 'reply-mail' ? 'reply' : 'new message';
+      const error = `not opened: a ${what} window was already opened (or staged) in this task for the user to review, so this second one was not opened. Do not retry; emit done and tell the user any further ${what} must be asked for separately`;
+      plan.results[slotIndex] = advisory({ error });
+      yield { type: 'command', turn, command, compiled: { error } };
+      return;
+    }
     if (this.task && this.uncertainWrites.get(this.task)?.has(effectKey(resolved.request))) {
       // The host could not confirm this exact write earlier: it may have landed. Resending it can
       // duplicate it (live 2026-10-06: the same three slides re-sent each turn).
@@ -4123,6 +4141,12 @@ function framedRead(read: ResolvedContext, id: string): ResolvedContext {
     },
   };
 }
+
+/** Writes that open a host window the user finishes (Outlook): one of each kind per task. */
+const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([
+  'reply-mail',
+  'create-mail',
+]);
 
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 function effectKey(request: ActuationRequest): string {

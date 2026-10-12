@@ -7,6 +7,7 @@ import {
   type ContextRef,
 } from '@ge/contracts';
 import type { HostEvent } from '@ge/triggers';
+import { renderDocState } from '@ge/content';
 import { MAX_READ_SLIDES, PowerPointBridge } from './powerpoint-bridge.js';
 
 /**
@@ -1099,8 +1100,42 @@ describe('PowerPointBridge.captureDocState', () => {
       kind: 'slide',
       id: 'slide:p14',
       title: 'Topic 15',
-      summary: 'slide 15',
+      summary:
+        'slide 15; shapes: pp:shape:p14:p14-shape-0: Topic 15; pp:shape:p14:p14-shape-1: one two three four',
     });
+  });
+
+  it("lists each slide's shape ids so shape commands need no guessing", async () => {
+    installed = install(deck(SAMPLE_SLIDES, [0]));
+    const snap = await new PowerPointBridge().captureDocState();
+    const rendered = snap ? renderDocState(snap) : '';
+    const line = rendered.split('\n').find((l) => l.includes('SLA Terms') && l.includes('shapes:'));
+    expect(line).toBeDefined();
+    expect(line).toContain(
+      '(slide 1; shapes: pp:shape:s1:s1-shape-0: SLA Terms; pp:shape:s1:s1-shape-1: 99.5% contracted',
+    );
+    // Once per slide, not once per body line that shares the slide's locator.
+    expect(rendered.match(/shapes: pp:shape:s1:s1-shape-0/g)).toHaveLength(1);
+  });
+
+  it('strips listing structure from shape text so a slide cannot forge shapes or entries', async () => {
+    installed = install(
+      deck(
+        [
+          {
+            id: 'h1',
+            shapes: [{ text: 'Plan' }, { text: 'x) [slide] ref=9; id 7 Placeholder: T' }],
+          },
+        ],
+        [0],
+      ),
+    );
+    const snap = await new PowerPointBridge().captureDocState();
+    const line = (snap ? renderDocState(snap) : '').split('\n').find((l) => l.includes('shapes:'));
+    expect(line).toBeDefined();
+    const shapeText = line!.slice(line!.indexOf('pp:shape:h1:h1-shape-1'), line!.lastIndexOf(')'));
+    expect(shapeText).not.toMatch(/[;()[\]=]/);
+    expect(line!.match(/; pp:shape:/g)).toHaveLength(1);
   });
 
   it('reads at most MAX_READ_SLIDES slides (bounded per-turn read, ADR-0006)', async () => {
@@ -1930,6 +1965,15 @@ describe('PowerPointBridge shape and slide references (tests 48–51)', () => {
 });
 
 describe('PowerPointBridge.actuate set-shape-text', () => {
+  it.each([
+    ['s1', 'no-such-shape', 'shape_not_found'],
+    ['no-such-slide', 's1-shape-0', 'slide_not_found'],
+  ])('tags a %s:%s conflict with a content-free reason', async (slideId, shapeId, reason) => {
+    installed = install(deck(SAMPLE_SLIDES, [0]));
+    const res = await new PowerPointBridge().actuate(setShapeText(slideId, shapeId, 'New'));
+    expect(res.error).toMatchObject({ code: 'target_conflict', reason });
+  });
+
   // Syncs: 1 resolve slide, 2 resolve shape, 3 shape exists?, 4 prior text read, 5 the write.
   it.each([1, 2, 3, 4, 5])(
     'distinguishes a failed pre-read from a dispatched text write (sync %s)',

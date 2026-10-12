@@ -45,6 +45,8 @@ export interface WordCommentSeed {
   text: string;
   replies: string[];
   resolved: boolean;
+  /** The commented text (`comment.getRange().text`); empty when not given. */
+  anchor?: string;
 }
 
 /** The Word document seed: selection text + ordered paragraphs + comments. */
@@ -58,6 +60,8 @@ export interface WordSeed {
   inserts: Array<{ anchor: string; text: string }>;
   /** Recorded comments added via `insertComment`: `{ anchor, text }`. */
   addedComments: Array<{ anchor: string; text: string }>;
+  /** Recorded native tables inserted via `insertTable` (cell values per row). */
+  tables?: string[][][];
 }
 
 /** The whole body text — paragraphs joined by newlines (mirrors `body.text`). */
@@ -106,14 +110,52 @@ class FakeSearchResult {
   getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
     return { items: [], load: () => undefined };
   }
-  get paragraphs(): { getFirstOrNullObject(): FakeParagraphProxy } {
-    const index = this.seed.paragraphs.findIndex((p) =>
-      p.text.toLowerCase().includes(this.text.toLowerCase()),
-    );
+  get paragraphs(): {
+    getFirstOrNullObject(): FakeParagraphProxy;
+    getLast(): { getRange(_where: string): { insertOoxml(ooxml: string, _loc: string): void } };
+  } {
+    const index = this.anchorIndex();
     const containing = this.seed.paragraphs[index];
     return {
       getFirstOrNullObject: () => new FakeParagraphProxy(containing?.text, this.seed, index),
+      // Block content goes after the anchor's paragraph, as its own paragraph(s).
+      getLast: () => ({
+        getRange: () => ({
+          insertOoxml: (ooxml: string) => insertParagraphsAfter(this.seed, index, ooxmlText(ooxml)),
+        }),
+      }),
     };
+  }
+  /** The paragraph style of the match (Word's `Range.style` / `styleBuiltIn`). */
+  get style(): string {
+    return this.seed.paragraphs[this.anchorIndex()]?.styleBuiltIn ?? 'Normal';
+  }
+  set style(name: string) {
+    const p = this.seed.paragraphs[this.anchorIndex()];
+    if (p) p.styleBuiltIn = name;
+  }
+  set styleBuiltIn(name: string) {
+    this.style = name;
+  }
+  private anchorIndex(): number {
+    return this.seed.paragraphs.findIndex((p) =>
+      p.text.toLowerCase().includes(this.text.toLowerCase()),
+    );
+  }
+  /** Inline OOXML after the anchor text. */
+  insertOoxml(ooxml: string, _location: string): void {
+    const text = ooxmlText(ooxml).join(' ');
+    this.seed.inserts.push({ anchor: this.text, text });
+    replaceFirst(this.seed, this.text, `${this.text}${text}`);
+  }
+  /** A native table after the anchor's paragraph: one paragraph per row, cells tab-separated. */
+  insertTable(_rows: number, _cols: number, _location: string, values: string[][]): void {
+    insertParagraphsAfter(
+      this.seed,
+      this.anchorIndex(),
+      values.map((row) => row.join('\t')),
+    );
+    this.seed.tables = [...(this.seed.tables ?? []), values];
   }
   /** The tracked-change WRITE: replace the first occurrence of the anchor in the body. */
   insertText(text: string, _location: string): void {
@@ -164,6 +206,26 @@ class FakeCommentProxy {
   constructor(private readonly target: WordCommentSeed) {}
   get id(): string {
     return this.target.id;
+  }
+  get content(): string {
+    return this.target.text;
+  }
+  get authorName(): string {
+    return 'Reviewer';
+  }
+  /** WordApi 1.4: the commented range. */
+  getRange(): { text: string; load(_props?: string): void } {
+    return { text: this.target.anchor ?? '', load: () => undefined };
+  }
+  /** WordApi 1.4: the thread's replies. */
+  get replies(): {
+    items: Array<{ authorName: string; content: string }>;
+    load(_p?: string): void;
+  } {
+    return {
+      items: this.target.replies.map((content) => ({ authorName: 'Reviewer', content })),
+      load: () => undefined,
+    };
   }
   reply(text: string): void {
     this.target.replies.push(text);
@@ -223,6 +285,42 @@ class FakeSelection {
   load(_props?: string): this {
     return this;
   }
+  get style(): string {
+    return this.paragraph()?.styleBuiltIn ?? 'Normal';
+  }
+  set style(name: string) {
+    const p = this.paragraph();
+    if (p) p.styleBuiltIn = name;
+  }
+  set styleBuiltIn(name: string) {
+    this.style = name;
+  }
+  private paragraph(): WordParagraphSeed | undefined {
+    const needle = this.seed.selectionText.toLowerCase();
+    return needle
+      ? this.seed.paragraphs.find((p) => p.text.toLowerCase().includes(needle))
+      : undefined;
+  }
+  /** Overwrite the selected text (the only location the bridge uses on a selection is replace). */
+  insertText(text: string, _location: string): void {
+    this.seed.inserts.push({ anchor: this.seed.selectionText, text });
+    replaceFirst(this.seed, this.seed.selectionText, text);
+    this.seed.selectionText = text;
+  }
+  insertOoxml(ooxml: string, location: string): void {
+    this.insertText(ooxmlText(ooxml).join('\n'), location);
+  }
+  insertTable(_rows: number, _cols: number, _location: string, values: string[][]): void {
+    const index = this.seed.paragraphs.findIndex((p) =>
+      p.text.toLowerCase().includes(this.seed.selectionText.toLowerCase()),
+    );
+    insertParagraphsAfter(
+      this.seed,
+      index,
+      values.map((row) => row.join('\t')),
+    );
+    this.seed.tables = [...(this.seed.tables ?? []), values];
+  }
 }
 
 class FakeCustomXmlPartCollection {
@@ -275,6 +373,21 @@ interface FakeWordNamespace {
 }
 
 /** Replace the first paragraph occurrence of `anchor` with `replacement` in the seed body. */
+/** The text runs of an OOXML fragment, one entry per paragraph. */
+function ooxmlText(ooxml: string): string[] {
+  const paragraphs = ooxml
+    .split(/<\/w:p>/i)
+    .map((p) => [...p.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/gi)].map((m) => m[1]).join(''));
+  const texts = paragraphs.filter((t) => t.trim());
+  return texts.length ? texts : [ooxml.replace(/<[^>]+>/g, '').trim()];
+}
+
+/** Insert body paragraphs after `index` (at the end when the anchor was not found). */
+function insertParagraphsAfter(seed: WordSeed, index: number, lines: string[]): void {
+  const at = index >= 0 ? index + 1 : seed.paragraphs.length;
+  seed.paragraphs.splice(at, 0, ...lines.map((text) => ({ text, styleBuiltIn: 'Normal' })));
+}
+
 function replaceFirst(seed: WordSeed, anchor: string, replacement: string): void {
   const needle = anchor.toLowerCase();
   for (const p of seed.paragraphs) {

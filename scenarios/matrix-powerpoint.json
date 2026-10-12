@@ -1,0 +1,5502 @@
+[
+  {
+    "id": "mx-pp-read-01",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "What is on slide 2?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-02",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "Summarise this deck in three bullets",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-03",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "What risks are listed?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-04",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "Apa isi slide 3?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-05",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "How many slides are there and what are their titles?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-06",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "What are the next steps?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-07",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "Which slide talks about revenue?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-08",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "What is the subtitle on slide 1?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-09",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "Is anything missing from this deck?",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-read-10",
+    "surface": "powerpoint",
+    "title": "read",
+    "prompt": "Give me the key message of the presentation",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "notApplied": [
+        "insert-slide",
+        "set-shape-text",
+        "add-shape",
+        "format-shape",
+        "add-table-slide"
+      ]
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-01",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Add a slide titled Q4 Outlook with 3 bullets",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-02",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Create a summary slide with the three key findings",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-03",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Buat satu slide berjudul Prospek Q4 dengan 3 poin",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-04",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Add a thank you slide at the end",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-05",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Insert a slide called Agenda listing the four sections",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-06",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Add a slide about customer feedback with three points",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-07",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Create a slide titled Budget Request with two bullets",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-08",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Add one slide summarising the risks and mitigations",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-09",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Add a closing slide with contact details",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-oneslide-10",
+    "surface": "powerpoint",
+    "title": "oneslide",
+    "prompt": "Insert a slide titled Digital Growth with 4 bullets",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-01",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Add 3 slides about work life balance",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-02",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Create a 4-slide deck: problem, options, recommendation, next steps",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-03",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Buat 3 slide ringkasan presentasi ini dalam bahasa Indonesia",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-04",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Add three slides covering Q4 goals, risks and budget",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-05",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Create 3 slides explaining our digital strategy",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-06",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Add 4 slides on onboarding new employees",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-07",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Make 3 slides that summarise this deck",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-08",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Add three slides: market, competitors, our position",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-09",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Generate 3 training slides about phishing awareness",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-multislide-10",
+    "surface": "powerpoint",
+    "title": "multislide",
+    "prompt": "Create 5 slides for a project kickoff",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "insert-slide": 3
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-01",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Change the title on slide 1 to FY26 Annual Plan",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-02",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Rename slide 3's title to Key Risks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-03",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Ubah judul slide 2 menjadi Pendapatan",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-04",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Update the subtitle on slide 1 to Retail and SME Banking",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-05",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Change the title of slide 4 to Actions for Q4",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-06",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Replace the revenue bullets with updated numbers: 15% growth",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-07",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Change slide 2 title to Revenue Highlights",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-08",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Edit the next steps text to add Launch new app in December",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-09",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Make slide 1's title Q3 Review 2026",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shapetext-10",
+    "surface": "powerpoint",
+    "title": "shapetext",
+    "prompt": "Update slide 3 title to Risks and Mitigations",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "set-shape-text": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-01",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a text box on slide 2 near the bottom saying Draft, not for distribution",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-02",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a blue rectangle to the top right of slide 2",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-03",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Draw a triangle on slide 3",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-04",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Tambahkan kotak teks di slide 1 yang bertuliskan Draf untuk ditinjau",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-05",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a line under the title on slide 4",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-06",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Put a red circle on slide 2 to highlight the revenue",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-07",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a text box on slide 1 saying Confidential",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-08",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Insert an arrow shape on slide 3 pointing to the risks",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-09",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a green rounded rectangle with the text Approved on slide 4",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-shape-10",
+    "surface": "powerpoint",
+    "title": "shape",
+    "prompt": "Add a callout box on slide 2 saying Record quarter",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-01",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Make the title shape on slide 1 blue with white text",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-02",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Change the title on slide 2 to red text",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-03",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Buat judul di slide 1 menjadi tebal dan berwarna biru tua",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-04",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Give the body text on slide 3 a light grey fill",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-05",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Make the slide 4 title green",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-06",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Change the subtitle colour on slide 1 to dark grey",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-07",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Fill the title box on slide 2 with yellow",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-08",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Make the risks text on slide 3 dark red",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-09",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Change the title on slide 1 to white text on a navy background",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-formatshape-10",
+    "surface": "powerpoint",
+    "title": "formatshape",
+    "prompt": "Highlight the next steps box on slide 4 in light blue",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "format-shape": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-01",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Add a slide with a table of 3 risks and their owners",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-02",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Create a table slide comparing Q3 and Q4 revenue",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-03",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Buat slide dengan tabel 3 risiko dan pemiliknya",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-04",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Add a slide with a table of next steps, owners and dates",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-05",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Insert a table slide listing the regions and their growth",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-06",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Add a budget table slide with items and amounts",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-07",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Create a slide with a 3x3 table of KPIs",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-08",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Add a table slide of project milestones",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-09",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Make a slide with a table comparing two vendors",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  },
+  {
+    "id": "mx-pp-tableslide-10",
+    "surface": "powerpoint",
+    "title": "tableslide",
+    "prompt": "Add a slide with a table of team members and roles",
+    "clarification": "Use sensible example content.",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q3 Business Review",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Retail Banking Division",
+              "type": "Placeholder",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Revenue",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Revenue grew 12% year on year\nDigital channels up 30%\nBranch revenue flat",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Risks",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Rising funding costs\nIT migration delays\nNew compliance rules",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "type": "Placeholder",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Approve Q4 budget\nHire two data analysts",
+              "type": "Placeholder",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [0]
+    },
+    "expect": {
+      "applied": {
+        "add-table-slide": 1
+      }
+    },
+    "timeoutMs": 180000
+  }
+]

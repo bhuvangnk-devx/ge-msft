@@ -1,6 +1,7 @@
 import { powerpointGeometry, unknownActuationResult } from '@ge/contracts';
 import { createBridgeDispatch } from '@ge/runtime';
 import type {
+  ActuationErrorReason,
   ActuationKind,
   ActuationRequest,
   ActuationResult,
@@ -28,6 +29,7 @@ import {
   slideShapeListing,
   slidesToContext,
   tableValuesToText,
+  type ShapeElement,
   type SlideElement,
 } from './capture.js';
 import { planInsertSlide } from './actuate-plan.js';
@@ -167,11 +169,30 @@ export class PowerPointBridge implements DocBridge {
     const slides = await this.readAllSlides();
     if (slides.length === 0) return undefined;
     this.docStateVersion += 1;
-    return buildDocStateSnapshot({
+    const snapshot = buildDocStateSnapshot({
       surface: 'powerpoint',
       version: this.docStateVersion,
       blocks: slideElementsToDocStateBlocks(slides),
     });
+    // Shape ids ride on each slide's entry, so shape commands name a real id on the first try
+    // instead of guessing and retrying on target_conflict (live 2026-10-02: 3 wasted turns).
+    // Read with the slides above: no extra host round trip.
+    const shapesBySlide = new Map(
+      slides.map((slide) => [`slide:${slide.slideId ?? slide.index}`, slide.shapes ?? []]),
+    );
+    // Body lines share their slide's locator: summarise once, on the slide's first entry.
+    const summarised = new Set<string>();
+    for (const entry of snapshot.inventory) {
+      if (summarised.has(entry.id)) continue;
+      summarised.add(entry.id);
+      const summary = shapeSummary(
+        entry.id.slice('slide:'.length),
+        shapesBySlide.get(entry.id) ?? [],
+      );
+      // Keep the slide number the builder set ("slide 15"); the shapes follow it.
+      if (summary) entry.summary = entry.summary ? `${entry.summary}; ${summary}` : summary;
+    }
+    return snapshot;
   }
 
   /**
@@ -299,7 +320,7 @@ export class PowerPointBridge implements DocBridge {
     try {
       return await PowerPoint.run(async (ctx) => {
         const target = await resolveShapeTarget(ctx, slideId, shapeId);
-        if ('error' in target) return slideNotFound(req, target.error);
+        if ('error' in target) return slideNotFound(req, target.error, target.reason);
         const slide = ctx.presentation.slides.getItem(target.slideId);
         const shape = slide.shapes.getItemOrNullObject(target.shapeId);
         shape.load('isNullObject,type');
@@ -313,6 +334,7 @@ export class PowerPointBridge implements DocBridge {
             error: {
               code: 'target_conflict',
               message: 'The selected PowerPoint shape no longer exists.',
+              reason: 'shape_gone',
             },
           };
         }
@@ -321,6 +343,7 @@ export class PowerPointBridge implements DocBridge {
             req,
             `Shape id ${target.shapeId} is a ${shape.type} and has no text. For the slide title use ` +
               `shape pp:shape:${slideId}:title "…", or the id of a text box.`,
+            'no_text',
           );
         }
         const range = shape.textFrame.textRange;
@@ -357,6 +380,7 @@ export class PowerPointBridge implements DocBridge {
         error: {
           code: 'target_conflict',
           message: 'The PowerPoint shape could not be re-read before writing.',
+          reason: 'reread_failed',
         },
       };
     }
@@ -484,7 +508,7 @@ export class PowerPointBridge implements DocBridge {
       return await PowerPoint.run(async (ctx) => {
         const op = resolution.op;
         const target = await resolveSlideRef(ctx, op.slideId);
-        if ('error' in target) return slideNotFound(req, target.error);
+        if ('error' in target) return slideNotFound(req, target.error, target.reason);
         const size = await knownSlideSize(ctx);
         const unplaced = missingGeometryMessage(size, op);
         if (unplaced) return slideNotFound(req, unplaced);
@@ -591,7 +615,7 @@ export class PowerPointBridge implements DocBridge {
     try {
       return await PowerPoint.run(async (ctx) => {
         const target = await resolveShapeTarget(ctx, slideId, shapeId);
-        if ('error' in target) return slideNotFound(req, target.error);
+        if ('error' in target) return slideNotFound(req, target.error, target.reason);
         const slide = ctx.presentation.slides.getItem(target.slideId);
         const shape = slide.shapes.getItemOrNullObject(target.shapeId);
         shape.load('isNullObject');
@@ -605,6 +629,7 @@ export class PowerPointBridge implements DocBridge {
             error: {
               code: 'target_conflict',
               message: 'The selected PowerPoint shape no longer exists.',
+              reason: 'shape_gone',
             },
           };
         }
@@ -691,6 +716,7 @@ export class PowerPointBridge implements DocBridge {
         error: {
           code: 'target_conflict',
           message: 'The PowerPoint shape could not be formatted.',
+          reason: 'format_failed',
         },
       };
     }
@@ -780,7 +806,7 @@ export class PowerPointBridge implements DocBridge {
             );
           }
           const target = await resolveSlideRef(ctx, slideId);
-          if ('error' in target) return slideNotFound(req, target.error);
+          if ('error' in target) return slideNotFound(req, target.error, target.reason);
           slideLocation = target.slideId;
           shapes = ctx.presentation.slides.getItem(target.slideId).shapes;
         }
@@ -1406,7 +1432,7 @@ async function slideSize(
 async function resolveSlideRef(
   ctx: PowerPoint.RequestContext,
   raw: string,
-): Promise<{ slideId: string } | { error: string }> {
+): Promise<{ slideId: string } | { error: string; reason: ActuationErrorReason }> {
   const slides = ctx.presentation.slides;
   slides.load('items/id');
   await ctx.sync();
@@ -1414,7 +1440,7 @@ async function resolveSlideRef(
   const key = raw.trim().replace(/^(?:pp:)?slide:/i, '');
   if (/^last$/i.test(key)) {
     const last = ids.at(-1);
-    return last ? { slideId: last } : { error: 'The deck has no slides yet.' };
+    return last ? { slideId: last } : { error: 'The deck has no slides yet.', reason: 'no_slides' };
   }
   if (ids.includes(key)) return { slideId: key };
   if (/^\d+$/.test(key)) {
@@ -1427,6 +1453,7 @@ async function resolveSlideRef(
       `Slide ${JSON.stringify(raw.slice(0, 64))} was not found. Use a slide id from the outline (${shown}), ` +
       `a slide number 1–${ids.length}, or "last". To create a new slide with a title and bullets, ` +
       'use the slide command: slide "Title" "bullet" "bullet".',
+    reason: 'slide_not_found',
   };
 }
 
@@ -1495,7 +1522,7 @@ async function resolveShapeTarget(
   ctx: PowerPoint.RequestContext,
   slideRef: string,
   shapeRef: string,
-): Promise<{ slideId: string; shapeId: string } | { error: string }> {
+): Promise<{ slideId: string; shapeId: string } | { error: string; reason: ActuationErrorReason }> {
   const slide = await resolveSlideRef(ctx, slideRef);
   if ('error' in slide) return slide;
   const collection = ctx.presentation.slides.getItem(slide.slideId).shapes;
@@ -1521,9 +1548,10 @@ async function resolveShapeTarget(
   return {
     error:
       `Shape ${JSON.stringify(key.slice(0, 64))} was not found on that slide (there are no shape ` +
-      `numbers or names). Use one of its shape ids: ${shown || 'the slide has no shapes'}. A ` +
-      `shape you added has the id in its add-shape result. For the slide title use title as the ` +
-      `shape: shape pp:shape:${slideKey}:title "…" (or shape=title on /format-shape).`,
+      `numbers or names). For the slide title use title as the shape: shape pp:shape:${slideKey}:title ` +
+      `"…" (or shape=title on /format-shape). Otherwise use one of its shape ids: ` +
+      `${shown || 'the slide has no shapes'}. A shape you added has the id in its add-shape result.`,
+    reason: 'shape_not_found',
   };
 }
 
@@ -1671,6 +1699,33 @@ function hostErrorSuffix(error: unknown): string {
   return typeof code === 'string' && /^[\w.-]{1,64}$/.test(code) ? ` (PowerPoint: ${code})` : '';
 }
 
+/** Shapes listed per slide in the outline; the rest stay reachable through `read slide:N`. */
+const MAX_SUMMARY_SHAPES = 8;
+
+/**
+ * `shapes: pp:shape:256:2 Placeholder: SLA Terms; pp:shape:256:5 Image`. The renderer escapes and clips the whole line;
+ * shape text (document content) also loses the characters this listing and the inventory use as
+ * structure, so it cannot fake another shape, close the summary or mimic an entry.
+ */
+function shapeSummary(slideKey: string, shapes: ShapeElement[]): string | undefined {
+  if (shapes.length === 0) return undefined;
+  const listed = shapes.slice(0, MAX_SUMMARY_SHAPES).map((shape) => {
+    const text = Array.from(
+      shape.text
+        .replace(/[;,:()[\]=]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    );
+    const clipped = text.length > 24 ? `${text.slice(0, 24).join('')}…` : text.join('');
+    // The full ref: a bare id made the model write `shape 2 "…"`, which needs the slide too.
+    const label = [`pp:shape:${slideKey}:${shape.shapeId}`, shape.type].filter(Boolean).join(' ');
+    return clipped ? `${label}: ${clipped}` : label;
+  });
+  if (shapes.length > MAX_SUMMARY_SHAPES)
+    listed.push(`+${shapes.length - MAX_SUMMARY_SHAPES} more`);
+  return `shapes: ${listed.join('; ')}`;
+}
+
 /** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
 async function readSlideIdAt(index: number): Promise<string | undefined> {
   try {
@@ -1685,13 +1740,17 @@ async function readSlideIdAt(index: number): Promise<string | undefined> {
   }
 }
 
-function slideNotFound(req: ActuationRequest, message: string): ActuationResult {
+function slideNotFound(
+  req: ActuationRequest,
+  message: string,
+  reason?: ActuationErrorReason,
+): ActuationResult {
   return {
     ok: false,
     changeId: req.changeId,
     kind: req.kind,
     degraded: true,
-    error: { code: 'target_conflict', message },
+    error: { code: 'target_conflict', message, ...(reason ? { reason } : {}) },
   };
 }
 
