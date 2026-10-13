@@ -21,14 +21,7 @@ export function RunSteps({ steps, diagnostics }: RunStepsProps): JSX.Element | n
     if (!diagnostics) return;
     const text = diagnostics();
     setManualCopy(undefined);
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyState('Copied. Paste it to your support contact.');
-      return;
-    } catch {
-      // Desktop Office blocks the async clipboard API; the legacy copy command usually works there.
-    }
-    if (legacyCopy(text)) {
+    if (await copyText(text)) {
       setCopyState('Copied. Paste it to your support contact.');
       return;
     }
@@ -138,8 +131,40 @@ function WorkspaceArtifactCard({
 }
 
 /** `document.execCommand('copy')` through a hidden textarea; false when the host refuses it. */
-export function legacyCopy(text: string): boolean {
+/**
+ * Copy text, trying the legacy copy first: it runs synchronously inside the click, which Office on
+ * Mac (Safari web view) requires, and Office desktop blocks the async clipboard API. The async API
+ * is the fallback for browsers that disable the legacy command.
+ */
+export async function copyText(text: string, html?: string): Promise<boolean> {
+  if (legacyCopy(text, html)) return true;
+  try {
+    if (html && typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+          'text/html': new Blob([html], { type: 'text/html' }),
+        }),
+      ]);
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The legacy copy command; with `html`, the clipboard also gets a formatted version. */
+export function legacyCopy(text: string, html?: string): boolean {
   const focused = document.activeElement as HTMLElement | null;
+  const onCopy = (event: ClipboardEvent): void => {
+    if (!html || !event.clipboardData) return;
+    event.clipboardData.setData('text/plain', text);
+    event.clipboardData.setData('text/html', html);
+    event.preventDefault();
+  };
+  document.addEventListener('copy', onCopy);
   const area = document.createElement('textarea');
   area.value = text;
   area.setAttribute('readonly', '');
@@ -152,6 +177,7 @@ export function legacyCopy(text: string): boolean {
   } catch {
     return false;
   } finally {
+    document.removeEventListener('copy', onCopy);
     area.remove();
     focused?.focus?.(); // back to the button that was clicked
   }

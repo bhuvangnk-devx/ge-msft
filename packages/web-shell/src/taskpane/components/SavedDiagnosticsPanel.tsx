@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { SavedDiagnostic } from '../../saved-diagnostics.js';
-import { legacyCopy } from './RunSteps.js';
+import { copyText } from './RunSteps.js';
 
 export interface SavedDiagnosticsPanelProps {
   /** Newest first. */
@@ -23,15 +23,7 @@ export function SavedDiagnosticsPanel({
       null,
       2,
     );
-    let ok = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      ok = true;
-    } catch {
-      // Desktop Office blocks the async clipboard API; the legacy copy command usually works there.
-      ok = legacyCopy(text);
-    }
-    setCopied({ id: entry.id, ok });
+    setCopied({ id: entry.id, ok: await copyText(text) });
   };
   return (
     <section className="sessions" aria-label="Earlier diagnostics">

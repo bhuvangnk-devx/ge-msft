@@ -392,6 +392,13 @@ export function App({
     const t = text.trim();
     if (t) typedQuestion.current = { id: `${paneLoad}:${++questionSeq.current}`, text: t };
   };
+  // Activity's Copy diagnostics carries the question too, in the same shape as a saved entry.
+  const activityDiagnostics = (): string => {
+    const diagnostics = controller.diagnostics({ surface });
+    const question = typedQuestion.current?.text;
+    if (!question) return diagnostics;
+    return JSON.stringify({ question, diagnostic: JSON.parse(diagnostics) as unknown }, null, 2);
+  };
   const wasBusy = useRef(false);
   useEffect(() => {
     const question = typedQuestion.current;
@@ -652,7 +659,7 @@ export function App({
           onAnswer={(answer) => controller.answerPlanClarification(answer)}
         />
 
-        <RunSteps steps={state.steps} diagnostics={() => controller.diagnostics({ surface })} />
+        <RunSteps steps={state.steps} diagnostics={activityDiagnostics} />
 
         <ProposalCard
           proposals={state.proposals}

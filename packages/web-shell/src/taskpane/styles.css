@@ -3709,18 +3709,19 @@ button.cite:hover {
 
 /* result card: what a request changed, with Show me and Undo */
 .result-card {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 8px;
+  padding: 6px 10px;
   border: 1px solid #bfe5cf;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ecf8f1;
+  font-size: var(--fz-sm);
 }
 .result-card.is-undone {
   border-color: var(--hairline);
   background: var(--surface);
 }
 .result-card-title {
-  font-weight: 700;
+  font-weight: 600;
   color: #16794a;
 }
 .result-card-title::before {
@@ -3733,8 +3734,10 @@ button.cite:hover {
   content: '↺ ';
 }
 .result-card-list {
-  margin: 6px 0 0;
-  padding-left: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
 }
 .result-card-list .is-undone {
   text-decoration: line-through;
@@ -3744,16 +3747,17 @@ button.cite:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
+/* same size as the chips under an answer (Copy answer, …) */
 .result-card-actions button {
   border: 1px solid var(--hairline-soft);
-  border-radius: 8px;
-  padding: 4px 10px;
+  border-radius: 12px;
+  padding: 3px 8px;
   background: var(--surface);
-  font: inherit;
-  font-weight: 600;
+  color: var(--blue-ink);
+  font-size: var(--fz-sm);
   cursor: pointer;
 }
 .result-card-hint {
@@ -3764,27 +3768,27 @@ button.cite:hover {
 /* a failed answer: plain words and Try again; the error detail is in Copy diagnostics */
 .error-card {
   margin-top: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid #f5d9a8;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff8eb;
+  font-size: var(--fz-sm);
 }
 .error-card-title {
-  font-weight: 700;
+  font-weight: 600;
 }
 .error-card-body {
   margin-top: 4px;
   color: var(--ink-2);
 }
 .error-card-retry {
-  margin-top: 8px;
+  margin-top: 6px;
   border: 0;
-  border-radius: 8px;
-  padding: 5px 12px;
+  border-radius: 12px;
+  padding: 3px 10px;
   background: var(--primary, #c8102e);
   color: #fff;
-  font: inherit;
-  font-weight: 600;
+  font-size: var(--fz-sm);
   cursor: pointer;
 }
 .resume-card {
@@ -3792,11 +3796,10 @@ button.cite:hover {
 }
 .resume-card .result-card-actions button:not(.error-card-retry) {
   border: 1px solid var(--hairline-soft);
-  border-radius: 8px;
-  padding: 5px 12px;
+  border-radius: 12px;
+  padding: 3px 8px;
   background: var(--surface);
-  font: inherit;
-  font-weight: 600;
+  font-size: var(--fz-sm);
   cursor: pointer;
 }
 .result-card-actions .error-card-retry {

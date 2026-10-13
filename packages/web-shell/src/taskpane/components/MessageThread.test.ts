@@ -77,6 +77,17 @@ describe('MessageThread', () => {
     expect(stripCommandBlocks(text)).toEqual({ text: '', hidden: 1 });
   });
 
+  it('hides slash commands and an unclosed cmd fence in a finished reply (live 2026-10-13)', () => {
+    const cmd =
+      '/add-shape slide=2 shapeType=Star5 fill=#0F6CBD left=560 top=20 width=100 height=100';
+    expect(stripCommandBlocks('```cmd\n' + cmd + '\ndone')).toEqual({ text: '', hidden: 1 });
+    expect(stripCommandBlocks(cmd + '\ndone')).toEqual({ text: '', hidden: 1 });
+    expect(stripCommandBlocks('```cmd\n' + cmd + '\nAdded a star.').text).toBe('Added a star.');
+    expect(stripCommandBlocks('Use /rewrite to change the tone.').text).toBe(
+      'Use /rewrite to change the tone.',
+    );
+  });
+
   it('copies an answer with the legacy command when the clipboard API is blocked', async () => {
     Object.assign(navigator, {
       clipboard: { writeText: () => Promise.reject(new Error('blocked')) },

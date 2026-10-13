@@ -11,7 +11,8 @@ import {
 } from '@ge/contracts';
 import type { InsertableArtifact } from '../insert-artifact.js';
 import { canRenderHostLocation } from '../../host-location.js';
-import { legacyCopy } from './RunSteps.js';
+import { copyText } from './RunSteps.js';
+import { answerForClipboard } from '../answer-copy.js';
 
 export interface MessageThreadProps {
   messages: ChatMessage[];
@@ -777,14 +778,8 @@ function AnswerActions({
 }): JSX.Element {
   const [copyState, setCopyState] = useState('');
   const copy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyState('Copied');
-      return;
-    } catch {
-      // Office desktop and some browsers block the async clipboard API; the legacy copy usually works.
-    }
-    setCopyState(legacyCopy(text) ? 'Copied' : 'Select the answer to copy it.');
+    const { plain, html } = answerForClipboard(text);
+    setCopyState((await copyText(plain, html)) ? 'Copied' : 'Select the answer to copy it.');
   };
   return (
     <div className="answer-actions" aria-label="Use this answer">
@@ -869,7 +864,10 @@ function isNarratedCommand(line: string): boolean {
   // A binding (`let $data = read 'Sheet'!A1:Q49`) is program syntax the line parser does not take.
   const binding = /^let \$\w+ = (.+)$/.exec(t);
   if (binding) return isNarratedCommand(binding[1] ?? '') || /^read\b/.test(binding[1] ?? '');
-  return /^[a-z]/.test(t) && COMMAND_STRUCTURE.test(t) && !isCommandParseError(parseCommandLine(t));
+  // A slash form (`/add-shape slide=2 …`) is the same grammar (live 2026-10-13: shown in a reply).
+  return (
+    /^\/?[a-z]/.test(t) && COMMAND_STRUCTURE.test(t) && !isCommandParseError(parseCommandLine(t))
+  );
 }
 
 /** Rejoin a command whose quoted argument runs onto the next line (`slide "T" "• a⏎• b"`). */
@@ -891,8 +889,9 @@ function joinQuotedLines(lines: string[]): string[] {
  * Remove commands from a reply. They are how the model drives the add-in, not part of the answer; the
  * approval card and Activity show what they do, and the reply says how many blocks were hidden.
  * Hidden: ```cmd / ```plan fences (as the runtime parses them), any other fence whose every line is a
- * command, and bare narrated command lines. An unclosed ```cmd / ```plan fence is hidden only while
- * the reply is still streaming; a finished reply keeps everything after a stray fence visible.
+ * command, and bare narrated command lines. An unclosed ```cmd / ```plan fence is hidden whole while
+ * the reply is still streaming; in a finished reply its leading command lines are hidden and anything
+ * after them stays visible, so prose after a stray fence is never lost.
  */
 export function stripCommandBlocks(
   text: string,
@@ -920,6 +919,18 @@ export function stripCommandBlocks(
         inNarration = false;
         i = end;
         continue;
+      }
+      if (protocol && !closed) {
+        // Finished reply, fence never closed (live 2026-10-13: the command showed as a code block).
+        let j = i + 1;
+        while (j < lines.length && (!(lines[j] ?? '').trim() || isNarratedCommand(lines[j] ?? '')))
+          j++;
+        if (j > i + 1) {
+          hidden++;
+          inNarration = false;
+          i = j - 1;
+          continue;
+        }
       }
       out.push(...lines.slice(i, closed ? end + 1 : lines.length));
       inNarration = false;

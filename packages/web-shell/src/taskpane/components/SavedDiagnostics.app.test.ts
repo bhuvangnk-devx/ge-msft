@@ -114,3 +114,37 @@ describe('the ⋯ earlier-diagnostics button', () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });
+
+describe('Activity Copy diagnostics', () => {
+  it('includes the question the user typed', async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const controller = makeDemoController('word', { pace: 0 });
+    act(() => {
+      root.render(createElement(App, { controller, surface: 'word', diagnosticsScope: 'tester' }));
+    });
+
+    typeAndSend('Add a total column for Q1 to Q4');
+    await settle();
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-testid="command-plan-confirm"]')!.click(),
+    );
+    await settle();
+    act(() => controller.approvePlan());
+    await settle();
+    act(() => container.querySelector<HTMLButtonElement>('.run-steps-toggle')!.click());
+    const copy = [
+      ...container.querySelectorAll<HTMLButtonElement>('.run-steps-diagnostics button'),
+    ].find((b) => b.textContent === 'Copy diagnostics')!;
+    await act(async () => copy.click());
+
+    const copied = JSON.parse(writeText.mock.calls[0]![0]) as {
+      question: string;
+      diagnostic: Record<string, unknown>;
+    };
+    expect(copied.question).toBe('Add a total column for Q1 to Q4');
+    expect(Object.keys(copied.diagnostic)).toEqual(
+      expect.arrayContaining(['routes', 'steps', 'errors', 'runs']),
+    );
+  });
+});
