@@ -216,7 +216,7 @@ const INTENT_EFFECT: Record<Intent, string> = {
 
 /** Verbs that describe a change to the document when they appear in a plan step. */
 const CHANGE_STEP =
-  /\b(?:add|insert|put|place|set|write|enter|fill|populate|create|make|apply|replace|change|update|edit|rewrite|format|highlight|bold|colou?r|delete|remove|move|rename|convert|turn|chart|plot|comment|reply|resolve|attach|draft|compose|sort|filter|merge|resize)\b/i;
+  /\b(?:add|insert|put|place|set|write|enter|fill|populate|create|make|apply|replace|change|update|edit|rewrite|format|highlight|flag|bold|colou?r|delete|remove|move|rename|convert|turn|chart|plot|comment|reply|resolve|attach|draft|compose|sort|filter|merge|resize)\b/i;
 
 /**
  * True when a plan whose intent answers in chat nevertheless describes a change in its steps. The
@@ -228,7 +228,9 @@ export function planDescribesChange(plan: Pick<CommandPlan, 'steps'>): boolean {
   // findings and add them as a comment" still changes the document. A step naming a document
   // target is never treated as answer-only.
   return plan.steps.some((step) =>
-    CHANGE_STEP.test(DOCUMENT_TARGET.test(step) ? step : step.replace(ANSWER_STEP, ' ')),
+    CHANGE_STEP.test(
+      DOCUMENT_TARGET.test(step) || FORMATTING.test(step) ? step : step.replace(ANSWER_STEP, ' '),
+    ),
   );
 }
 
@@ -239,11 +241,15 @@ export function planDescribesChange(plan: Pick<CommandPlan, 'steps'>): boolean {
  * body replaced by a list, a tracked change for "List the obligations").
  */
 const ANSWER_STEP =
-  /\b(?:format|present|organi[sz]e|structure|compile)\b[^.;,]{0,60}\b(?:extracted|identified|found|answer|response|findings)\b(?:[^.;,]{0,40}\b(?:as|into)\s+(?:a\s+|an\s+)?(?:clear\s+|clean\s+|bulleted\s+|numbered\s+|markdown\s+)?(?:list|table|summary|bullets?))?/i;
+  /\b(?:highlight|point out|call out|flag|note)\b[^.;,]{0,40}\b(?:unusual|anomal\w*|outliers?|patterns?|trends?|insights?|observations?)\b|\b(?:format|present|organi[sz]e|structure|compile)\b[^.;,]{0,60}\b(?:extracted|identified|found|answer|response|findings)\b(?:[^.;,]{0,40}\b(?:as|into)\s+(?:a\s+|an\s+)?(?:clear\s+|clean\s+|bulleted\s+|numbered\s+|markdown\s+)?(?:list|table|summary|bullets?))?/i;
 
 /** A cell/range or a named part of the document: a step that names one is a document change. */
 const DOCUMENT_TARGET =
-  /\b[A-Z]{1,3}\d+\b|\b(?:comment|slide|paragraph|sheet|cell|range|tracked change)\b|\bin the (?:document|email|body|workbook|deck)\b/i;
+  /\b[A-Z]{1,3}\d+\b|\b(?:comments?|slides?|paragraphs?|sheets?|cells?|ranges?|rows?|columns?|tracked changes?)\b|\bin the (?:document|email|body|workbook|deck)\b/i;
+
+/** A visible format applied to the document ("…in red", "…in bold"): a change, not an answer. */
+const FORMATTING =
+  /\b(?:in|with|to|as)\s+(?:red|green|yellow|orange|blue|bold|italics?|colou?r|fill|strikethrough|conditional formatting)\b|\bcolou?r(?:ed)?\b/i;
 
 /** The intent that carries general edits on a surface (`rewrite` where offered, else `draft`, …). */
 export function editIntentFor(surface: Surface): Intent | undefined {

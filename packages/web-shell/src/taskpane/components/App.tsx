@@ -24,6 +24,8 @@ import {
 import type { ContextChip, PanelController } from '../../controller.js';
 import { usePanelState } from '../usePanelState.js';
 import { SavedDiagnostics, browserStorage } from '../../saved-diagnostics.js';
+import { ResumeStore } from '../../resume-store.js';
+import { detectLanguage, uiStrings } from '../../ui-language.js';
 import { MessageThread } from './MessageThread.js';
 import { Composer, type ComposerInvocation, type ComposerMention } from './Composer.js';
 import { invocationToSeed, quickActionToInvocation } from './quick-action-seed.js';
@@ -376,6 +378,10 @@ export function App({
     [diagnosticsScope],
   );
   const [savedDiagnostics, setSavedDiagnostics] = useState(() => savedStore.list());
+  // A change task the pane was closed during is offered for finishing (per signed-in user).
+  useEffect(() => {
+    void controller.attachResumeStore(new ResumeStore(browserStorage(), diagnosticsScope));
+  }, [controller, diagnosticsScope]);
   // The question saved with diagnostics is what the user TYPED (or the quick action they chose),
   // captured when they sent it. Never read back from the thread: a bubble can hold an inserted
   // answer or history loaded from the server, which must not reach browser storage.
@@ -602,6 +608,14 @@ export function App({
         <WorkflowWorkbench state={state} controller={controller} disabled={actionBlocked} />
         <AnalysisWorkbench state={state} controller={controller} disabled={actionBlocked} />
         <EvidencePanel evidence={state.evidence} />
+        {state.resume && !state.busy ? (
+          <ResumeCard
+            request={state.resume.request}
+            made={state.resume.changes.length}
+            onFinish={() => void controller.finishResume()}
+            onDismiss={() => controller.dismissResume()}
+          />
+        ) : null}
         {state.messages.length === 0 && (
           <WorkspaceHome
             surface={surface}
@@ -627,6 +641,9 @@ export function App({
           onInsertArtifact={onInsertArtifact}
           onRevealLocation={(target) => void controller.revealLocation(surface, target)}
           insertArtifactDisabledReason={insertArtifactDisabledReason}
+          language={state.language ?? 'en'}
+          onUndoChanges={(id) => void controller.undoChanges(id)}
+          onRetry={() => void controller.retryLast()}
         />
 
         <PlanClarificationCard
@@ -655,12 +672,14 @@ export function App({
       {hasBlockingGate && (
         <section className="gate-rail" aria-label="Decision required">
           <CommandPlanCard
+            language={state.language ?? 'en'}
             pending={state.pendingCommandPlan}
             onConfirm={() => controller.confirmCommandPlan()}
             onCancel={() => controller.cancelCommandPlan()}
           />
 
           <PlanApprovalCard
+            language={state.language ?? 'en'}
             plan={state.pendingPlan}
             onRevealTarget={(target) => void controller.revealLocation(surface, target)}
             onApprove={() => controller.approvePlan()}
@@ -668,6 +687,7 @@ export function App({
           />
 
           <WriteApprovalCard
+            language={state.language ?? 'en'}
             pending={state.pendingWrite}
             onApprove={() => controller.approvePendingWrite()}
             onReject={() => controller.rejectPendingWrite()}
@@ -712,6 +732,36 @@ export function App({
           })),
         }}
       />
+    </div>
+  );
+}
+
+/** The task the pane was closed during: finish only what is left, or dismiss it. */
+function ResumeCard({
+  request,
+  made,
+  onFinish,
+  onDismiss,
+}: {
+  request: string;
+  made: number;
+  onFinish: () => void;
+  onDismiss: () => void;
+}): JSX.Element {
+  const t = uiStrings(detectLanguage(request));
+  const shown = request.length > 80 ? `${request.slice(0, 79)}…` : request;
+  return (
+    <div className="error-card resume-card" role="status">
+      <div className="error-card-title">{t.resumeTitle}</div>
+      <div className="error-card-body">{t.resumeBody(shown, made)}</div>
+      <div className="result-card-actions">
+        <button type="button" className="error-card-retry" onClick={onFinish}>
+          {t.resumeFinish}
+        </button>
+        <button type="button" onClick={onDismiss}>
+          {t.resumeDismiss}
+        </button>
+      </div>
     </div>
   );
 }

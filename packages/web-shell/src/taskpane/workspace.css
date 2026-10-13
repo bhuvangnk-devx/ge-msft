@@ -405,18 +405,6 @@
   color: var(--ink-2);
   align-self: center;
 }
-.plan-impact {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
-}
-.plan-impact span {
-  border: 1px solid var(--hairline-soft);
-  border-radius: 4px;
-  font-size: var(--fz-sm);
-  padding: 5px 7px;
-}
 .plan-effect-head {
   flex-wrap: wrap;
 }

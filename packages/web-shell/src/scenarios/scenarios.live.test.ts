@@ -5,6 +5,8 @@
  *
  *   GE_SCENARIOS=1                       enable
  *   GE_SCENARIO=excel-format,word-reply  only these ids (substring match)
+ *   GE_SCENARIO_SURFACE=excel             only this app's scenarios (the release gate runs one per app)
+ *   GE_SCENARIO_RUN_DIR=<dir>             write results here instead of a new timestamped folder
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,12 +26,16 @@ function loadScenarios(): Scenario[] {
     .filter((f) => f.endsWith('.json'))
     .sort()
     .flatMap((f) => JSON.parse(readFileSync(join(DIR, f), 'utf8')) as Scenario[])
-    .filter((s) => !filter.length || filter.some((id) => s.id.includes(id)));
+    .filter((s) => !filter.length || filter.some((id) => s.id.includes(id)))
+    .filter((s) => !surfaceFilter || s.surface === surfaceFilter);
 }
 
+const surfaceFilter = process.env.GE_SCENARIO_SURFACE?.trim();
 const scenarios = LIVE ? loadScenarios() : [];
 const results: ScenarioResult[] = [];
-const runDir = join(DIR, '.results', new Date().toISOString().replace(/[:.]/g, '-'));
+const runDir =
+  process.env.GE_SCENARIO_RUN_DIR ??
+  join(DIR, '.results', new Date().toISOString().replace(/[:.]/g, '-'));
 
 describe.skipIf(!LIVE)('live scenarios', () => {
   for (const scenario of scenarios) {

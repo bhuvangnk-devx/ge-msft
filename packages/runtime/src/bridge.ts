@@ -21,6 +21,12 @@ import type { HostEvent, Unsubscribe } from '@ge/triggers';
 export interface DocBridge {
   readonly surface: Surface;
 
+  /**
+   * An identity for the open document or item (its URL, or a mail item id), so the pane can tell
+   * whether something it remembered belongs to this document. Never sent anywhere; hashed by callers.
+   */
+  documentKey?(): string | undefined;
+
   /** Bounded, address-pinned values/formulas for analysis, verification and recovery. */
   captureCells?(selector: string): Promise<CellSnapshot>;
   /** Host-document persistence. No credentials or model conversation is stored here. */

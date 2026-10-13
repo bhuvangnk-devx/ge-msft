@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ChatMessage } from '../../controller.js';
+import type { ChatMessage, ResultChange } from '../../controller.js';
+import { uiStrings, type UiLanguage } from '../../ui-language.js';
 import {
   CONFIRMED_PLAN_OPEN,
   isCommandParseError,
@@ -10,6 +11,7 @@ import {
 } from '@ge/contracts';
 import type { InsertableArtifact } from '../insert-artifact.js';
 import { canRenderHostLocation } from '../../host-location.js';
+import { legacyCopy } from './RunSteps.js';
 
 export interface MessageThreadProps {
   messages: ChatMessage[];
@@ -20,6 +22,12 @@ export interface MessageThreadProps {
   onInsertArtifact?: (artifact: InsertableArtifact) => void;
   onRevealLocation?: (location: string) => void;
   insertArtifactDisabledReason?: string;
+  /** The conversation's language, for the pane's own text. */
+  language?: UiLanguage;
+  /** Undo what a result card lists (through the approval card). */
+  onUndoChanges?: (messageId: string) => void;
+  /** Send the last request again (shown on the latest failed answer only). */
+  onRetry?: () => void;
 }
 
 /**
@@ -772,9 +780,11 @@ function AnswerActions({
     try {
       await navigator.clipboard.writeText(text);
       setCopyState('Copied');
+      return;
     } catch {
-      setCopyState('Select the answer to copy it.');
+      // Office desktop and some browsers block the async clipboard API; the legacy copy usually works.
     }
+    setCopyState(legacyCopy(text) ? 'Copied' : 'Select the answer to copy it.');
   };
   return (
     <div className="answer-actions" aria-label="Use this answer">
@@ -856,6 +866,9 @@ const COMMAND_STRUCTURE = /["=!]|\b[A-Z]{1,3}\d+\b/;
 function isNarratedCommand(line: string): boolean {
   const t = line.trim();
   if (t === 'done') return true;
+  // A binding (`let $data = read 'Sheet'!A1:Q49`) is program syntax the line parser does not take.
+  const binding = /^let \$\w+ = (.+)$/.exec(t);
+  if (binding) return isNarratedCommand(binding[1] ?? '') || /^read\b/.test(binding[1] ?? '');
   return /^[a-z]/.test(t) && COMMAND_STRUCTURE.test(t) && !isCommandParseError(parseCommandLine(t));
 }
 
@@ -938,6 +951,9 @@ function Message({
   onInsertArtifact,
   onRevealLocation,
   insertArtifactDisabledReason,
+  language = 'en',
+  onUndoChanges,
+  onRetry,
 }: {
   message: ChatMessage;
   disabled: boolean;
@@ -946,6 +962,9 @@ function Message({
   onInsertArtifact?: (artifact: InsertableArtifact) => void;
   onRevealLocation?: (location: string) => void;
   insertArtifactDisabledReason?: string;
+  language?: UiLanguage;
+  onUndoChanges?: (messageId: string) => void;
+  onRetry?: () => void;
 }): JSX.Element | null {
   const isUser = message.role === 'user';
   const stripped = isUser
@@ -962,6 +981,7 @@ function Message({
     !message.error &&
     !message.cancelled &&
     !message.note &&
+    !message.changes?.length &&
     !(message.sources && message.sources.length > 0)
   )
     return null;
@@ -1002,10 +1022,23 @@ function Message({
           )}
         </div>
         {message.error && (
-          <div className="msg-error" role="alert">
-            {message.error}
-          </div>
+          <ErrorCard
+            blocked={message.blocked === true}
+            made={message.changes?.filter((c) => !c.undone).length ?? 0}
+            language={language}
+            onRetry={onRetry}
+          />
         )}
+        {message.changes?.length && !message.streaming ? (
+          <ResultCard
+            changes={message.changes}
+            surface={surface}
+            language={language}
+            disabled={disabled}
+            onShow={onRevealLocation}
+            onUndo={onUndoChanges ? () => onUndoChanges(message.id) : undefined}
+          />
+        ) : null}
         {message.cancelled && <div className="muted small">Cancelled.</div>}
         {message.note && !message.streaming && (
           <div className="muted small" role="note">
@@ -1050,6 +1083,9 @@ export function MessageThread({
   onInsertArtifact,
   onRevealLocation,
   insertArtifactDisabledReason,
+  language,
+  onUndoChanges,
+  onRetry,
 }: MessageThreadProps): JSX.Element {
   return (
     <div className="thread" role="log" aria-live="polite" aria-label="Conversation">
@@ -1075,8 +1111,105 @@ export function MessageThread({
           onInsertArtifact={onInsertArtifact}
           onRevealLocation={onRevealLocation}
           insertArtifactDisabledReason={insertArtifactDisabledReason}
+          language={language}
+          onUndoChanges={onUndoChanges}
+          onRetry={m === messages[messages.length - 1] ? onRetry : undefined}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * What a request changed, in plain words, with Show me (reveal in the document) and Undo. Undo is
+ * offered only where a safe restore exists; otherwise the card points to Office's own Undo.
+ */
+function ResultCard({
+  changes,
+  surface,
+  language,
+  disabled,
+  onShow,
+  onUndo,
+}: {
+  changes: ResultChange[];
+  surface: Surface;
+  language: UiLanguage;
+  disabled: boolean;
+  onShow?: (location: string) => void;
+  onUndo?: () => void;
+}): JSX.Element {
+  const t = uiStrings(language);
+  const allUndone = changes.every((c) => c.undone);
+  const shown = changes.find(
+    (c) => c.location && !c.undone && canRenderHostLocation(surface, c.location),
+  );
+  const undoable = changes.filter((c) => c.undoable && !c.undone);
+  return (
+    <div
+      className={`result-card${allUndone ? ' is-undone' : ''}`}
+      role="group"
+      aria-label={allUndone ? t.undone : t.doneOne}
+    >
+      <div className="result-card-title">
+        {allUndone ? t.undone : changes.length === 1 ? t.doneOne : t.doneMany(changes.length)}
+      </div>
+      <ul className="result-card-list">
+        {changes.map((c) => (
+          <li key={c.changeId} className={c.undone ? 'is-undone' : undefined}>
+            {c.label}
+          </li>
+        ))}
+      </ul>
+      {!allUndone && (
+        <div className="result-card-actions">
+          {shown && onShow ? (
+            <button type="button" disabled={disabled} onClick={() => onShow(shown.location!)}>
+              {t.showMe}
+            </button>
+          ) : null}
+          {undoable.length > 0 && onUndo ? (
+            <button type="button" disabled={disabled} onClick={onUndo}>
+              {changes.length > 1 ? t.undoAll : t.undo}
+            </button>
+          ) : (
+            <span className="result-card-hint">{t.undoInOffice}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A failed answer, in plain words and the conversation's language. The error itself is never shown
+ * here: it is in Copy diagnostics (redacted).
+ */
+function ErrorCard({
+  blocked,
+  made,
+  language,
+  onRetry,
+}: {
+  blocked: boolean;
+  made: number;
+  language: UiLanguage;
+  onRetry?: () => void;
+}): JSX.Element {
+  const t = uiStrings(language);
+  return (
+    <div className="error-card" role="alert">
+      <div className="error-card-title">{blocked ? t.blockedTitle : t.failedTitle}</div>
+      {blocked ? (
+        <div className="error-card-body">{t.blockedBody}</div>
+      ) : made > 0 ? (
+        <div className="error-card-body">{t.failedPartial(made)}</div>
+      ) : null}
+      {!blocked && onRetry ? (
+        <button type="button" className="error-card-retry" onClick={onRetry}>
+          {t.tryAgain}
+        </button>
+      ) : null}
     </div>
   );
 }

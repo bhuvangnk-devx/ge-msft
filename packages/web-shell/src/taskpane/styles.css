@@ -2657,19 +2657,6 @@ button.cite:hover {
 }
 
 /* plan approval */
-.card.plan-approval .plan-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-  font-size: var(--fz-sm);
-  color: var(--ink-2);
-}
-.plan-summary .pin {
-  font-size: var(--fz-lg);
-  font-weight: 600;
-  color: var(--ink);
-}
 .plan-effects {
   margin: 0;
   padding: 0;
@@ -2685,7 +2672,8 @@ button.cite:hover {
 .plan-effect-head {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* a fixed kind column so every row's target starts at the same place */
+  grid-template-columns: 4.5rem 1fr auto;
   align-items: center;
   gap: var(--s3);
   padding: 6px 0;
@@ -2694,11 +2682,16 @@ button.cite:hover {
   text-align: left;
   cursor: pointer;
 }
+.plan-approval-title,
+.command-plan-title {
+  font-size: var(--fz-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
 .plan-effect-kind {
-  font-family: var(--mono);
+  justify-self: start;
   font-size: var(--fz-xs);
   letter-spacing: 0;
-  text-transform: lowercase;
   color: var(--ink-2);
   border: 0.5px solid var(--hairline);
   border-radius: var(--r-chip);
@@ -2969,13 +2962,11 @@ button.cite:hover {
   color: var(--blue-ink);
 }
 .command-plan-scope {
-  font-family: var(--mono);
   font-size: var(--fz-xs);
   color: var(--ink-2);
   border: 0.5px solid var(--hairline);
   border-radius: var(--r-chip);
   padding: 1px 6px;
-  text-transform: lowercase;
 }
 .command-plan-tag {
   margin-left: auto;
@@ -3028,33 +3019,16 @@ button.cite:hover {
   font-family: var(--mono);
   color: var(--red);
 }
-.command-plan-ground {
-  font-family: var(--mono);
-  font-size: var(--fz-sm);
-  color: var(--ink-2);
-  text-transform: lowercase;
-}
-.command-plan-context {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s2);
-  flex-wrap: wrap;
-}
-.command-plan-context strong {
-  font-size: var(--fz-sm);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--ink-2);
-}
-.command-plan-context span {
+.command-plan .model-value {
   font-family: var(--mono);
   font-size: var(--fz-xs);
+  background: var(--surface-2, rgba(0, 0, 0, 0.05));
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.command-plan-ground {
+  font-size: var(--fz-sm);
   color: var(--ink-2);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r-chip);
-  padding: 1px 6px;
-  text-transform: lowercase;
 }
 .command-plan-actions {
   display: flex;
@@ -3731,4 +3705,102 @@ button.cite:hover {
   .tw-sheet {
     right: max(var(--s5), calc((100% - 720px) / 2));
   }
+}
+
+/* result card: what a request changed, with Show me and Undo */
+.result-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #bfe5cf;
+  border-radius: 10px;
+  background: #ecf8f1;
+}
+.result-card.is-undone {
+  border-color: var(--hairline);
+  background: var(--surface);
+}
+.result-card-title {
+  font-weight: 700;
+  color: #16794a;
+}
+.result-card-title::before {
+  content: '✓ ';
+}
+.result-card.is-undone .result-card-title {
+  color: var(--ink-2);
+}
+.result-card.is-undone .result-card-title::before {
+  content: '↺ ';
+}
+.result-card-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.result-card-list .is-undone {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.result-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.result-card-actions button {
+  border: 1px solid var(--hairline-soft);
+  border-radius: 8px;
+  padding: 4px 10px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.result-card-hint {
+  font-size: var(--fz-xs);
+  color: var(--ink-3);
+}
+
+/* a failed answer: plain words and Try again; the error detail is in Copy diagnostics */
+.error-card {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #f5d9a8;
+  border-radius: 10px;
+  background: #fff8eb;
+}
+.error-card-title {
+  font-weight: 700;
+}
+.error-card-body {
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+.error-card-retry {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 12px;
+  background: var(--primary, #c8102e);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.resume-card {
+  margin: 10px var(--s5) 0;
+}
+.resume-card .result-card-actions button:not(.error-card-retry) {
+  border: 1px solid var(--hairline-soft);
+  border-radius: 8px;
+  padding: 5px 12px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.result-card-actions .error-card-retry {
+  border: 0;
+  background: var(--primary, #c8102e);
+  color: #fff;
 }

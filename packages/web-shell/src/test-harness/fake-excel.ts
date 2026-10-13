@@ -158,7 +158,10 @@ export interface RangeFormatSeed {
 
 /** Find a sheet by name in the seed (throws on a typo so a mis-seeded test fails loudly). */
 function sheetByName(seed: ExcelSeed, name: string): SheetSeed {
-  const s = seed.sheets.find((x) => x.name === name);
+  // An address quotes a name with spaces: 'Branch Performance'!A1 (and doubles a quote inside).
+  const quoted = /^'(.*)'$/.exec(name);
+  const plain = quoted ? quoted[1]!.replace(/''/g, "'") : name;
+  const s = seed.sheets.find((x) => x.name === plain);
   if (!s) throw new Error(`fake-excel: no worksheet named "${name}"`);
   return s;
 }

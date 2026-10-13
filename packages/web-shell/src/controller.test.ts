@@ -455,6 +455,158 @@ describe('PanelController — context tray', () => {
   });
 });
 
+describe('PanelController — a command answer that claims an unmade change', () => {
+  it('notes that nothing changed when no write landed', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({ type: 'token', text: 'Successfully drafted and inserted the final slide.' }),
+      ev({ type: 'done', turn: 2 }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add a slide');
+    const reply = c.getState().messages.at(-1)!;
+    expect(reply.note).toMatch(/No change was made to your document/);
+  });
+
+  it('adds no note when a write landed', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({ type: 'token', text: 'I have added the slide.' }),
+      ev({
+        type: 'write-result',
+        turn: 1,
+        changeId: 'w1',
+        result: { ok: true, changeId: asChangeId('w1'), kind: 'insert-slide' },
+      }),
+      ev({ type: 'done', turn: 2 }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add a slide');
+    expect(c.getState().messages.at(-1)!.note).toBeUndefined();
+  });
+});
+
+describe('PanelController — resume an interrupted task', () => {
+  const memoryStore = (initial?: { request: string; changes: string[] }) => {
+    let record = initial
+      ? { ...initial, doc: 'h', startedAt: new Date().toISOString() }
+      : undefined;
+    return {
+      read: () => record,
+      start: (request: string, doc: string) => {
+        record = { request, changes: [], doc, startedAt: new Date().toISOString() };
+      },
+      landed: (label: string) => {
+        if (record) record = { ...record, changes: [...record.changes, label] };
+      },
+      clear: () => {
+        record = undefined;
+      },
+      get record() {
+        return record;
+      },
+    };
+  };
+
+  it('offers a saved task and finishes only what is left', async () => {
+    const assist = new FakeAssist();
+    const seen: string[] = [];
+    const run = assist.runCommands.bind(assist);
+    assist.runCommands = (task: string, options?: RunCommandsOptions) => {
+      seen.push(task);
+      return run(task, options);
+    };
+    assist.commandScript = [ev({ type: 'done', turn: 1 })];
+    const c = new PanelController(assist, {
+      ...lister([]),
+      documentKey: () => 'https://x/deck.pptx',
+    });
+    const store = memoryStore({
+      request: 'Add 3 slides',
+      changes: ['Slide added: One', 'Slide added: Two'],
+    });
+    await c.attachResumeStore(store);
+    expect(c.getState().resume?.changes).toHaveLength(2);
+
+    await c.finishResume();
+    expect(c.getState().resume).toBeUndefined();
+    expect(seen[0]).toContain('Add 3 slides');
+    expect(seen[0]).toContain('changes in the list below are ALREADY in the');
+    expect(seen[0]).toContain('"Slide added: Two"');
+    expect(store.record).toBeUndefined(); // the finished run left nothing to resume
+  });
+
+  it('offers nothing when the host gives no document identity', async () => {
+    const c = new PanelController(new FakeAssist(), lister([]));
+    await c.attachResumeStore(memoryStore({ request: 'x', changes: [] }));
+    expect(c.getState().resume).toBeUndefined();
+  });
+
+  it('dismiss forgets the task', async () => {
+    const c = new PanelController(new FakeAssist(), { ...lister([]), documentKey: () => 'doc' });
+    const store = memoryStore({ request: 'x', changes: [] });
+    await c.attachResumeStore(store);
+    c.dismissResume();
+    expect(c.getState().resume).toBeUndefined();
+    expect(store.record).toBeUndefined();
+  });
+});
+
+describe('PanelController — result card', () => {
+  const landed = ev({
+    type: 'write-result',
+    turn: 1,
+    changeId: 'w1',
+    result: { ok: true, changeId: asChangeId('w1'), kind: 'write-cells', location: 'Sheet1!F2:F3' },
+  });
+
+  it('lists what landed in plain words, with Undo only where the journal can restore it', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [landed, ev({ type: 'done', turn: 2 })];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add totals');
+    const [change] = c.getState().messages.at(-1)!.changes!;
+    expect(change).toMatchObject({
+      kind: 'write-cells',
+      label: 'Cells Sheet1!F2:F3',
+      location: 'Sheet1!F2:F3',
+    });
+    expect(change!.undoable).toBeUndefined(); // no journal record: Office's own Undo instead
+  });
+
+  it('undoes through the recovery journal and marks only what the journal undid', async () => {
+    const assist = new FakeAssist();
+    let state: 'applied' | 'undone' = 'applied';
+    const record = () => ({
+      id: 'w1',
+      createdAt: '',
+      state,
+      target: 'Sheet1!F2:F3',
+      rows: 2,
+      columns: 1,
+      canUndo: true,
+      canResume: false,
+    });
+    Object.assign(assist, { recovery: { durable: true, list: () => [record()] } });
+    const undoRuns: string[] = [];
+    Object.assign(assist, {
+      runAnalysis: async function* (action: { kind: string; id: string }) {
+        undoRuns.push(`${action.kind}:${action.id}`);
+        state = 'undone';
+        yield { type: 'done', turn: 1 };
+      },
+    });
+    assist.commandScript = [landed, ev({ type: 'done', turn: 2 })];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add totals');
+    const card = c.getState().messages.at(-1)!;
+    expect(card.changes![0]!.undoable).toBe(true);
+    await c.undoChanges(card.id);
+    expect(undoRuns).toEqual(['undo:w1']);
+    expect(c.getState().messages.find((m) => m.id === card.id)!.changes![0]!.undone).toBe(true);
+  });
+});
+
 describe('PanelController — conversation history', () => {
   it('lists Discovery Engine sessions and can mark one as active', async () => {
     const assist = new FakeAssist();

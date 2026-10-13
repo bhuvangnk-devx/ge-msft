@@ -110,8 +110,10 @@ async function* streamScripted(
 /** A real controller over an explicitly scripted session. No credentials, network, or Office writes. */
 export function makeDemoController(
   surface: Surface,
-  { pace = 30 }: { pace?: number } = {},
+  { pace = 30, resume = false }: { pace?: number; resume?: boolean } = {},
 ): PanelController {
+  // Demo-only recovery journal: each landed sample change can be undone (shows the Undo button).
+  const journal = new Map<string, 'applied' | 'undone'>();
   const sample = SAMPLE[surface];
   let sequence = 0;
   const refs: ContextRef[] = [
@@ -135,7 +137,17 @@ export function makeDemoController(
     context: { size: 0 },
     attachRef: async () => undefined,
     detach: () => undefined,
-    async *ask(_query, opts) {
+    async *ask(query, opts) {
+      // Type "fail" (or "gagal") to see how a failed answer looks.
+      if (/\b(?:fail|gagal)\b/i.test(query)) {
+        yield { type: 'activity', text: `Reading ${sample.title}…` };
+        yield {
+          type: 'error',
+          code: 'demo',
+          message: 'Demo failure (PowerPoint: GeneralException)',
+        };
+        return;
+      }
       yield* streamScripted(sample.answer, pace, opts?.signal, `Reading ${sample.title}…`);
       if (opts?.signal?.aborted) return;
       yield { type: 'citation', source: { title: sample.title, excerpt: sample.body } };
@@ -168,6 +180,21 @@ export function makeDemoController(
       );
       const approved = await options?.approvePlan?.(effects);
       if (options?.signal?.aborted) return;
+      if (approved) {
+        journal.set(request.changeId, 'applied');
+        // A landed change, so the demo shows the result card (Show me / Undo).
+        yield {
+          type: 'write-result',
+          turn: 1,
+          changeId: request.changeId,
+          result: {
+            ok: true,
+            changeId: request.changeId,
+            kind: request.kind,
+            ...(sample.params.target?.range ? { location: sample.params.target.range } : {}),
+          },
+        };
+      }
       yield* streamScripted(
         approved
           ? '\n\nSample change approved. No Office document was modified.'
@@ -205,6 +232,25 @@ export function makeDemoController(
       location: 'Scripted preview only',
     }),
     ingest: async () => undefined,
+    recovery: {
+      durable: false,
+      list: () =>
+        [...journal].map(([id, state]) => ({
+          id,
+          createdAt: new Date().toISOString(),
+          state,
+          target: sample.params.target?.range ?? sample.title,
+          rows: 1,
+          columns: 1,
+          canUndo: state === 'applied' && surface === 'excel',
+          canResume: false,
+        })),
+    },
+    async *runAnalysis(action) {
+      if (action.kind === 'undo' && 'id' in action && journal.has(action.id))
+        journal.set(action.id, 'undone');
+      yield { type: 'done', turn: 1 };
+    },
     startNewSession: () => undefined,
     resumeSession: () => undefined,
     // Two sample chats so History, the app filter and the other-app confirmation can be tried.
@@ -248,7 +294,32 @@ export function makeDemoController(
   const controller = new PanelController(session, {
     listContext: async () => refs,
     canRevealContext: () => false,
+    documentKey: () => `demo-${surface}`,
   });
+  if (resume) {
+    // ?demo=1&resume=1: a task the pane was "closed" during, to see the resume card.
+    const record = {
+      doc: 'demo',
+      request:
+        surface === 'excel'
+          ? 'Add a total for each region in column F'
+          : 'Add 3 slides about work life balance',
+      changes:
+        surface === 'excel'
+          ? ['Cells Sales!F2:F6']
+          : ['Slide added: Understanding balance', 'Slide added: Boundaries'],
+      startedAt: new Date().toISOString(),
+    };
+    let held: typeof record | undefined = record;
+    void controller.attachResumeStore({
+      read: () => held,
+      start: () => undefined,
+      landed: () => undefined,
+      clear: () => {
+        held = undefined;
+      },
+    });
+  }
   controller.setDiscoveredCatalog(
     [],
     [

@@ -136,6 +136,12 @@ export function makeMockController(state: PanelState): PanelController {
       log('invokeSkill')(name, args),
     refreshConversations: async () => log('refreshConversations')(),
     resumeConversation: (name: string) => log('resumeConversation')(name),
+    newConversation: log('newConversation'),
+    attachResumeStore: () => undefined,
+    finishResume: async () => undefined,
+    dismissResume: log('dismissResume'),
+    undoChanges: async () => undefined,
+    retryLast: async () => undefined,
     reveal: async (id: string) => log('reveal')(id),
     revealLocation: async (surface: Surface, target: string) =>
       log('revealLocation')(surface, target),
@@ -176,9 +182,13 @@ function Preview(): JSX.Element {
 
   // A fresh mock per (surface, toggles) so `getState` reflects the toolbar. `App` re-renders on its
   // own prop change; the mock's `subscribe` is a no-op because the harness is the source of truth.
+  const resume = params.get('resume') === '1';
   const controller = useMemo(
-    () => (interactive ? makeDemoController(surface) : makeMockController(buildState(toggles))),
-    [toggles, surface, interactive],
+    () =>
+      interactive
+        ? makeDemoController(surface, { resume })
+        : makeMockController(buildState(toggles)),
+    [toggles, surface, interactive, resume],
   );
   useEffect(() => () => controller.cancel(), [controller]);
 

@@ -814,6 +814,8 @@ export class AssistSession {
    * without any write refused. Cleared once that refusal is given, so a second `done` stands.
    */
   private changeAwaited = false;
+  /** Whether this task was already asked once to answer instead of ending with a bare `done`. */
+  private answerAsked = false;
   private readonly citations: SourceRef[] = [];
   private readonly compaction: Required<CompactionOptions>;
   /**
@@ -1140,6 +1142,18 @@ export class AssistSession {
       } catch (err) {
         if (err instanceof HookBlockedError || this.task?.signal?.aborted) throw err;
         console.warn('[assist] captureDocState failed; skipping <doc_state> for this turn', err);
+        // Say so: answering from nothing, the model invented plausible figures (live 2026-10-12).
+        this.context.add({
+          ref: {
+            id: DOC_STATE_REF_ID,
+            kind: 'brief',
+            surface: this.bridge.surface,
+            title: 'Document state',
+            live: false,
+          },
+          value: { as: 'text', text: DOC_STATE_UNREADABLE, mimeType: 'text/markdown' },
+        });
+        ephemeralIds.push(DOC_STATE_REF_ID);
       }
     }
 
@@ -1153,7 +1167,11 @@ export class AssistSession {
           this.context.add(framedRead(reads[i]!, id));
         }
       } catch (err) {
-        if (err instanceof HookBlockedError || this.task?.signal?.aborted) throw err;
+        if (err instanceof HookBlockedError || this.task?.signal?.aborted) {
+          // The cleanup below has not started yet: drop this turn's parts before rethrowing.
+          for (const id of ephemeralIds) this.context.remove(id);
+          throw err;
+        }
         console.warn('[assist] lazy document reads failed; skipping them for this turn', err);
       }
     }
@@ -1395,6 +1413,8 @@ export class AssistSession {
     this.composeEnv.clear();
     this.resetCommandState(task);
     this.shareCountThisTask = 0;
+    // Only a planner-confirmed task can be a question that took the edit route.
+    this.answerAsked = !task.includes(CONFIRMED_PLAN_OPEN);
     this.changeAwaited =
       task.includes(CONFIRMED_PLAN_OPEN) &&
       planDescribesChange({ steps: commandIntentText(task).split('\n') });
@@ -2072,10 +2092,29 @@ export class AssistSession {
         this.shareCountThisTask === 0
       ) {
         this.changeAwaited = false;
+        this.answerAsked = true; // one refusal per task
         plan.results.push(
           advisory({
             error:
-              'done refused: nothing has been changed yet, and the confirmed plan asks for a change. Emit the write commands now. If the change cannot be made or is already in place, emit a block containing only done.',
+              'done refused: nothing has been changed yet, and the confirmed plan asks for a change. Emit the write commands now. If the request only needs an answer, or the change cannot be made or is already in place, say so: done "<the answer, or why nothing changed>".',
+          }),
+        );
+        return;
+      }
+      // A task that changed nothing must still answer: an analysis request routed here ended with a
+      // bare done and the user saw no reply (live 2026-10-12). Asked once; a second bare done ends it.
+      if (
+        !this.answerAsked &&
+        !command.message &&
+        this.task?.mode === 'command' &&
+        this.task.effects.length === 0 &&
+        this.shareCountThisTask === 0
+      ) {
+        this.answerAsked = true;
+        plan.results.push(
+          advisory({
+            error:
+              'done refused once: nothing was changed and no answer was given. If the request asks a question, analysis or explanation, answer it now as done "<your answer>". If nothing needed changing, say why: done "No change was needed because …".',
           }),
         );
         return;
@@ -2661,7 +2700,10 @@ export class AssistSession {
         '[assist] captureDocState failed; skipping <doc_state> for this command turn',
         err,
       );
-      return undefined;
+      // The next good capture must go in full, not "unchanged" against a snapshot the model was just
+      // told it could not see.
+      this.lastCommandDocState = undefined;
+      return DOC_STATE_UNREADABLE;
     }
   }
 
@@ -4141,6 +4183,10 @@ function framedRead(read: ResolvedContext, id: string): ResolvedContext {
     },
   };
 }
+
+/** In place of the snapshot when the document could not be read: never let the model guess it. */
+const DOC_STATE_UNREADABLE =
+  '<doc_state unavailable="true">The document snapshot could not be captured this turn. Do not guess or invent its contents. Use only the reads supplied or that you request; if those also fail, tell the user it could not be read.</doc_state>';
 
 /** Writes that open a host window the user finishes (Outlook): one of each kind per task. */
 const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([

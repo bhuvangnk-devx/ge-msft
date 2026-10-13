@@ -130,6 +130,14 @@ export class OutlookBridge implements DocBridge {
    * from the subject (heading) + sender + leading body lines (bounded). Read-only; no active item →
    * `undefined`. Version increments per capture.
    */
+  documentKey(): string | undefined {
+    try {
+      return Office.context?.mailbox?.item?.itemId || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     const mail = await this.readMailItem();
     if (!mail) return undefined;

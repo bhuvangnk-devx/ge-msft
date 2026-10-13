@@ -266,6 +266,14 @@ export class ExcelBridge implements DocBridge {
    * `capture.ts`; this is thin host wiring (no port seam on Excel, like the rest of the bridge).
    * Version increments per capture.
    */
+  documentKey(): string | undefined {
+    try {
+      return Office.context?.document?.url || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     // `getUsedRangeOrNullObject` → ExcelApi 1.4 (typings l.37235): degrades on an empty sheet
     // instead of throwing. On an older host (<1.4) fall back to `getUsedRange` (1.1).

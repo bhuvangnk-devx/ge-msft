@@ -72,6 +72,26 @@ describe('MessageThread', () => {
     }
   });
 
+  it('hides a fence of a let binding and done (live 2026-10-12)', () => {
+    const text = "```\nlet $data = read 'Branch Performance'!A1:Q49\ndone\n```";
+    expect(stripCommandBlocks(text)).toEqual({ text: '', hidden: 1 });
+  });
+
+  it('copies an answer with the legacy command when the clipboard API is blocked', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: () => Promise.reject(new Error('blocked')) },
+    });
+    const exec = vi.fn(() => true);
+    Object.assign(document, { execCommand: exec });
+    render([{ id: 'a1', role: 'assistant', text: 'The answer' }]);
+    const button = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Copy answer',
+    )!;
+    await act(async () => button.click());
+    expect(exec).toHaveBeenCalledWith('copy');
+    expect(container.textContent).toContain('Copied');
+  });
+
   it('hides an unlabelled fence whose quoted bullets run onto a second line', () => {
     const text =
       '```\nslide "Support & Resources" "• Employee assistance\n• Leadership training"\n```\ndone "Added it."\n\nAdded it.';
@@ -344,11 +364,31 @@ describe('MessageThread', () => {
     expect(container.querySelector('.cite-detail')).toBeNull();
   });
 
-  it('renders a per-message error as an assertive alert', () => {
-    render([{ id: 'a-1', role: 'assistant', text: '', error: 'Stream dropped — retry.' }]);
-    const alert = container.querySelector('.msg-error[role="alert"]');
-    expect(alert).not.toBeNull();
-    expect(alert?.textContent).toContain('Stream dropped — retry.');
+  it('shows a failed answer as a plain alert, never the raw error (that is in diagnostics)', () => {
+    render([
+      {
+        id: 'a-1',
+        role: 'assistant',
+        text: '',
+        error: 'Stream dropped (PowerPoint: GeneralException)',
+      },
+    ]);
+    const alert = container.querySelector('.error-card[role="alert"]');
+    expect(alert?.textContent).toContain("That didn't finish");
+    expect(container.textContent).not.toContain('GeneralException');
+  });
+
+  it('says a policy block plainly and in the conversation language, without Try again', () => {
+    render(
+      [{ id: 'a-1', role: 'assistant', text: '', error: 'modelArmor jailbreak', blocked: true }],
+      {
+        language: 'id',
+        onRetry: () => undefined,
+      },
+    );
+    expect(container.textContent).toContain('Permintaan ini diblokir');
+    expect(container.textContent).not.toContain('modelArmor');
+    expect(container.querySelector('.error-card-retry')).toBeNull();
   });
 
   it('marks a cancelled turn distinctly and does not render an error', () => {

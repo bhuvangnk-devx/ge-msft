@@ -158,7 +158,7 @@ describe('<App/> render smoke', () => {
     render();
     const plan = container.querySelector('.plan-approval[aria-label="Plan approval required"]');
     expect(plan).not.toBeNull();
-    expect(plan?.querySelector('.pin')?.textContent).toBe('3 writes + 2 comments');
+    expect(plan?.querySelector('.plan-approval-title')?.textContent).toBe('Review 5 changes');
     expect(plan?.querySelectorAll('.plan-effect').length).toBe(
       FIXTURE_STATE.pendingPlan?.effects.length,
     );

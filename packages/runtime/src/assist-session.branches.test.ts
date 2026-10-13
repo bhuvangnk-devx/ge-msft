@@ -691,7 +691,9 @@ describe('AssistSession.runCommands — ambient doc_state feeds each command tur
     // The turn-2 query has the result block but NO <doc_state> (capture threw).
     const turn2 = (bodies[1]!.query as { text?: string }).text ?? '';
     expect(turn2).toContain('```result');
-    expect(turn2).not.toContain('<doc_state');
+    // An unreadable document is said, never silently dropped (the model invented figures otherwise).
+    expect(turn2).toContain('<doc_state unavailable="true">');
+    expect(turn2).not.toContain('<doc_state surface=');
     expect(events.some((e) => e.type === 'done')).toBe(true);
     warn.mockRestore();
   });

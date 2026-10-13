@@ -50,5 +50,12 @@ closed. The pane keeps `{ question, diagnostic }` per request in `localStorage`
   characters; expired entries are deleted, and the user can clear them.
 - **Caveat:** people sharing one OS account and Office account on one device see the same list.
 
+**In-progress record (13 Oct 2026, same rules):** while a change task runs, the pane keeps the request
+the user typed (capped at 1,000 characters) and plain labels of the changes that landed
+(`web-shell/src/resume-store.ts`), per signed-in account, so a task cut short by closing the pane
+can be finished. It is removed when the task ends in the pane and ignored after 24 hours. Finishing
+sends the request again with the landed changes listed as already done, through the normal
+approval cards.
+
 Conversation history itself is not stored on the client: the pane loads past chat turns from
 Gemini Enterprise (`sessions.get`) when the user opens one.

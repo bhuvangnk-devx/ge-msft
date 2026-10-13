@@ -167,6 +167,14 @@ export class WordBridge implements DocBridge {
    * document), and builds the surface-agnostic snapshot. Version increments per capture. Comments
    * are omitted (no cheap port read); the runtime renders + wraps this as untrusted data.
    */
+  documentKey(): string | undefined {
+    try {
+      return Office.context?.document?.url || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     const [paras, selText] = await Promise.all([
       this.host.readParagraphs(),

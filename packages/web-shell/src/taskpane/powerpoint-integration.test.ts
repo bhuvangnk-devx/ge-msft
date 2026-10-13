@@ -62,7 +62,7 @@ describe('PowerPoint full-stack integration', () => {
     // params.slide, which the host write consumes; we assert the title landed on the deck below.)
     const plan = ui!.container.querySelector('.plan-approval');
     expect(plan).not.toBeNull();
-    expect(plan?.querySelector('.pin')?.textContent).toContain('insert-slide');
+    expect(plan?.querySelector('.plan-effect-kind')?.textContent).toBe('New slide');
 
     await ui!.act(() => ui!.controller.approvePlan());
     await ui!.waitFor((s) => !s.busy);

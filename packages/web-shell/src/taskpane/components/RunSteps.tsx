@@ -139,6 +139,7 @@ function WorkspaceArtifactCard({
 
 /** `document.execCommand('copy')` through a hidden textarea; false when the host refuses it. */
 export function legacyCopy(text: string): boolean {
+  const focused = document.activeElement as HTMLElement | null;
   const area = document.createElement('textarea');
   area.value = text;
   area.setAttribute('readonly', '');
@@ -152,5 +153,6 @@ export function legacyCopy(text: string): boolean {
     return false;
   } finally {
     area.remove();
+    focused?.focus?.(); // back to the button that was clicked
   }
 }

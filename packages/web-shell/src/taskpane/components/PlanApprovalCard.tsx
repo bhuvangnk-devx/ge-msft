@@ -1,30 +1,15 @@
 import { useState } from 'react';
-import type { ActuationRequest } from '@ge/contracts';
 import type { PendingPlan, PlanEffect } from '../../controller.js';
 import { renderCommandLine } from '../../render-command.js';
+import { kindLabel, uiStrings, type UiLanguage } from '../../ui-language.js';
 
 export interface PlanApprovalCardProps {
+  /** The conversation's language, for the card's own text. */
+  language?: UiLanguage;
   plan: PendingPlan | undefined;
   onRevealTarget?: (target: string) => void;
   onApprove: () => void;
   onReject: () => void;
-}
-
-/** A short human noun for an effect kind, used as the effect-row eyebrow. */
-function effectKindLabel(kind: ActuationRequest['kind']): string {
-  switch (kind) {
-    case 'write-cells':
-      return 'write';
-    case 'tracked-change':
-      return 'suggest';
-    case 'add-comment':
-    case 'comment-reply':
-      return 'comment';
-    case 'format-cells':
-      return 'format';
-    default:
-      return kind;
-  }
 }
 
 /** The target label for an effect — the dry-run's resolved target, else the request's target. */
@@ -35,7 +20,7 @@ function effectTarget(effect: PlanEffect): string | undefined {
 }
 
 /** Changes that reach outside the document, delete, or cannot be undone: always flagged for review. */
-const HIGH_IMPACT_KINDS: ReadonlySet<string> = new Set([
+export const HIGH_IMPACT_KINDS: ReadonlySet<string> = new Set([
   'resolve-revisions',
   'manage-worksheet',
   'delete-slide',
@@ -58,7 +43,7 @@ function clipPreview(text: string, max = 60): string {
 function effectChange(effect: PlanEffect): string | undefined {
   const p = effect.request.params;
   const after = effect.dryRun?.after;
-  if (after !== undefined && after !== '') return `→ ${after}`;
+  // Recipients first: a dry-run preview must never hide who the mail goes to.
   if (p.mail) {
     const parts = (['to', 'cc', 'bcc'] as const)
       .filter((k) => p.mail?.[k]?.length)
@@ -67,6 +52,7 @@ function effectChange(effect: PlanEffect): string | undefined {
     if (p.mail.body) parts.push(`body: ${p.mail.body}`);
     if (parts.length) return parts.join(' · ');
   }
+  if (after !== undefined && after !== '') return `→ ${after}`;
   if (p.hyperlink?.url) return `link: ${p.hyperlink.url}`;
   if (p.attachment) return `attach: ${p.attachment.name ?? p.attachment.uri ?? 'a file'}`;
   if (p.findReplace) return `"${p.findReplace.find}" → "${p.findReplace.replace}"`;
@@ -93,18 +79,21 @@ function effectChange(effect: PlanEffect): string | undefined {
 function EffectRow({
   effect,
   index,
+  language,
   onRevealTarget,
 }: {
   effect: PlanEffect;
   index: number;
+  language: UiLanguage;
   onRevealTarget?: (target: string) => void;
 }): JSX.Element {
+  const t = uiStrings(language);
   const [open, setOpen] = useState(false);
   const command = renderCommandLine(effect.request);
   const target = effectTarget(effect);
   const dry = effect.dryRun;
   const change = effectChange(effect);
-  const description = target ?? (change ? '' : effectKindLabel(effect.request.kind));
+  const description = target ?? '';
   const highImpact = HIGH_IMPACT_KINDS.has(effect.request.kind);
   const detailsId = `plan-effect-${effect.request.changeId}`;
   return (
@@ -116,10 +105,10 @@ function EffectRow({
         aria-controls={detailsId}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="plan-effect-kind eyebrow">{effectKindLabel(effect.request.kind)}</span>
+        <span className="plan-effect-kind">{kindLabel(effect.request.kind, language)}</span>
         <span className="effect-target-summary">
           {description}
-          {highImpact && <span className="effect-review">Review</span>}
+          {highImpact && <span className="effect-review">{t.check}</span>}
           {change && <span className="effect-change">{clipPreview(change)}</span>}
         </span>
         <span className="plan-effect-caret" aria-hidden="true">
@@ -128,12 +117,12 @@ function EffectRow({
       </button>
       {open && (
         <div id={detailsId} className="plan-effect-detail">
-          <pre className="cmd" aria-label={`Effect ${index} command, shown verbatim`}>
+          <pre className="cmd" aria-label={`Change ${index} command, shown verbatim`}>
             {command}
           </pre>
           {target && (
             <div className="plan-effect-row">
-              <span className="k">Target</span>
+              <span className="k">{t.where}</span>
               {onRevealTarget ? (
                 <button
                   type="button"
@@ -150,13 +139,13 @@ function EffectRow({
           )}
           {dry?.resolved !== undefined && (
             <div className="plan-effect-row">
-              <span className="k">Resolves to</span>
+              <span className="k">{t.becomes}</span>
               <span className="v mono">{dry.resolved}</span>
             </div>
           )}
           {dry?.before !== undefined && dry?.after !== undefined && (
             <div className="plan-effect-row diff" aria-label="Before and after preview">
-              <span className="k">Change</span>
+              <span className="k">{t.beforeAfter}</span>
               <span className="v">
                 <span className="diff-before">{dry.before}</span>
                 <span className="diff-arrow" aria-hidden="true">
@@ -167,9 +156,7 @@ function EffectRow({
             </div>
           )}
           {!target && dry?.resolved === undefined && dry?.before === undefined && (
-            <div className="muted small">
-              The dry-run could not resolve a preview for this effect — it runs as shown above.
-            </div>
+            <div className="muted small">{t.noPreview}</div>
           )}
         </div>
       )}
@@ -186,8 +173,8 @@ function EffectRow({
  * Each effect expands to its target and the dry-run's resolved value / before→after preview: a
  * reviewable program before it runs.
  *
- * The loop is gated on this card: nothing actuates until the user clicks Approve plan; Reject plan
- * blocks the WHOLE plan. Accessible — the card is a labelled `region`, the effect list is an ordered
+ * The loop is gated on this card: nothing actuates until the user clicks Apply; Cancel blocks the
+ * WHOLE plan. Accessible — the card is a labelled `region`, the effect list is an ordered
  * list announced politely, each effect head is an expandable button, and both decision buttons are
  * keyboard-reachable. The approve/reject wiring is unchanged and fail-closed.
  */
@@ -196,9 +183,11 @@ export function PlanApprovalCard({
   onRevealTarget,
   onApprove,
   onReject,
+  language = 'en',
 }: PlanApprovalCardProps): JSX.Element | null {
   if (!plan) return null;
-  const targetCount = new Set(plan.effects.map(effectTarget).filter(Boolean)).size;
+  const t = uiStrings(language);
+  const n = plan.effects.length;
   return (
     <section
       className="card status-pending approval plan-approval"
@@ -208,41 +197,25 @@ export function PlanApprovalCard({
     >
       <div className="card-top" aria-hidden="true" />
       <div className="card-in">
-        <div className="cat">Approve plan</div>
-        <div className="plan-summary">
-          <span className="pin">{plan.summary}</span>
-          <span>to review before anything runs</span>
-        </div>
-        <div className="plan-impact" aria-label="Change summary">
-          <span>
-            <strong>{plan.effects.length}</strong>{' '}
-            {plan.effects.length === 1 ? 'change' : 'changes'}
-          </span>
-          <span>
-            <strong>{targetCount}</strong> identified {targetCount === 1 ? 'target' : 'targets'}
-          </span>
-          <span>Awaiting your approval</span>
-        </div>
-        <ol className="plan-effects" aria-label={`Effects in this plan: ${plan.summary}`}>
+        <div className="plan-approval-title">{n === 1 ? t.reviewOne : t.reviewMany(n)}</div>
+        <ol className="plan-effects" aria-label={n === 1 ? t.reviewOne : t.reviewMany(n)}>
           {plan.effects.map((effect, i) => (
             <EffectRow
               key={effect.request.changeId}
               effect={effect}
               index={i + 1}
+              language={language}
               onRevealTarget={onRevealTarget}
             />
           ))}
         </ol>
-        <div className="w">
-          Approve to apply these changes in order. Reject to leave the document unchanged. If an
-          effect fails, earlier effects may already have applied.
-        </div>
+        <div className="w">{n === 1 ? t.applyNote : t.applyOrder}</div>
         <div className="act">
           <button type="button" className="btn pr" onClick={onApprove}>
-            Approve plan
+            {t.apply}
           </button>
           <button type="button" className="btn" onClick={onReject}>
-            Reject plan
+            {t.cancel}
           </button>
         </div>
       </div>

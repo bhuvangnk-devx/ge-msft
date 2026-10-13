@@ -25,6 +25,8 @@
     "package:alpha": "bun tools/release/package-alpha.mjs",
     "package:cimb": "bun tools/release/package-dev.mjs --profile cimb-production",
     "release:web": "bun scripts/release-web.mjs",
+    "quality:check": "bun scripts/quality-check.ts",
+    "deploy:staging": "bash scripts/deploy-staging.sh",
     "deploy:web": "bun run release:web && bunx firebase-tools deploy --only hosting",
     "release:check": "bun tools/release/release-check.mjs",
     "release:secret-scan": "bun tools/release/secret-scan.mjs",

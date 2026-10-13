@@ -164,6 +164,14 @@ export class PowerPointBridge implements DocBridge {
    * needs `TextRange.text` (PowerPointApi 1.4) — on an older host we yield `undefined` (the runtime
    * just streams without the ambient part). Empty deck → `undefined`. Version increments per capture.
    */
+  documentKey(): string | undefined {
+    try {
+      return Office.context?.document?.url || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     if (!isSet('PowerPointApi', '1.4')) return undefined;
     const slides = await this.readAllSlides();

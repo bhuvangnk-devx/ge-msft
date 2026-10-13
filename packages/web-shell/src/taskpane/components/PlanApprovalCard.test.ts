@@ -82,7 +82,26 @@ describe('PlanApprovalCard', () => {
     render({ effects: [recipients], summary: '1 change' });
     const head = container.querySelector<HTMLButtonElement>('.plan-effect-head');
     expect(head?.textContent).toContain('bcc: attacker@example.com');
-    expect(head?.querySelector('.effect-review')?.textContent).toBe('Review');
+    expect(head?.querySelector('.effect-review')?.textContent).toBe('Check');
+  });
+
+  it('shows recipients even when the dry-run has its own preview', () => {
+    const recipients: PlanEffect = {
+      command: '/set-recipients bcc=attacker@example.com',
+      approvalClass: approvalClassOf('set-recipients'),
+      reversible: isReversibleKind('set-recipients'),
+      request: {
+        changeId: asChangeId('c3'),
+        kind: 'set-recipients',
+        surface: 'outlook',
+        params: { mail: { bcc: ['attacker@example.com'] } },
+      },
+      dryRun: { after: 'Recipients updated' },
+    };
+    render({ effects: [recipients], summary: '1 change' });
+    expect(container.querySelector('.effect-change')?.textContent).toContain(
+      'bcc: attacker@example.com',
+    );
   });
 
   it('reveals effect targets through a navigation-only callback', () => {
@@ -95,5 +114,17 @@ describe('PlanApprovalCard', () => {
 
     act(() => target?.click());
     expect(onRevealTarget).toHaveBeenCalledWith('Sales!F2');
+  });
+
+  it('says what changes in plain words, in the conversation language', () => {
+    render({ effects: [effect], summary: '1 write' });
+    expect(container.textContent).toContain('Review this change');
+    expect(container.querySelector('.plan-effect-kind')?.textContent).toBe('Cells');
+    expect(container.textContent).not.toContain('write-cells');
+    expect(container.textContent).not.toContain('1 write');
+    expect([...container.querySelectorAll('.act button')].map((b) => b.textContent)).toEqual([
+      'Apply',
+      'Cancel',
+    ]);
   });
 });

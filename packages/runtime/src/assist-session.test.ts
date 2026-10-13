@@ -741,7 +741,10 @@ describe('AssistSession — ADR-0003 context loop (doc_state + lazy read)', () =
 
     // The turn still streamed (answer present), just without the ambient/read parts.
     expect(events.map((e) => e.type)).toContain('token');
-    expect(partTexts(bodies[0]!).some((t) => t.startsWith('<doc_state'))).toBe(false);
+    // The failed snapshot is replaced by an explicit "could not be read" note, never left out.
+    expect(partTexts(bodies[0]!).filter((t) => t.startsWith('<doc_state'))).toEqual([
+      expect.stringContaining('<doc_state unavailable="true">'),
+    ]);
     expect(partTexts(bodies[0]!).some((t) => t.includes('read slice'))).toBe(false);
     expect(session.context.size).toBe(0);
   });

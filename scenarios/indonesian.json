@@ -211,5 +211,42 @@
       "selectedIndices": [0]
     },
     "expect": { "applied": { "add-table-slide": 1 } }
+  },
+  {
+    "id": "id-xl-analyse-trends",
+    "surface": "excel",
+    "title": "Excel: analisis tren (live 2026-10-12: selesai tanpa jawaban)",
+    "prompt": "Analisis data ini dan sebutkan tiga tren teratas. Wilayah mana yang membaik dan mana yang menurun, dan apa yang tampak tidak biasa",
+    "clarification": "Gunakan semua data.",
+    "seed": {
+      "sheets": [
+        {
+          "name": "Branch Performance",
+          "origin": "A1",
+          "values": [
+            ["Branch", "City", "Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+            ["Dago", "Bandung", 120, 128, 135, 141, 150, 158],
+            ["Asia Afrika", "Bandung", 90, 91, 90, 92, 91, 93],
+            ["Lapangan Merdeka", "Medan", 110, 104, 99, 93, 88, 82],
+            ["Polonia", "Medan", 95, 90, 86, 81, 77, 72],
+            ["Sudirman", "Jakarta", 200, 205, 212, 220, 226, 240],
+            ["Kemang", "Jakarta", 150, 148, 190, 151, 149, 152],
+            ["Tunjungan", "Surabaya", 130, 133, 137, 140, 144, 147],
+            ["Darmo", "Surabaya", 80, 82, 79, 83, 81, 84]
+          ]
+        }
+      ],
+      "selection": "'Branch Performance'!A1:H9"
+    },
+    "expect": {
+      "notApplied": [
+        "write-cells",
+        "format-cells",
+        "format-conditional",
+        "insert-chart",
+        "create-table"
+      ],
+      "answerIncludes": ["Medan"]
+    }
   }
 ]

@@ -583,8 +583,8 @@ describe('command surface — planner-confirm for complex free-text (full-stack,
     const card = ui.container.querySelector('.command-plan');
     expect(card).not.toBeNull();
     expect(card!.textContent).toContain('99.9%');
-    expect(card!.textContent).toContain('Context strategy');
-    expect(card!.textContent).toContain('Inline context');
+    expect(card!.textContent).toContain('Here is what I plan to do');
+    expect(card!.textContent).not.toContain('/rewrite');
     expect(ui.controller.getState().pendingPlan).toBeUndefined();
     expect((sim as WordSimulator).snapshot().inserts.length).toBe(0);
 

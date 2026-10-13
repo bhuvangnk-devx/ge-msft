@@ -139,8 +139,8 @@ describe('Excel full-stack integration', () => {
     const planText = plan?.textContent ?? '';
     expect(planText).toContain('set Sales!C8 =SUM(C2:C7)');
     expect(planText).toContain('comment Sales!C8');
-    // The summary header counts the effect-set (1 write + 1 comment).
-    expect(plan?.querySelector('.pin')?.textContent).toContain('1 write');
+    // The title counts the effect-set (1 write + 1 comment).
+    expect(plan?.querySelector('.plan-approval-title')?.textContent).toBe('Review 2 changes');
 
     await ui!.act(() => ui!.controller.approvePlan());
     await ui!.waitFor((s) => !s.busy);

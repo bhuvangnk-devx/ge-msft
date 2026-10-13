@@ -169,6 +169,47 @@ describe('a confirmed change plan is not done before any write was tried', () =>
     expect(s.queries.join('\n')).not.toContain('done refused');
   });
 
+  it('asks a confirmed analysis plan for its answer once instead of ending silently (2026-10-12)', async () => {
+    const ANALYSIS_PLAN = [
+      'Execute this user-confirmed plan in the open Microsoft 365 surface.',
+      CONFIRMED_PLAN_OPEN,
+      'original_request: Analisis data ini dan sebutkan tiga tren teratas',
+      'intent: summarize',
+      'surface: powerpoint',
+      'step 1: read the deck',
+      'step 2: highlight any unusual patterns',
+      CONFIRMED_PLAN_CLOSE,
+    ].join('\n');
+    const s = setup([
+      cmd('done'),
+      cmd('done "Three trends: revenue up, costs flat, risks rising."'),
+    ]);
+    const events = await collect(s.session.runCommands(ANALYSIS_PLAN, { approvePlan: () => true }));
+
+    expect(s.queries[1]).toContain('nothing was changed and no answer was given');
+    expect(doneTurns(events)).toEqual([2]);
+    expect(s.bridge.applied).toEqual([]);
+  });
+
+  it('asks for the answer only once: a second bare done ends the task', async () => {
+    const plan = SUMMARY_PLAN.replace('intent: draft', 'intent: summarize')
+      .replace(
+        'step 1: add slide "Summary Findings" after the selected slide',
+        'step 1: read the deck',
+      )
+      .replace('step 2: add the three findings as bullets', 'step 2: identify the trends');
+    const s = setup([cmd('done'), cmd('done ""')]);
+    const events = await collect(s.session.runCommands(plan, { approvePlan: () => true }));
+    expect(doneTurns(events)).toEqual([2]);
+  });
+
+  it('a change plan shares one refusal: after the change refusal a bare done ends it', async () => {
+    const s = setup([cmd('done'), cmd('done'), cmd('done')]);
+    const events = await collect(s.session.runCommands(SUMMARY_PLAN, { approvePlan: () => true }));
+    expect(doneTurns(events)).toEqual([2]);
+    expect(s.queries[1]).toContain('done refused: nothing has been changed yet');
+  });
+
   it('leaves a task that is not a change plan alone', async () => {
     const s = setup([cmd('done')]);
     const events = await collect(

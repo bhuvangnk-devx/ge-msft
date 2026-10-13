@@ -1,16 +1,35 @@
-import { derivePlanContextStrategy, type CommandScope } from '@ge/contracts';
+import type { CommandScope } from '@ge/contracts';
 import type { PendingCommandPlan } from '../../controller.js';
+import { uiStrings, type UiLanguage, type UiStrings } from '../../ui-language.js';
 
 export interface CommandPlanCardProps {
+  /** The conversation's language, for the card's own text. */
+  language?: UiLanguage;
   /** The planner's high-level plan awaiting confirm; absent → nothing rendered. */
   pending?: PendingCommandPlan;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-/** A readable label for an orthogonal scope, e.g. "selection" or "range A1:B2". */
-function scopeLabel(scope: CommandScope): string {
-  return scope.ref ? `${scope.kind} ${scope.ref}` : scope.kind;
+/**
+ * Where the plan works: "In <ref>", "Using your selection", or nothing. The ref is model-written, so
+ * it is set apart from the card's own words (see {@link LabelValue}).
+ */
+function scopeLabel(scope: CommandScope | undefined, t: UiStrings): JSX.Element | undefined {
+  if (scope?.ref) return <LabelValue label={t.planIn} value={scope.ref} />;
+  return scope?.kind === 'selection' ? <>{t.planSelection}</> : undefined;
+}
+
+/**
+ * A card label with a model-written value. The value sits in its own element with a distinct look,
+ * so planner text ("everything (read-only)") cannot pass for the card's own wording.
+ */
+function LabelValue({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <>
+      {label} <span className="model-value">{value}</span>
+    </>
+  );
 }
 
 /**
@@ -24,16 +43,19 @@ export function CommandPlanCard({
   pending,
   onConfirm,
   onCancel,
+  language = 'en',
 }: CommandPlanCardProps): JSX.Element | null {
   if (!pending) return null;
   const { plan } = pending;
-  const contextStrategy = derivePlanContextStrategy(plan.context);
+  const t = uiStrings(language);
+  const where = scopeLabel(plan.scope, t);
+  // Named sources only: bare keywords ("this", "unit") are planner vocabulary, not words for users.
+  const sources = plan.ground.flatMap((g) => (g.ref ? [g.ref] : []));
   return (
     <section className="command-plan" role="group" aria-label="Proposed plan">
       <div className="command-plan-head">
-        <span className="command-plan-verb">/{plan.intent}</span>
-        {plan.scope && <span className="command-plan-scope">{scopeLabel(plan.scope)}</span>}
-        <span className="command-plan-tag">Plan — confirm before it runs</span>
+        <span className="command-plan-title">{t.planTitle}</span>
+        {where && <span className="command-plan-scope">{where}</span>}
       </div>
       <ol className="command-plan-steps">
         {plan.steps.map((step, i) => (
@@ -43,23 +65,15 @@ export function CommandPlanCard({
       {plan.excludes.length > 0 && (
         <ul className="command-plan-excludes" aria-label="Exclusions">
           {plan.excludes.map((ex, i) => (
-            <li key={i}>Leave unchanged: {ex}</li>
+            <li key={i}>
+              <LabelValue label={t.planKeep} value={ex} />
+            </li>
           ))}
         </ul>
       )}
-      {plan.ground.length > 0 && (
+      {sources.length > 0 && (
         <div className="command-plan-ground">
-          Grounded on {plan.ground.map((g) => g.ref ?? g.kind).join(', ')}
-        </div>
-      )}
-      {contextStrategy.hints.length > 0 && (
-        <div className="command-plan-context" aria-label="Context strategy">
-          <strong>Context strategy</strong>
-          {contextStrategy.hints.map((hint) => (
-            <span key={hint.hint} title={hint.detail}>
-              {hint.label}
-            </span>
-          ))}
+          <LabelValue label={t.planUsing} value={sources.join(', ')} />
         </div>
       )}
       <div className="command-plan-actions">
@@ -69,7 +83,7 @@ export function CommandPlanCard({
           data-testid="command-plan-confirm"
           onClick={onConfirm}
         >
-          Confirm &amp; run
+          {t.planGo}
         </button>
         <button
           type="button"
@@ -77,7 +91,7 @@ export function CommandPlanCard({
           data-testid="command-plan-cancel"
           onClick={onCancel}
         >
-          Cancel
+          {t.cancel}
         </button>
       </div>
     </section>
