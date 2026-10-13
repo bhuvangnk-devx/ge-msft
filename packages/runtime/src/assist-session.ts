@@ -17,6 +17,7 @@ import { CommandContextSession } from './command-context-session.js';
 import {
   approvalClassOf,
   commandIntentText,
+  CONFIRMED_PLAN_CLOSE,
   CONFIRMED_PLAN_OPEN,
   intentsForManifest,
   isReversibleKind,
@@ -816,6 +817,11 @@ export class AssistSession {
   private changeAwaited = false;
   /** Whether this task was already asked once to answer instead of ending with a bare `done`. */
   private answerAsked = false;
+  /**
+   * The confirmed plan's intent when it is an answer (ask / summarize / explain) and the request
+   * never mentions email: a new mail window is then not what the user confirmed.
+   */
+  private answerOnlyIntent: string | undefined;
   private readonly citations: SourceRef[] = [];
   private readonly compaction: Required<CompactionOptions>;
   /**
@@ -1418,6 +1424,7 @@ export class AssistSession {
     this.changeAwaited =
       task.includes(CONFIRMED_PLAN_OPEN) &&
       planDescribesChange({ steps: commandIntentText(task).split('\n') });
+    this.answerOnlyIntent = answerOnlyIntent(task);
 
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
@@ -2072,7 +2079,14 @@ export class AssistSession {
       }
       // A model that reads and says done in one block has not seen what it read (live 2026-09-30:
       // `read` + `done` ended a Word rewrite with nothing changed). Return the read first.
-      if (plan.readsThisTurn > 0 && this.task?.mode === 'command') {
+      // Once a draft window is open the task is finished: a read cannot change that, so the
+      // model's `inspect` + `done` stands (live 2026-10-13: refusing it led to set-body on the
+      // received message, which failed and marked a delivered draft as not done).
+      if (
+        plan.readsThisTurn > 0 &&
+        this.task?.mode === 'command' &&
+        !this.draftOpenedThisTask(plan)
+      ) {
         plan.results.push(
           advisory({
             error:
@@ -2286,6 +2300,27 @@ export class AssistSession {
       yield { type: 'command', turn, command, compiled: { error } };
       return;
     }
+    if (this.task && this.answerOnlyIntent && ONE_DRAFT_PER_TASK.has(resolved.request.kind)) {
+      // The user confirmed an answer, not an email (live 2026-10-13: "Extract the action items as
+      // a list" was planned as summarize, then opened a reply and a new message).
+      const error = `not opened: the confirmed plan is to ${this.answerOnlyIntent}, which is an answer in this pane, not a new email. Give the answer as done "<your answer>"`;
+      plan.results[slotIndex] = advisory({ error });
+      yield { type: 'command', turn, command, compiled: { error } };
+      return;
+    }
+    if (
+      this.task &&
+      EDITS_THE_OPEN_DRAFT.has(resolved.request.kind) &&
+      this.draftOpenedThisTask(plan)
+    ) {
+      // The draft opened earlier in this task is in its own window, which the pane cannot edit;
+      // these edits would target the message the pane was opened on (live 2026-10-13: set-body
+      // after mail "…" failed with no_compose and the delivered reply was reported as failed).
+      const error = `not run: a draft window was already opened (or sent to open) earlier in this task, with the text you gave it; this pane cannot edit that window. Do not retry; emit done and tell the user to check that draft window and finish it there`;
+      plan.results[slotIndex] = advisory({ error });
+      yield { type: 'command', turn, command, compiled: { error } };
+      return;
+    }
     if (
       this.task &&
       ONE_DRAFT_PER_TASK.has(resolved.request.kind) &&
@@ -2319,6 +2354,19 @@ export class AssistSession {
       compiled: { kind: 'write', request: resolved.request },
     };
     plan.planSlots.push({ index: slotIndex, effect: resolved });
+  }
+
+  /** Whether a reply or new-message window was opened, or is staged, in this task. */
+  private draftOpenedThisTask(plan: { planSlots: Array<{ effect: PlanEffect }> }): boolean {
+    if (!this.task) return false;
+    if (plan.planSlots.some((slot) => ONE_DRAFT_PER_TASK.has(slot.effect.request.kind)))
+      return true;
+    return [
+      ...(this.appliedWrites.get(this.task) ?? []),
+      ...(this.uncertainWrites.get(this.task) ?? []),
+    ].some((key) =>
+      ONE_DRAFT_PER_TASK.has((JSON.parse(key) as { kind: ActuationRequest['kind'] }).kind),
+    );
   }
 
   /**
@@ -4193,6 +4241,40 @@ const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([
   'reply-mail',
   'create-mail',
 ]);
+
+/** Outlook writes that edit the draft the pane is open on, never a window opened by the task. */
+const EDITS_THE_OPEN_DRAFT: ReadonlySet<ActuationRequest['kind']> = new Set([
+  'set-recipients',
+  'set-subject',
+  'set-body',
+  'add-attachment',
+]);
+
+/** Words that put email in a request (English and Bahasa Indonesia). */
+const MAIL_REQUEST_RE =
+  /\b(?:e-?mail|mail|reply|respond|draft|compose|send|forward|(?:mem)?balas(?:an|kan)?|surel|(?:mengi|ki)rim(?:kan)?|(?:mene|te)ruskan|draf)\b/i;
+
+/**
+ * The intent of a confirmed plan that only answers (ask / summarize / explain), when the user's
+ * request does not mention email. Anything else, including tasks without a confirmed plan, gives
+ * undefined. Only new mail windows are refused for it: an answer can still be a comment reply.
+ */
+function answerOnlyIntent(task: string): string | undefined {
+  const open = task.indexOf(CONFIRMED_PLAN_OPEN);
+  const close = task.indexOf(CONFIRMED_PLAN_CLOSE, open);
+  if (open < 0 || close < 0) return undefined;
+  const block = task.slice(open, close);
+  // The user's request comes first and can span lines (or contain "intent: ask"), so the plan's
+  // own intent is the LAST intent line, and the request is everything before it.
+  const intents = [...block.matchAll(/^intent:[^\S\n]*(\S*)[^\S\n]*$/gim)];
+  const last = intents.at(-1);
+  if (!last || last.index === undefined) return undefined;
+  const intent = last[1]!.toLowerCase();
+  if (!['ask', 'summarize', 'explain'].includes(intent)) return undefined;
+  const start = block.indexOf('original_request:');
+  const request = start < 0 ? '' : block.slice(start, last.index);
+  return MAIL_REQUEST_RE.test(request) ? undefined : intent;
+}
 
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 function effectKey(request: ActuationRequest): string {
