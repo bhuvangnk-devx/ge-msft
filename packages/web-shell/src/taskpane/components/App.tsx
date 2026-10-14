@@ -26,6 +26,14 @@ import { usePanelState } from '../usePanelState.js';
 import { SavedDiagnostics, browserStorage } from '../../saved-diagnostics.js';
 import { ResumeStore } from '../../resume-store.js';
 import { detectLanguage, uiStrings } from '../../ui-language.js';
+import { readHost } from '../../host.js';
+import {
+  classifyFailure,
+  type CopyDiagnostics,
+  type Diagnostic,
+  type Reporter,
+  type ReportResult,
+} from '../../reporter.js';
 import { MessageThread } from './MessageThread.js';
 import { Composer, type ComposerInvocation, type ComposerMention } from './Composer.js';
 import { invocationToSeed, quickActionToInvocation } from './quick-action-seed.js';
@@ -60,6 +68,8 @@ export interface AppProps {
   onCatalogRouting?: (selection: ReturnType<typeof applyCatalogSelection>) => void;
   /** The signed-in account's hash for saved diagnostics; without it nothing is saved. */
   diagnosticsScope?: string;
+  /** Sends an error report for each failed request (reports mode `auto`). */
+  reporter?: Reporter;
 }
 
 const SURFACE_PLACEHOLDER: Readonly<Record<string, string>> = {
@@ -371,6 +381,7 @@ export function App({
   catalogClient,
   onCatalogRouting,
   diagnosticsScope,
+  reporter,
 }: AppProps): JSX.Element {
   const state = usePanelState(controller);
   const savedStore = useMemo(
@@ -400,8 +411,33 @@ export function App({
     return JSON.stringify({ question, diagnostic: JSON.parse(diagnostics) as unknown }, null, 2);
   };
   const wasBusy = useRef(false);
+  const requestStarted = useRef<string>();
+  const [reportNotice, setReportNotice] = useState<ReportResult>();
   useEffect(() => {
     const question = typedQuestion.current;
+    if (!wasBusy.current && state.busy) {
+      requestStarted.current = new Date().toISOString();
+      setReportNotice(undefined);
+    }
+    // A failed request is reported with exactly what Copy diagnostics copies.
+    if (wasBusy.current && !state.busy && reporter && requestStarted.current) {
+      try {
+        const diagnostic = JSON.parse(controller.diagnostics({ surface })) as Diagnostic;
+        const kind = classifyFailure(diagnostic, requestStarted.current);
+        if (kind) {
+          const copy = JSON.parse(activityDiagnostics()) as Partial<CopyDiagnostics> & Diagnostic;
+          const report: CopyDiagnostics = copy.question
+            ? { question: copy.question, diagnostic: copy.diagnostic! }
+            : { question: '(not captured)', diagnostic: copy };
+          void readHost(surface)
+            .then((host) => reporter.report(kind, host, report))
+            .then(setReportNotice)
+            .catch(() => undefined);
+        }
+      } catch {
+        /* Reports are best effort; never break the pane over them. */
+      }
+    }
     if (wasBusy.current && !state.busy && question) {
       try {
         savedStore.save({
@@ -415,7 +451,8 @@ export function App({
       }
     }
     wasBusy.current = state.busy;
-  }, [state.busy, controller, surface, savedStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activityDiagnostics reads refs only
+  }, [state.busy, controller, surface, savedStore, reporter]);
   const [composerDraft, setComposerDraft] = useState<{ id: number; text: string }>();
   // The parameterized action awaiting its `{{name}}` fill values (Workstream H), or undefined.
   const [paramFill, setParamFill] = useState<QuickAction | undefined>(undefined);
@@ -652,6 +689,16 @@ export function App({
           onUndoChanges={(id) => void controller.undoChanges(id)}
           onRetry={() => void controller.retryLast()}
         />
+
+        {reportNotice?.status === 'sent' ? (
+          <p className="report-notice" role="status">
+            {uiStrings(state.language ?? 'en').reportSent(reportNotice.reportId.slice(0, 8))}
+          </p>
+        ) : reportNotice?.status === 'failed' ? (
+          <p className="report-notice" role="status">
+            {uiStrings(state.language ?? 'en').reportNotSent}
+          </p>
+        ) : null}
 
         <PlanClarificationCard
           pending={state.pendingPlanClarification}

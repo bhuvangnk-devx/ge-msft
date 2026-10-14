@@ -85,6 +85,25 @@ export class NaaAuthClient implements AuthClient, EntraTokenProvider {
     return res.accessToken;
   }
 
+  /**
+   * An access token for one API scope, silently only: never a popup and never the Graph default
+   * scopes. Background error reports use it, so they can never interrupt the user.
+   */
+  async getSilentAccessToken(
+    scopes: string[],
+    opts: { forceRefresh?: boolean } = {},
+  ): Promise<string> {
+    const account = this.account();
+    if (!account) throw new Error('No signed-in account.');
+    const res = await this.msal.acquireTokenSilent({
+      scopes,
+      account,
+      ...(opts.forceRefresh ? { forceRefresh: true } : {}),
+    });
+    if (!res.accessToken) throw new Error('MSAL returned no access token.');
+    return res.accessToken;
+  }
+
   async getIdentity(): Promise<UserIdentity> {
     let account = this.account();
     if (!account) {

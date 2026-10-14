@@ -19,6 +19,7 @@ import { withRetry, defaultIsRetriable, HttpError, type RetryOptions } from './r
 import { ByteOffsetMapper, byteOffsetToCharIndex } from './byte-offset.js';
 import { contextValueToQueryPart, type QueryPart } from './session-context.js';
 import { defaultFetch } from './de-fetch.js';
+import { WifExchangeError } from './wif.js';
 import type { ResolvedGrounding } from './resolve-grounding.js';
 import {
   ContextFileClient,
@@ -219,7 +220,12 @@ export class StreamAssistClient {
         }
         yield {
           type: 'error',
-          code: err instanceof StreamRequestError ? 'invalid_request' : 'network',
+          code:
+            err instanceof StreamRequestError
+              ? 'invalid_request'
+              : err instanceof WifExchangeError
+                ? 'auth_exchange'
+                : 'network',
           message: errorMessage(err),
         };
         return;
@@ -433,7 +439,9 @@ export class StreamAssistClient {
     } catch (err) {
       // Exhausted/non-retriable transient → surface a real (non-2xx, no body) Response
       // so stream()'s existing `!res.ok` branch maps it to an http_<status> error.
-      if (err instanceof HttpError) return new Response(null, { status: err.status });
+      // A failed WIF exchange is sign-in, not a Gemini status: let stream() report auth_exchange.
+      if (err instanceof HttpError && !(err instanceof WifExchangeError))
+        return new Response(null, { status: err.status });
       throw err; // a genuine network throw — stream() catches it as a network error.
     }
     // On 401 the federated token likely expired mid-cache; re-exchange once (distinct
@@ -441,7 +449,9 @@ export class StreamAssistClient {
     if (res.status === 401 && this.tokens.invalidate) {
       this.tokens.invalidate();
       res = await send().catch((err) =>
-        err instanceof HttpError ? new Response(null, { status: err.status }) : Promise.reject(err),
+        err instanceof HttpError && !(err instanceof WifExchangeError)
+          ? new Response(null, { status: err.status })
+          : Promise.reject(err),
       );
     }
     return res;

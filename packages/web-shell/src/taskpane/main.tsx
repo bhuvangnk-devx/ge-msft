@@ -44,8 +44,10 @@ import {
   releaseProfileFromEnv,
   warmUpSkillsFromEnv,
   type RawEnv,
+  reportsFromEnv,
 } from './config.js';
 import { diagnosticsScope } from '../saved-diagnostics.js';
+import { Reporter } from '../reporter.js';
 import './styles.css';
 import './workspace.css';
 
@@ -473,12 +475,40 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
       ? await diagnosticsScope(identity.oid ?? identity.username)
       : undefined;
 
+    // Error reports: sent with an access token for the reports API scope, never the id/Graph/Google token.
+    let reports: ReturnType<typeof reportsFromEnv>;
+    try {
+      reports = reportsFromEnv(env);
+    } catch (err) {
+      // A bad reports setting turns reports off; it never stops the pane from opening.
+      console.warn('Error reports are off:', err instanceof Error ? err.message : err);
+    }
+    const reportsScope = reports?.scope;
+    const reporter =
+      reports && reportsScope
+        ? new Reporter({
+            url: reports.url,
+            getToken: (opts) =>
+              auth.getSilentAccessToken([reportsScope], opts).catch((err: unknown) => {
+                // The Entra error code (e.g. consent_required, AADSTS65001) says why; never the token.
+                const e = err as { name?: string; errorCode?: string; message?: string } | null;
+                console.warn('Error report: no token for the reports API.', {
+                  name: e?.name,
+                  errorCode: e?.errorCode,
+                  message: e?.message?.slice(0, 300),
+                });
+                throw err;
+              }),
+          })
+        : undefined;
+
     mount(
       <App
         controller={controller}
         surface={prepared.surface}
         allowedIntents={allowedIntents}
         {...(savedScope ? { diagnosticsScope: savedScope } : {})}
+        {...(reporter ? { reporter } : {})}
       />,
     );
     listenForAskSelectionSeeds(prepared.surface, controller);

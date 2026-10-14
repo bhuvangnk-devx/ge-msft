@@ -2582,6 +2582,14 @@ const HOST_CODE =
 /** Where a message stops being fixed wording: any quote, `:`, `!` (sheet refs) or " — ". */
 const CONTENT_START = /["'\u201c\u201d\u2018\u2019\u00ab\u00bb\u201e\u300c:!]| \u2014 /;
 
+/** Credentials wherever they appear: a JWT, a Google access token, a bearer header. */
+export function redactCredentials(text: string): string {
+  return text
+    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[token]')
+    .replace(/ya29\.[\w.-]+/g, '[token]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [token]');
+}
+
 /**
  * An error message made safe for Copy diagnostics, which must carry no document text. Our messages
  * start with fixed wording and put content after a quote, `:`, `!` or " — " (a quoted find text, a
@@ -2591,11 +2599,7 @@ const CONTENT_START = /["'\u201c\u201d\u2018\u2019\u00ab\u00bb\u201e\u300c:!]| \
  * pane, and the result is at most 300 characters.
  */
 export function redactForDiagnostics(text: string): string {
-  // Credentials first, wherever they appear: a JWT, a Google access token, a bearer header.
-  text = text
-    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[token]')
-    .replace(/ya29\.[\w.-]+/g, '[token]')
-    .replace(/Bearer\s+\S+/gi, 'Bearer [token]');
+  text = redactCredentials(text);
   const codes: string[] = [];
   const marked = text
     .slice(0, 2000)

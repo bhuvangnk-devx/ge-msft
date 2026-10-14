@@ -252,3 +252,44 @@ describe('NaaAuthClient', () => {
     });
   });
 });
+
+describe('NaaAuthClient.getSilentAccessToken (error reports)', () => {
+  it('asks silently for exactly the given scope and passes forceRefresh', async () => {
+    const acquireTokenSilent = vi.fn((req: { scopes: string[] }) =>
+      Promise.resolve<MsalAuthResult>({ accessToken: `acc:${req.scopes.join(',')}`, account }),
+    );
+    const auth = new NaaAuthClient(fakeMsal({ acquireTokenSilent }), opts);
+    expect(await auth.getSilentAccessToken(['api://reports/x'], { forceRefresh: true })).toBe(
+      'acc:api://reports/x',
+    );
+    expect(acquireTokenSilent).toHaveBeenCalledWith(
+      expect.objectContaining({ scopes: ['api://reports/x'], account, forceRefresh: true }),
+    );
+  });
+
+  it('never opens a popup when consent or sign-in is needed', async () => {
+    const acquireTokenPopup = vi.fn();
+    const loginPopup = vi.fn();
+    const needsUi = Object.assign(new Error('consent_required'), {
+      name: 'InteractionRequiredAuthError',
+    });
+    const auth = new NaaAuthClient(
+      fakeMsal({
+        acquireTokenSilent: () => Promise.reject(needsUi),
+        acquireTokenPopup,
+        loginPopup,
+      }),
+      { ...opts, preferInteractive: true },
+    );
+    await expect(auth.getSilentAccessToken(['api://reports/x'])).rejects.toThrow(
+      'consent_required',
+    );
+    const signedOut = new NaaAuthClient(
+      fakeMsal({ getActiveAccount: () => null, acquireTokenPopup, loginPopup }),
+      opts,
+    );
+    await expect(signedOut.getSilentAccessToken(['api://reports/x'])).rejects.toThrow();
+    expect(acquireTokenPopup).not.toHaveBeenCalled();
+    expect(loginPopup).not.toHaveBeenCalled();
+  });
+});

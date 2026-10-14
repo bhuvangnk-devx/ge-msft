@@ -579,6 +579,14 @@ body {
   gap: var(--s2);
 }
 /* a continued chat from another Office app says so above the thread */
+/* "Reported to support · id" under a failed request: a quiet status line, not a card. */
+.report-notice {
+  margin: var(--s1) var(--s5) 0;
+  color: var(--ink-2);
+  font-size: var(--fz-sm);
+  line-height: 16px;
+}
+
 .conversation-from {
   margin: var(--s2) var(--s5) 0;
   padding: 6px 10px;

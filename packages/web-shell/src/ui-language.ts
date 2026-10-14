@@ -29,6 +29,8 @@ const STRINGS = {
         ? '1 change was made before it stopped.'
         : `${made} changes were made before it stopped.`,
     tryAgain: 'Try again',
+    reportSent: (id: string) => `Reported to support · ${id}`,
+    reportNotSent: 'Could not send the error report. Use Copy diagnostics in Activity.',
     blockedTitle: 'This request was blocked',
     blockedBody:
       "Your organisation's safety settings stopped this request. Try asking in a different way.",
@@ -67,6 +69,8 @@ const STRINGS = {
     failedTitle: 'Maaf, belum berhasil',
     failedPartial: (made: number) => `${made} perubahan sudah dibuat sebelum berhenti.`,
     tryAgain: 'Coba lagi',
+    reportSent: (id: string) => `Dilaporkan ke tim support · ${id}`,
+    reportNotSent: 'Laporan error tidak terkirim. Gunakan Copy diagnostics di Activity.',
     blockedTitle: 'Permintaan ini diblokir',
     blockedBody:
       'Pengaturan keamanan organisasi Anda menghentikan permintaan ini. Coba tanyakan dengan cara lain.',

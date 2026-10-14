@@ -44,6 +44,8 @@ export interface RawEnv {
   readonly VITE_GRAPH_SCOPES?: string;
   readonly VITE_NOTEBOOK_ID?: string;
   readonly VITE_GE_RELEASE_PROFILE?: string;
+  readonly VITE_REPORTS_URL?: string;
+  readonly VITE_REPORTS_SCOPE?: string;
 }
 
 const ALLOWED_LOCATIONS = [
@@ -122,6 +124,24 @@ function rejectUnknownProductionKeys(env: RawEnv | Record<string, unknown>): voi
 const SafeId = z.string().regex(IDENT, 'must be a stable identifier');
 const SkillRefs = z.string().regex(SKILL_REF, 'must be a skill id or resource name').array();
 
+// Error reports (docs/CNGPT-Reports-API.md). The API address is the switch: set it and every failed
+// request is reported; leave it empty and reports are off. An https URL, or a path on the pane's own host.
+const ReportsShape = z.object({
+  VITE_REPORTS_URL: z
+    .string()
+    .refine(
+      (u) => /^https:\/\/[^\s]+$/.test(u) || /^\/[\w./-]*$/.test(u),
+      'must be an https URL or a path on this host (e.g. /api/v1/reports)',
+    )
+    .optional(),
+  // An API scope only (`api://<app>/<scope>`): never a Graph or sign-in scope, whose token must not
+  // leave for another API. Default: `reports.write` on the pane's own Entra app.
+  VITE_REPORTS_SCOPE: z
+    .string()
+    .regex(/^api:\/\/[\w.-]+(?:\/[\w.-]+)*\/[\w.]+$/, 'must be an api:// scope')
+    .optional(),
+});
+
 const RawEnvShape = z.object({
   VITE_GCP_PROJECT: z.string().regex(PROJECT, 'must be a GCP project id or number'),
   VITE_GCP_LOCATION: z.enum(ALLOWED_LOCATIONS),
@@ -154,6 +174,7 @@ const RawEnvShape = z.object({
   VITE_GRAPH_SCOPES: z.string().optional(),
   VITE_NOTEBOOK_ID: SafeId.optional(),
   VITE_GE_RELEASE_PROFILE: ReleaseProfileNameSchema.optional(),
+  ...ReportsShape.shape,
 });
 
 function parseEnv(env: RawEnv): z.infer<typeof RawEnvShape> {
@@ -529,4 +550,29 @@ export function notebookIdFromEnv(env: RawEnv): string | undefined {
 
 export function releaseProfileFromEnv(env: RawEnv): ReleaseProfileName | undefined {
   return parseEnv(env).VITE_GE_RELEASE_PROFILE;
+}
+
+export interface ReportsConfig {
+  /** The reports endpoint, e.g. `https://reports.example/v1/reports`. */
+  url: string;
+  /** The Entra scope of the reports API, e.g. `api://reports-api/reports.write`. */
+  scope: string;
+}
+
+/**
+ * Error-report settings, or undefined when no reports address is set (reports off, the default).
+ * The scope defaults to `api://<VITE_ENTRA_CLIENT_ID>/reports.write`, the tested setup.
+ */
+export function reportsFromEnv(env: RawEnv): ReportsConfig | undefined {
+  const url = env.VITE_REPORTS_URL?.trim();
+  if (!url) return undefined;
+  const clientId = env.VITE_ENTRA_CLIENT_ID?.trim();
+  const parsed = ReportsShape.parse({
+    VITE_REPORTS_URL: url,
+    VITE_REPORTS_SCOPE:
+      env.VITE_REPORTS_SCOPE?.trim() || (clientId ? `api://${clientId}/reports.write` : undefined),
+  });
+  if (!parsed.VITE_REPORTS_SCOPE)
+    throw new Error('VITE_REPORTS_URL needs VITE_ENTRA_CLIENT_ID or VITE_REPORTS_SCOPE.');
+  return { url, scope: parsed.VITE_REPORTS_SCOPE };
 }

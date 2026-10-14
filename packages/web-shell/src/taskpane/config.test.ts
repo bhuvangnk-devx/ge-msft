@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  reportsFromEnv,
   assistantFromEnv,
   wifFromEnv,
   shellConfigFromEnv,
@@ -287,5 +288,59 @@ describe('modelIdFromEnv', () => {
     expect(modelIdFromEnv(undefined)).toBeUndefined();
     expect(modelIdFromEnv('  ')).toBeUndefined();
     expect(modelIdFromEnv('gemini-3.8-flash')).toBe('gemini-3.8-flash');
+  });
+});
+
+describe('reportsFromEnv', () => {
+  const CLIENT = '6fc36111-ea3c-455c-b08d-5f53ab327174';
+
+  it('is off when no reports address is set', () => {
+    expect(reportsFromEnv({})).toBeUndefined();
+    expect(
+      reportsFromEnv({ VITE_REPORTS_URL: '  ', VITE_ENTRA_CLIENT_ID: CLIENT }),
+    ).toBeUndefined();
+  });
+
+  it('is on with only the address; the scope comes from the pane app', () => {
+    expect(
+      reportsFromEnv({
+        VITE_REPORTS_URL: 'https://cngpt.cimb.local/api/v1/reports',
+        VITE_ENTRA_CLIENT_ID: CLIENT,
+      }),
+    ).toEqual({
+      url: 'https://cngpt.cimb.local/api/v1/reports',
+      scope: `api://${CLIENT}/reports.write`,
+    });
+  });
+
+  it('accepts a path on the pane host, and a scope override', () => {
+    expect(
+      reportsFromEnv({
+        VITE_REPORTS_URL: '/api/v1/reports',
+        VITE_ENTRA_CLIENT_ID: CLIENT,
+        VITE_REPORTS_SCOPE: 'api://reports-api/reports.write',
+      }),
+    ).toEqual({ url: '/api/v1/reports', scope: 'api://reports-api/reports.write' });
+  });
+
+  it.each([
+    ['an http URL', { VITE_REPORTS_URL: 'http://reports.example/v1/reports' }],
+    ['a relative path without a leading slash', { VITE_REPORTS_URL: 'api/v1/reports' }],
+    ['a Graph scope', { VITE_REPORTS_SCOPE: 'User.Read' }],
+    ['the Graph default scope', { VITE_REPORTS_SCOPE: 'https://graph.microsoft.com/.default' }],
+  ])('rejects %s', (_label, patch) => {
+    expect(() =>
+      reportsFromEnv({
+        VITE_REPORTS_URL: 'https://reports.example/v1/reports',
+        VITE_ENTRA_CLIENT_ID: CLIENT,
+        ...patch,
+      }),
+    ).toThrow();
+  });
+
+  it('needs a client id or a scope', () => {
+    expect(() =>
+      reportsFromEnv({ VITE_REPORTS_URL: 'https://reports.example/v1/reports' }),
+    ).toThrow();
   });
 });
