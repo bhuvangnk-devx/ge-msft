@@ -11,9 +11,41 @@ export interface ReplyPlan {
   subject?: string;
 }
 
+/**
+ * A command program is one command per line, so the model writes a body's line breaks as the
+ * two-character escape `\n` (`mail "Hi,\n\nThanks"`); the quoted-string scanner only decodes `\"`
+ * and `\\`. Decode them here, or Outlook shows a literal "\n" in the draft (live 2026-10-14).
+ */
+export function decodeLineEscapes(text: string): string {
+  return text.replace(/\\r\\n|\\n|\\r/g, '\n');
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const HTML_TAG =
+  /<\/?(?:p|br|div|span|ul|ol|li|table|tr|td|th|h[1-6]|strong|em|b|i|u|a|blockquote|pre)\b[^>]*>/i;
+
+/**
+ * The HTML Outlook gets for a model-written body (`htmlBody` / HTML coercion). A body that is
+ * already HTML passes through; plain text is escaped, blank lines become paragraphs and single
+ * line breaks become `<br>`, since raw newlines collapse in HTML. One plain line stays one line.
+ */
+export function mailBodyHtml(body: string): string {
+  const text = decodeLineEscapes(body);
+  if (HTML_TAG.test(text)) return text;
+  if (!text.includes('\n')) return escapeHtml(text);
+  return text
+    .trim()
+    .split(/\n[ \t]*\n\s*/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 export function planReply(req: ActuationRequest): ReplyPlan {
   const mail = req.params.mail;
-  const body = mail?.body ?? req.params.text ?? '';
+  const body = mailBodyHtml(mail?.body ?? req.params.text ?? '');
   return {
     body,
     ...(mail?.to ? { to: mail.to } : {}),
@@ -36,7 +68,7 @@ export function planCompose(req: ActuationRequest): ComposePlan {
   const mail = req.params.mail;
   return {
     subject: mail?.subject ?? '',
-    body: mail?.body ?? req.params.text ?? '',
+    body: mailBodyHtml(mail?.body ?? req.params.text ?? ''),
     ...(mail?.to ? { to: mail.to } : {}),
   };
 }
@@ -84,7 +116,10 @@ export function planDraftBody(req: ActuationRequest): DraftBodyPlan {
     coercionType = 'text';
   }
   if (mail?.coercion) coercionType = mail.coercion;
-  return { data, coercionType };
+  return {
+    data: coercionType === 'html' ? mailBodyHtml(data) : decodeLineEscapes(data),
+    coercionType,
+  };
 }
 
 /**

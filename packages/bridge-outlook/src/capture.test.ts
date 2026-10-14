@@ -8,7 +8,7 @@ import {
   MAX_SEARCH_LINES,
   MAX_OUTLINE_LINES,
 } from './capture.js';
-import { planCompose, planReply } from './actuate-plan.js';
+import { mailBodyHtml, planCompose, planDraftBody, planReply } from './actuate-plan.js';
 
 describe('outlook capture (pure)', () => {
   it('produces valid text context from a plain-text mail item', () => {
@@ -148,5 +148,42 @@ describe('outlook actuation planning (pure)', () => {
       params: { mail: { subject: 'Re: dates', to: ['pat@acme.com'] }, text: 'Confirming below.' },
     });
     expect(plan).toEqual({ subject: 'Re: dates', body: 'Confirming below.', to: ['pat@acme.com'] });
+  });
+
+  it('turns the escaped line breaks of a one-line command into paragraphs (live 2026-10-14)', () => {
+    // The body exactly as the model wrote it: `mail "Halo Irpan,\n\nTerima kasih…"`.
+    const plan = planReply({
+      changeId: asChangeId('c5'),
+      kind: 'reply-mail',
+      surface: 'outlook',
+      params: {
+        mail: { body: 'Halo Irpan,\\n\\nTerima kasih atas undangannya.\\n\\nSalam,\\nAdele' },
+      },
+    });
+    expect(plan.body).toBe(
+      '<p>Halo Irpan,</p><p>Terima kasih atas undangannya.</p><p>Salam,<br>Adele</p>',
+    );
+  });
+
+  it('escapes plain text, but passes a body that is already HTML through', () => {
+    expect(mailBodyHtml('Q&A <draft>\nnext')).toBe('<p>Q&amp;A &lt;draft&gt;<br>next</p>');
+    expect(mailBodyHtml('<p>Hi,</p>\\n<p>Thanks</p>')).toBe('<p>Hi,</p>\n<p>Thanks</p>');
+  });
+
+  it('planDraftBody decodes escapes for both coercions', () => {
+    const html = planDraftBody({
+      changeId: asChangeId('c6'),
+      kind: 'set-body',
+      surface: 'outlook',
+      params: { mail: { body: 'Hi,\\nThanks' } },
+    });
+    expect(html).toEqual({ data: '<p>Hi,<br>Thanks</p>', coercionType: 'html' });
+    const text = planDraftBody({
+      changeId: asChangeId('c7'),
+      kind: 'set-body',
+      surface: 'outlook',
+      params: { text: 'Hi,\\nThanks' },
+    });
+    expect(text).toEqual({ data: 'Hi,\nThanks', coercionType: 'text' });
   });
 });
