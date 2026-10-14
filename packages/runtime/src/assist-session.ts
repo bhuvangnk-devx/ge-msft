@@ -689,11 +689,16 @@ export class AssistSession {
           !['verified', 'unverified'].includes(assessActuationResult(result)) &&
           !retried(result, i),
       );
-      // Writes the user declined at review are their choice, not a failure: the task ends cancelled
-      // rather than incomplete (live 2026-10-14: Cancel showed "Some changes may already have applied").
+      // Writes the user declined at review are their choice, not a failure: when nothing else landed
+      // the task ends cancelled rather than incomplete (live 2026-10-14: Cancel showed "Some changes
+      // may already have applied"). A decline next to a landed write stays incomplete, so the guard
+      // still reports the partial change.
       const declinedOnly =
         unsettled.length > 0 &&
-        unsettled.every((result) => assessActuationResult(result) === 'rejected');
+        unsettled.every((result) => assessActuationResult(result) === 'rejected') &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified'].includes(assessActuationResult(result)),
+        );
       task.status =
         task.status === 'blocked' &&
         !task.effects.some((result) => assessActuationResult(result) === 'uncertain')
@@ -3364,9 +3369,13 @@ export class AssistSession {
         }
         case 'context-kind': {
           const refs = await this.contextRefs(intent.kind);
-          const filtered = intent.selector
+          const exact = intent.selector
             ? refs.filter((ref) => matchesContextSelector(ref, intent.selector!))
             : refs;
+          const filtered =
+            exact.length > 0 || !intent.selector
+              ? exact
+              : refs.filter((ref) => matchesContextLocator(ref, intent.selector!));
           return {
             label: [contextKindVerb(intent.kind), intent.selector].filter(Boolean).join(' '),
             result: contextRefsToData(filtered, this.bridge),
@@ -3375,9 +3384,7 @@ export class AssistSession {
         case 'neighbors': {
           const refs = await this.contextRefs();
           const target =
-            intent.selector !== undefined
-              ? refs.findIndex((ref) => matchesContextSelector(ref, intent.selector!))
-              : -1;
+            intent.selector !== undefined ? findContextRefIndex(refs, intent.selector) : -1;
           const windowed =
             target >= 0
               ? refs.slice(Math.max(0, target - 4), Math.min(refs.length, target + 5))
@@ -3442,7 +3449,7 @@ export class AssistSession {
     const trimmed = selector.trim();
     if (!trimmed) return undefined;
     const refs = await this.toolOperation('context:list', {}, () => this.bridge.listContext());
-    const found = refs.find((ref) => matchesContextSelector(ref, trimmed));
+    const found = refs[findContextRefIndex(refs, trimmed)];
     if (found) return { ref: found, found: true };
     const synthetic = syntheticContextRef(this.bridge.surface, trimmed);
     return synthetic ? { ref: synthetic, found: false } : undefined;
@@ -3711,19 +3718,20 @@ function contextRefProperties(ref: ContextRef, bridge: DocBridge): unknown {
   };
 }
 
-function matchesContextSelector(ref: ContextRef, selector: string): boolean {
-  // Models also write the selector as a prop (`inspect ref="mail:…"`, live 2026-10-14).
-  const needle = selector
+/** Models also write the selector as a prop (`inspect ref="mail:…"`, live 2026-10-14). */
+function selectorNeedle(selector: string): string {
+  return selector
     .trim()
     .replace(/^(?:ref|id)\s*=\s*/i, '')
     .replace(/^(["'])(.*)\1$/, '$2')
     .trim();
+}
+
+function matchesContextSelector(ref: ContextRef, selector: string): boolean {
+  const needle = selectorNeedle(selector);
   if (!needle) return false;
   // Models write `inspect selection` / `inspect [selection]` for the live selection ref.
   if (ref.kind === 'selection' && /^\[?\s*selection\s*\]?$/i.test(needle)) return true;
-  // A read snapshot labels its blocks with a scheme-prefixed locator (Outlook: `mail:<item id>`)
-  // that the model copies, while the context ref carries the bare id.
-  const unprefixed = needle.replace(/^[a-z][a-z-]*:/i, '');
   const candidates = [
     ref.id,
     ref.title,
@@ -3731,7 +3739,25 @@ function matchesContextSelector(ref: ContextRef, selector: string): boolean {
     ref.anchor?.matchText,
     hostRefSelector(ref),
   ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
-  return candidates.some((candidate) => candidate === needle || candidate === unprefixed);
+  return candidates.some((candidate) => candidate === needle);
+}
+
+/**
+ * A read snapshot labels its blocks with a scheme-prefixed locator (Outlook: `mail:<item id>`) that
+ * the model copies, while the context ref carries the bare id. Only ids are compared, never titles
+ * or text, so a prefix-like selector (`A:C`, `Re:Budget`) cannot land on a same-named object.
+ */
+function matchesContextLocator(ref: ContextRef, selector: string): boolean {
+  const needle = selectorNeedle(selector);
+  const unprefixed = needle.replace(/^[a-z][a-z-]*:/i, '');
+  if (!unprefixed || unprefixed === needle) return false;
+  return unprefixed === ref.id || unprefixed === hostRefSelector(ref);
+}
+
+/** Index of the ref a selector names: an exact match on any ref wins over a locator match. */
+function findContextRefIndex(refs: readonly ContextRef[], selector: string): number {
+  const exact = refs.findIndex((ref) => matchesContextSelector(ref, selector));
+  return exact >= 0 ? exact : refs.findIndex((ref) => matchesContextLocator(ref, selector));
 }
 
 function hostRefSelector(ref: ContextRef): string | undefined {
