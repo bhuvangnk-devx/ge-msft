@@ -166,7 +166,10 @@ type StreamOptionsWithGrounding = NonNullable<Parameters<StreamAssistClient['str
 
 /** Default turn bound for the command loop (ADR-0004 §3). */
 const DEFAULT_MAX_TURNS = 12;
-/** Consecutive failing turns allowed after the first before a command task stops as incomplete. */
+/**
+ * Consecutive failing turns allowed after the first before a command task stops as incomplete,
+ * counted separately for read-only turns and for turns whose write or `done` was withheld.
+ */
 const MAX_REPAIR_TURNS = 2;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
@@ -681,19 +684,27 @@ export class AssistSession {
       // A content-policy block (Model Armor; modelStream marks the task blocked) stays the outcome the
       // user sees, so its own message is not replaced by the generic "did not complete" one. Unless
       // a write's outcome is uncertain: then "incomplete" keeps the "may already have applied" warning.
+      const unsettled = task.effects.filter(
+        (result, i) =>
+          !['verified', 'unverified'].includes(assessActuationResult(result)) &&
+          !retried(result, i),
+      );
+      // Writes the user declined at review are their choice, not a failure: the task ends cancelled
+      // rather than incomplete (live 2026-10-14: Cancel showed "Some changes may already have applied").
+      const declinedOnly =
+        unsettled.length > 0 &&
+        unsettled.every((result) => assessActuationResult(result) === 'rejected');
       task.status =
         task.status === 'blocked' &&
         !task.effects.some((result) => assessActuationResult(result) === 'uncertain')
           ? 'blocked'
-          : task.effects.some(
-                (result, i) =>
-                  !['verified', 'unverified'].includes(assessActuationResult(result)) &&
-                  !retried(result, i),
-              )
+          : unsettled.length > 0 && !declinedOnly
             ? 'incomplete'
-            : task.status === 'running'
-              ? 'completed'
-              : task.status;
+            : task.status !== 'running'
+              ? task.status
+              : declinedOnly
+                ? 'cancelled'
+                : 'completed';
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;
@@ -1429,7 +1440,8 @@ export class AssistSession {
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
     let pendingNoFenceReprompt = false;
-    let failingTurns = 0;
+    let failingReadTurns = 0;
+    let failingWriteTurns = 0;
     let lastTurn = 0;
 
     for (let turn = 1; turn <= maxTurns || pendingNoFenceReprompt; turn++) {
@@ -1486,7 +1498,7 @@ export class AssistSession {
       }
       pendingNoFenceReprompt = false;
 
-      const { results, done, stopped, message, failed } = yield* this.executeProgramTurn(
+      const { results, done, stopped, message, failed, repair } = yield* this.executeProgramTurn(
         entries,
         turn,
         capabilities,
@@ -1499,10 +1511,20 @@ export class AssistSession {
         return;
       }
       if (stopped) return;
-      // Consecutive turns whose program had a failed line, whether or not it staged a write: a model
-      // that keeps repeating one mistake stops here instead of spending every remaining turn.
-      failingTurns = failed ? failingTurns + 1 : 0;
-      if (failingTurns > MAX_REPAIR_TURNS) {
+      // Consecutive turns whose program had a failed line: a model that keeps repeating one mistake
+      // stops here instead of spending every remaining turn. Failed reads and withheld writes keep
+      // separate counts, so reads that missed cannot use up the corrections a rejected write gets
+      // (live 2026-10-14: two failed `inspect` turns ended the task on the first rejected write,
+      // before the model saw why it was rejected).
+      if (!failed) {
+        failingReadTurns = 0;
+        failingWriteTurns = 0;
+      } else if (repair) {
+        failingWriteTurns++;
+      } else {
+        failingReadTurns++;
+      }
+      if (failingReadTurns > MAX_REPAIR_TURNS || failingWriteTurns > MAX_REPAIR_TURNS) {
         if (this.task) this.task.status = 'incomplete';
         yield {
           type: 'error',
@@ -3690,10 +3712,18 @@ function contextRefProperties(ref: ContextRef, bridge: DocBridge): unknown {
 }
 
 function matchesContextSelector(ref: ContextRef, selector: string): boolean {
-  const needle = selector.trim();
+  // Models also write the selector as a prop (`inspect ref="mail:…"`, live 2026-10-14).
+  const needle = selector
+    .trim()
+    .replace(/^(?:ref|id)\s*=\s*/i, '')
+    .replace(/^(["'])(.*)\1$/, '$2')
+    .trim();
   if (!needle) return false;
   // Models write `inspect selection` / `inspect [selection]` for the live selection ref.
   if (ref.kind === 'selection' && /^\[?\s*selection\s*\]?$/i.test(needle)) return true;
+  // A read snapshot labels its blocks with a scheme-prefixed locator (Outlook: `mail:<item id>`)
+  // that the model copies, while the context ref carries the bare id.
+  const unprefixed = needle.replace(/^[a-z][a-z-]*:/i, '');
   const candidates = [
     ref.id,
     ref.title,
@@ -3701,7 +3731,7 @@ function matchesContextSelector(ref: ContextRef, selector: string): boolean {
     ref.anchor?.matchText,
     hostRefSelector(ref),
   ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
-  return candidates.some((candidate) => candidate === needle);
+  return candidates.some((candidate) => candidate === needle || candidate === unprefixed);
 }
 
 function hostRefSelector(ref: ContextRef): string | undefined {
