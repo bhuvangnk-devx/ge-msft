@@ -416,6 +416,15 @@ export function App({
   const wasBusy = useRef(false);
   const requestStarted = useRef<string>();
   const [reportNotice, setReportNotice] = useState<ReportResult>();
+  // The notice belongs to the chat it was sent from: a new (empty) chat clears it, and a report
+  // that finishes sending after the chat changed is not shown.
+  const reportChat = useRef(0);
+  const chatIsEmpty = state.messages.length === 0;
+  useEffect(() => {
+    if (!chatIsEmpty) return;
+    reportChat.current += 1;
+    setReportNotice(undefined);
+  }, [chatIsEmpty]);
   useEffect(() => {
     const question = typedQuestion.current;
     if (!wasBusy.current && state.busy) {
@@ -432,9 +441,12 @@ export function App({
           const report: CopyDiagnostics = copy.question
             ? { question: copy.question, diagnostic: copy.diagnostic! }
             : { question: '(not captured)', diagnostic: copy };
+          const chat = reportChat.current;
           void readHost(surface)
             .then((host) => reporter.report(kind, host, report))
-            .then(setReportNotice)
+            .then((result) => {
+              if (reportChat.current === chat) setReportNotice(result);
+            })
             .catch(() => undefined);
         }
       } catch {
@@ -627,6 +639,8 @@ export function App({
         onRefreshConversations={() => void controller.refreshConversations()}
         onResumeConversation={(name) => {
           typedQuestion.current = undefined;
+          reportChat.current += 1;
+          setReportNotice(undefined);
           void controller.resumeConversation(name);
         }}
         onNewConversation={() => {

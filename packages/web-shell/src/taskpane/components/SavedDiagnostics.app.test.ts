@@ -4,6 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './App.js';
 import { makeDemoController } from '../preview-interactive.js';
+import type { Reporter, ReportResult } from '../../reporter.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -82,6 +83,54 @@ describe('saved diagnostics in the pane', () => {
     typeAndSend('hello');
     await settle();
     expect(localStorage.length).toBe(0);
+  });
+});
+
+describe('the "Reported to support" notice', () => {
+  const notice = (): string | null =>
+    container.querySelector('.report-notice')?.textContent ?? null;
+  const newChat = async (): Promise<void> => {
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="New chat"]')!.click());
+    await settle();
+  };
+
+  it('belongs to the chat it was sent from: New chat clears it', async () => {
+    const reporter = {
+      report: vi.fn(async () => ({
+        status: 'sent' as const,
+        reportId: 'c730e5ec'.padEnd(32, '0'),
+      })),
+    } as unknown as Reporter;
+    const controller = makeDemoController('word', { pace: 0 });
+    act(() => {
+      root.render(createElement(App, { controller, surface: 'word', reporter }));
+    });
+    typeAndSend('what is the launch decision? fail');
+    await settle();
+    expect(reporter.report).toHaveBeenCalledOnce();
+    expect(notice()).toContain('c730e5ec');
+
+    await newChat();
+    expect(notice()).toBeNull();
+  });
+
+  it('is not shown in a new chat when the report finishes sending after it started', async () => {
+    let finish: (r: ReportResult) => void = () => undefined;
+    const reporter = {
+      report: vi.fn(() => new Promise<ReportResult>((resolve) => (finish = resolve))),
+    } as unknown as Reporter;
+    const controller = makeDemoController('word', { pace: 0 });
+    act(() => {
+      root.render(createElement(App, { controller, surface: 'word', reporter }));
+    });
+    typeAndSend('what is the launch decision? fail');
+    await settle();
+    expect(reporter.report).toHaveBeenCalledOnce();
+
+    await newChat();
+    await act(async () => finish({ status: 'sent', reportId: 'c730e5ec'.padEnd(32, '0') }));
+    await settle();
+    expect(notice()).toBeNull();
   });
 });
 
