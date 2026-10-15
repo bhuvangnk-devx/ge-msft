@@ -37,7 +37,36 @@ class OutlookLikeBridge implements DocBridge {
       reads: ['read'],
       actuations: [
         { kind: 'reply-mail', surface: 'outlook', title: 'Reply', reversible: false },
-        { kind: 'set-body', surface: 'outlook', title: 'Set body', reversible: true },
+        { kind: 'create-mail', surface: 'outlook', title: 'New email', reversible: false },
+        // Declared like the real Outlook manifest: what can stand in for a refused draft edit.
+        {
+          kind: 'set-body',
+          surface: 'outlook',
+          title: 'Set body',
+          reversible: true,
+          substitutes: ['reply-mail', 'create-mail'],
+        },
+        {
+          kind: 'set-subject',
+          surface: 'outlook',
+          title: 'Set subject',
+          reversible: true,
+          substitutes: ['create-mail'],
+        },
+        {
+          kind: 'set-recipients',
+          surface: 'outlook',
+          title: 'Set recipients',
+          reversible: true,
+          substitutes: [],
+        },
+        {
+          kind: 'add-attachment',
+          surface: 'outlook',
+          title: 'Attach',
+          reversible: true,
+          substitutes: [],
+        },
       ],
     };
   }
@@ -66,6 +95,14 @@ class OutlookLikeBridge implements DocBridge {
     ]);
   }
   actuate(request: ActuationRequest): Promise<ActuationResult> {
+    // The pane is open on a received message, as in the client's runs: draft edits are refused.
+    if (['set-subject', 'set-body', 'set-recipients', 'add-attachment'].includes(request.kind))
+      return Promise.resolve({
+        ok: false,
+        changeId: request.changeId,
+        kind: request.kind,
+        error: { code: 'no_compose', message: 'The open item is a received message.' },
+      });
     this.applied.push(request);
     return Promise.resolve({ ok: true, changeId: request.changeId, kind: request.kind });
   }
@@ -202,5 +239,114 @@ describe('the end of a run where nothing was applied', () => {
 
     expect(messages).toContain('No changes were applied.');
     expect(messages).not.toContain('may already have applied');
+  });
+});
+
+/**
+ * Client report 2026-10-14, second run: after creating a new email, "Ubah subjek menjadi
+ * \"Pembekuan rilis - Jumat\"" from the pane on the received message. set-subject was refused
+ * (no_compose), the model opened an unrelated reply instead, and the task reported "Done".
+ */
+describe('client run 2026-10-14: change the subject of a draft in another window', () => {
+  const SET_SUBJECT = cmd('/set-subject subject="Pembekuan rilis - Jumat"');
+  const SUBJECT_REQUEST = 'Ubah subjek menjadi "Pembekuan rilis - Jumat"';
+
+  it('does not count an unrelated reply as having changed the subject', async () => {
+    const s = setup([
+      SET_SUBJECT,
+      cmd('mail "Saya akan menindaklanjuti perubahan subjek ini."'),
+      cmd('done "Jendela draf balasan telah dibuka."'),
+    ]);
+    const events = await collect(
+      s.session.runCommands(SUBJECT_REQUEST, { approvePlan: () => true }),
+    );
+
+    expect(s.bridge.applied.map((r) => r.kind)).toEqual(['reply-mail']);
+    expect(s.session.executions.list().at(-1)?.status).not.toBe('completed');
+    // The reply did land, so the user is told a change may have applied, not that it is done,
+    // and the model's closing answer is withheld rather than shown next to that change.
+    expect(errorMessages(events).join('\n')).toContain('may already have applied');
+    expect(events.some((e) => e.type === 'done' && 'turn' in e && 'message' in e)).toBe(false);
+  });
+
+  it('shows why the subject could not change when the model follows the guidance', async () => {
+    const explanation =
+      'Subjek tidak bisa diubah dari panel ini. Ubah langsung di jendela draf email tersebut.';
+    const s = setup([SET_SUBJECT, cmd(`done "${explanation}"`)]);
+    const events = await collect(
+      s.session.runCommands(SUBJECT_REQUEST, { approvePlan: () => true }),
+    );
+
+    const answers = events.flatMap((e) =>
+      e.type === 'done' && 'message' in e && e.message ? [e.message] : [],
+    );
+    expect(answers).toEqual([explanation]);
+    // Marked so no consumer reads the explanation as a completed task.
+    expect(events.some((e) => e.type === 'done' && 'incomplete' in e && e.incomplete)).toBe(true);
+    expect(errorMessages(events).join('\n')).toContain('No changes were applied.');
+    expect(s.bridge.applied).toEqual([]);
+    expect(s.session.executions.list().at(-1)?.status).not.toBe('completed');
+  });
+
+  it('still counts a new email that carries the subject as the recovery', async () => {
+    const s = setup([
+      SET_SUBJECT,
+      cmd('compose "Pembekuan rilis - Jumat" "Halo tim, rilis dibekukan hari Jumat."'),
+      cmd('done "Email baru dengan subjek tersebut sudah dibuka."'),
+    ]);
+    const events = await collect(
+      s.session.runCommands(SUBJECT_REQUEST, { approvePlan: () => true }),
+    );
+
+    expect(s.bridge.applied.map((r) => r.kind)).toEqual(['create-mail']);
+    expect(errorMessages(events)).toEqual([]);
+    expect(s.session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('still counts a reply as delivering a body edit refused on the received message', async () => {
+    const s = setup([
+      cmd('/set-body text="Terima kasih, saya hadir."'),
+      cmd('mail "Terima kasih, saya hadir."'),
+      cmd('done "Draf balasan dibuka."'),
+    ]);
+    await collect(s.session.runCommands('Balas: saya hadir', { approvePlan: () => true }));
+
+    expect(s.bridge.applied.map((r) => r.kind)).toEqual(['reply-mail']);
+    expect(s.session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
+  it('does not count a reply as setting recipients, nor anything as attaching', async () => {
+    const recipients = setup([
+      cmd('/set-recipients to="budi@acme.com"'),
+      cmd('mail "Halo Budi"'),
+      cmd('done "Draf dibuka."'),
+    ]);
+    await collect(
+      recipients.session.runCommands('Tambahkan Budi sebagai penerima', {
+        approvePlan: () => true,
+      }),
+    );
+    expect(recipients.session.executions.list().at(-1)?.status).not.toBe('completed');
+
+    // A new message built from a command carries no recipients either.
+    const composed = setup([
+      cmd('/set-recipients to="budi@acme.com"'),
+      cmd('compose "Rapat" "Halo Budi"'),
+      cmd('done "Email baru dibuka."'),
+    ]);
+    await collect(
+      composed.session.runCommands('Tambahkan Budi sebagai penerima', {
+        approvePlan: () => true,
+      }),
+    );
+    expect(composed.session.executions.list().at(-1)?.status).not.toBe('completed');
+
+    const attachment = setup([
+      cmd('/add-attachment uri="https://example.com/agenda.pdf"'),
+      cmd('compose "Agenda" "Terlampir agenda rapat."'),
+      cmd('done "Email baru dibuka."'),
+    ]);
+    await collect(attachment.session.runCommands('Lampirkan agenda', { approvePlan: () => true }));
+    expect(attachment.session.executions.list().at(-1)?.status).not.toBe('completed');
   });
 });

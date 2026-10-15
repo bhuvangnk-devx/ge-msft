@@ -315,8 +315,12 @@ export type CommandLoopEvent =
       /** Inline effects from this program that already landed and must not be re-emitted. */
       alreadyApplied: string[];
     }
-  /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
-  | { type: 'done'; turn: number; answer: string; message?: string }
+  /**
+   * The model emitted `done`; the loop stops. `answer` is the final accumulated text. `incomplete`
+   * marks the closing answer of a run that changed nothing and did not complete: it explains, it
+   * never confirms success (the task's outcome guard reports the failure after it).
+   */
+  | { type: 'done'; turn: number; answer: string; message?: string; incomplete?: true }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string };
 
@@ -677,6 +681,7 @@ export class AssistSession {
             other.ok &&
             (other.kind === result.kind ||
               (WRONG_TARGET_CODES.has(result.error?.code ?? '') &&
+                (this.capabilitySubstitutes.get(result.kind)?.has(other.kind) ?? true) &&
                 (turns[j] ?? 0) > (turns[i] ?? 0) &&
                 completion !== undefined &&
                 ['verified', 'unverified'].includes(assessActuationResult(other)))),
@@ -710,6 +715,19 @@ export class AssistSession {
               : declinedOnly
                 ? 'cancelled'
                 : 'completed';
+      // A command run that changed nothing still delivers the model's closing answer, so its
+      // explanation of why a write could not run here reaches the user; the guard then reports the
+      // incomplete outcome as before (live 2026-10-14: "No changes were applied." with no reason).
+      // Never when a write landed or is uncertain: that answer is only shown once verified.
+      if (
+        completion !== undefined &&
+        mode === 'command' &&
+        task.status === 'incomplete' &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified', 'uncertain'].includes(assessActuationResult(result)),
+        )
+      )
+        yield { ...completion, incomplete: true as const } as typeof completion;
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;
@@ -858,6 +876,11 @@ export class AssistSession {
    * a kind NOT in this set before the effect reaches the gate.
    */
   private capabilityKinds: ReadonlySet<ActuationRequest['kind']> = new Set();
+  /** Per advertised write, the writes its manifest says can stand in for it (`substitutes`). */
+  private capabilitySubstitutes: ReadonlyMap<
+    ActuationRequest['kind'],
+    ReadonlySet<ActuationRequest['kind']>
+  > = new Map();
 
   constructor(
     private readonly bridge: DocBridge,
@@ -1429,6 +1452,7 @@ export class AssistSession {
     const capabilities = await this.effectiveCapabilities();
     // Capture the advertised actuation kinds for the ADR-0005 Phase-2 effect type-check.
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
 
     // Fresh ADR-0005 binding env per task: `$vars` persist across turns WITHIN this loop, but a
     // later independent runCommands() call must not read a binding it never computed.
@@ -1685,6 +1709,7 @@ export class AssistSession {
 
     const capabilities = await this.effectiveCapabilities();
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
     this.composeEnv.clear();
     this.resetCommandState();
     this.shareCountThisTask = 0;
@@ -4297,6 +4322,21 @@ const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([
   'reply-mail',
   'create-mail',
 ]);
+
+/**
+ * The writes each advertised write declares can deliver what it asked for when the host refuses
+ * it as aimed at the wrong target. Only declared kinds are restricted; the rest keep the generic
+ * rule (live 2026-10-14: "change the subject" answered with an unrelated reply counted as done).
+ */
+function substitutesOf(
+  manifest: CapabilityManifest,
+): ReadonlyMap<ActuationRequest['kind'], ReadonlySet<ActuationRequest['kind']>> {
+  return new Map(
+    manifest.actuations.flatMap((a) =>
+      a.substitutes !== undefined ? [[a.kind, new Set(a.substitutes)] as const] : [],
+    ),
+  );
+}
 
 /** Outlook writes that edit the draft the pane is open on, never a window opened by the task. */
 const EDITS_THE_OPEN_DRAFT: ReadonlySet<ActuationRequest['kind']> = new Set([

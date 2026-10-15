@@ -683,8 +683,20 @@ describe('OutlookBridge.actuate set-recipients (in-place draft edit)', () => {
       act('set-recipients', { mail: { to: ['a@acme.com'] } }),
     );
     expect(res).toMatchObject({ ok: false, error: { code: 'no_compose' } });
-    // The corrective names the reply verb, so the model replies instead of opening a new message.
+    // The corrective still names the reply verb, for when the user asked for a reply.
     expect(res.error?.message).toContain('mail "reply text"');
+  });
+
+  it('no_compose does not steer a draft edit into opening a reply (live 2026-10-14)', async () => {
+    // "Change the subject" of a draft opened in another window: the old corrective ("To reply to
+    // it, use mail …") made the model open an unrelated reply instead.
+    active = installOutlook(readMail());
+    const res = await new OutlookBridge().actuate(
+      act('set-subject', { mail: { subject: 'Pembekuan rilis - Jumat' } }),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: 'no_compose' } });
+    expect(res.error?.message).toContain('do not open a reply or a new message instead');
+    expect(res.error?.message).toContain('Only if the user asked to reply: mail "reply text"');
   });
 });
 
