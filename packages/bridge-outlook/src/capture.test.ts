@@ -150,14 +150,14 @@ describe('outlook actuation planning (pure)', () => {
     expect(plan).toEqual({ subject: 'Re: dates', body: 'Confirming below.', to: ['pat@acme.com'] });
   });
 
-  it('turns the escaped line breaks of a one-line command into paragraphs (live 2026-10-14)', () => {
-    // The body exactly as the model wrote it: `mail "Halo Irpan,\n\nTerima kasih…"`.
+  it('turns the line breaks in a body into paragraphs (live 2026-10-14)', () => {
+    // The reply body as the runtime delivers it, line breaks already decoded.
     const plan = planReply({
       changeId: asChangeId('c5'),
       kind: 'reply-mail',
       surface: 'outlook',
       params: {
-        mail: { body: 'Halo Irpan,\\n\\nTerima kasih atas undangannya.\\n\\nSalam,\\nAdele' },
+        mail: { body: 'Halo Irpan,\n\nTerima kasih atas undangannya.\n\nSalam,\nAdele' },
       },
     });
     expect(plan.body).toBe(
@@ -167,22 +167,22 @@ describe('outlook actuation planning (pure)', () => {
 
   it('escapes plain text, but passes a body that is already HTML through', () => {
     expect(mailBodyHtml('Q&A <draft>\nnext')).toBe('<p>Q&amp;A &lt;draft&gt;<br>next</p>');
-    expect(mailBodyHtml('<p>Hi,</p>\\n<p>Thanks</p>')).toBe('<p>Hi,</p>\n<p>Thanks</p>');
+    expect(mailBodyHtml('<p>Hi,</p>\n<p>Thanks</p>')).toBe('<p>Hi,</p>\n<p>Thanks</p>');
   });
 
-  it('planDraftBody decodes escapes for both coercions', () => {
+  it('planDraftBody formats HTML bodies and leaves text bodies as written', () => {
     const html = planDraftBody({
       changeId: asChangeId('c6'),
       kind: 'set-body',
       surface: 'outlook',
-      params: { mail: { body: 'Hi,\\nThanks' } },
+      params: { mail: { body: 'Hi,\nThanks' } },
     });
     expect(html).toEqual({ data: '<p>Hi,<br>Thanks</p>', coercionType: 'html' });
     const text = planDraftBody({
       changeId: asChangeId('c7'),
       kind: 'set-body',
       surface: 'outlook',
-      params: { text: 'Hi,\\nThanks' },
+      params: { text: 'Hi,\nThanks' },
     });
     expect(text).toEqual({ data: 'Hi,\nThanks', coercionType: 'text' });
   });

@@ -11,15 +11,6 @@ export interface ReplyPlan {
   subject?: string;
 }
 
-/**
- * A command program is one command per line, so the model writes a body's line breaks as the
- * two-character escape `\n` (`mail "Hi,\n\nThanks"`); the quoted-string scanner only decodes `\"`
- * and `\\`. Decode them here, or Outlook shows a literal "\n" in the draft (live 2026-10-14).
- */
-export function decodeLineEscapes(text: string): string {
-  return text.replace(/\\r\\n|\\n|\\r/g, '\n');
-}
-
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -30,10 +21,11 @@ const HTML_TAG =
 /**
  * The HTML Outlook gets for a model-written body (`htmlBody` / HTML coercion). A body that is
  * already HTML passes through; plain text is escaped, blank lines become paragraphs and single
- * line breaks become `<br>`, since raw newlines collapse in HTML. One plain line stays one line.
+ * line breaks become `<br>`, since raw newlines collapse in HTML (live 2026-10-14: a reply showed
+ * its paragraphs run together). One plain line stays one line. The runtime has already decoded
+ * the `\n` escapes a one-line command uses for line breaks.
  */
-export function mailBodyHtml(body: string): string {
-  const text = decodeLineEscapes(body);
+export function mailBodyHtml(text: string): string {
   if (HTML_TAG.test(text)) return text;
   if (!text.includes('\n')) return escapeHtml(text);
   return text
@@ -117,7 +109,7 @@ export function planDraftBody(req: ActuationRequest): DraftBodyPlan {
   }
   if (mail?.coercion) coercionType = mail.coercion;
   return {
-    data: coercionType === 'html' ? mailBodyHtml(data) : decodeLineEscapes(data),
+    data: coercionType === 'html' ? mailBodyHtml(data) : data,
     coercionType,
   };
 }
