@@ -39,6 +39,7 @@ describe('Word full-stack integration', () => {
     await ui!.act(() => void ui!.controller.refreshContext());
     await ui!.flush();
 
+    await ui!.showSources();
     const text = ui!.container.textContent ?? '';
     // The seeded selection text previews on its chip; the whole-document chip is always present.
     expect(text).toContain('Selection');

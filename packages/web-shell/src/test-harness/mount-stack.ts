@@ -60,6 +60,8 @@ export interface MountedStack {
    * warning-free. Use for the discrete user gestures the UI exposes (approve/reject/send/run-kickoff).
    */
   act(fn: () => void): Promise<void>;
+  /** Open the sources row and its full list, so every context chip's title is in the DOM. */
+  showSources(): Promise<void>;
   /** Unmount React + remove the container. Does NOT restore host globals (the simulator owns that). */
   unmount(): void;
 }
@@ -127,6 +129,17 @@ export function mountStack(opts: MountStackOptions): MountedStack {
     });
   };
 
+  const showSources = async (): Promise<void> => {
+    await actGesture(() =>
+      container.querySelector<HTMLButtonElement>('.context-strip-toggle')?.click(),
+    );
+    await actGesture(() =>
+      [...container.querySelectorAll<HTMLButtonElement>('.context-strip .text-control')]
+        .find((b) => /^(Add|Manage) sources/.test(b.textContent ?? ''))
+        ?.click(),
+    );
+  };
+
   const unmount = (): void => {
     act(() => root.unmount());
     container.remove();
@@ -141,6 +154,7 @@ export function mountStack(opts: MountStackOptions): MountedStack {
     flush,
     waitFor,
     act: actGesture,
+    showSources,
     unmount,
   };
 }

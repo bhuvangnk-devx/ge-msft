@@ -379,10 +379,12 @@ describe('Composer / and @ palette + scope control + structured submit', () => {
     expect(onInvoke.mock.calls[0]![0].scope.kind).toBe('selection');
   });
 
-  it('keeps the response options under Settings', () => {
+  it('keeps the response options behind the format and style icon', () => {
     render({ surface: 'word' });
     const settings = container.querySelector('.composer-options');
-    expect(settings?.querySelector('summary')?.textContent).toContain('Settings');
+    expect(settings?.querySelector('summary')?.getAttribute('aria-label')).toBe(
+      'Answer format and style',
+    );
     expect(settings?.querySelector('[aria-label="Response format"]')).not.toBeNull();
   });
 

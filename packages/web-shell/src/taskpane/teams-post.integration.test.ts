@@ -143,6 +143,15 @@ describe('Teams post-message full-stack interplay', () => {
     expect(chip).toBeDefined();
     // The chip is labelled with the captured meeting + previews the live transcript window.
     expect(chip?.title ?? '').toContain('Q3 Renewal Sync');
+    // The sources row starts closed: open it and its full list.
+    await ui!.act(() =>
+      ui!.container.querySelector<HTMLButtonElement>('.context-strip-toggle')?.click(),
+    );
+    await ui!.act(() =>
+      [...ui!.container.querySelectorAll<HTMLButtonElement>('.context-strip .text-control')]
+        .find((b) => /^(Add|Manage) sources/.test(b.textContent ?? ''))
+        ?.click(),
+    );
     const text = ui!.container.textContent ?? '';
     expect(text).toContain('Q3 Renewal Sync');
   });

@@ -93,12 +93,12 @@ describe('the ⋯ earlier-diagnostics button', () => {
     act(() => {
       root.render(createElement(App, { controller, surface: 'word', diagnosticsScope: 'tester' }));
     });
-    expect(container.querySelector('.tw-more')).toBeNull();
+    expect(container.querySelector('[aria-label="Earlier diagnostics"]')).toBeNull();
 
     typeAndSend('what is the launch decision?');
     await settle();
 
-    const more = container.querySelector<HTMLButtonElement>('.tw-more')!;
+    const more = container.querySelector<HTMLButtonElement>('[aria-label="Earlier diagnostics"]')!;
     expect(more).not.toBeNull();
     act(() => more.click());
     const copy = container.querySelector<HTMLButtonElement>(
@@ -110,7 +110,7 @@ describe('the ⋯ earlier-diagnostics button', () => {
     });
 
     act(() => container.querySelector<HTMLButtonElement>('.saved-diagnostics-clear')!.click());
-    expect(container.querySelector('.tw-more')).toBeNull();
+    expect(container.querySelector('[aria-label="Earlier diagnostics"]')).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

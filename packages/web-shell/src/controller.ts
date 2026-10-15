@@ -234,6 +234,8 @@ export interface ChatMessage {
   changes?: ResultChange[];
   /** The error was a policy block (Model Armor): the chat says it was blocked, not that it failed. */
   blocked?: boolean;
+  /** A question back to the user (not an answer): the pane shows no answer actions under it. */
+  clarifying?: boolean;
 }
 
 export interface ContextChip {
@@ -1202,6 +1204,7 @@ export class PanelController {
               id: this.id('a'),
               role: 'assistant',
               text: 'Before I plan this, I need one detail.',
+              clarifying: true,
             },
           ],
           pendingPlanClarification: {

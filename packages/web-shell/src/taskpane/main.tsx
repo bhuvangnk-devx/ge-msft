@@ -509,6 +509,7 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
         allowedIntents={allowedIntents}
         {...(savedScope ? { diagnosticsScope: savedScope } : {})}
         {...(reporter ? { reporter } : {})}
+        {...(identity?.displayName ? { userName: identity.displayName } : {})}
       />,
     );
     listenForAskSelectionSeeds(prepared.surface, controller);

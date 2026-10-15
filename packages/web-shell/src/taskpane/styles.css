@@ -117,8 +117,8 @@ body {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
-.panel button,
-.fatal button {
+/* :where() keeps this reset at element weight, so a button's own class can set its size */
+:where(.panel, .fatal) button {
   appearance: none;
   font: inherit;
 }
@@ -167,7 +167,6 @@ body {
 /* ============ panel shell ============ */
 .panel {
   display: flex;
-  flex-direction: column;
   height: 100vh;
   background: var(--paper);
 }
@@ -254,31 +253,115 @@ body {
   color: var(--paper);
 }
 
-/* ============ compact toolbar ============ */
-.tw {
-  position: relative;
-  z-index: 40;
-  flex: none;
-  background: var(--paper);
-  border-bottom: 0.5px solid var(--hairline);
-}
-.tw-bar {
-  padding: var(--s2) var(--s5);
-  display: grid;
-  grid-template-columns: 22px repeat(auto-fit, minmax(48px, 1fr));
-  align-items: stretch;
-  gap: var(--s1);
-}
-/* the ⋯ (earlier diagnostics) sits narrow at the end, only when there is something to show */
-.tw-bar.has-more {
-  grid-template-columns: 22px repeat(auto-fit, minmax(48px, 1fr)) 28px;
-}
-.tw-more {
-  grid-column: -2 / -1;
+/* ============ pane shell: collapsible sidebar + main column ============ */
+.tw-shell {
+  flex: 1;
   min-width: 0;
-  padding-inline: 0;
-  font-size: 18px;
-  line-height: 1;
+  display: flex;
+  height: 100%;
+}
+.tw-rail {
+  flex: none;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s2) 0;
+  background: var(--hover);
+  border-right: 0.5px solid var(--hairline-soft);
+}
+.tw-rail-spacer {
+  flex: 1;
+}
+.tw-rail-toggle,
+.tw-head-btn {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.tw-rail-toggle {
+  margin-bottom: var(--s1);
+}
+.tw-rail-toggle:hover,
+.tw-head-btn:hover:not(:disabled),
+.tw-head-btn.on {
+  background: var(--press);
+  color: var(--ink);
+}
+.tw-rail-item {
+  position: relative;
+  width: 52px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.tw-rail-item:hover {
+  background: var(--press);
+  color: var(--ink);
+}
+.tw-rail-item.on {
+  background: var(--press);
+  color: var(--blue-ink);
+}
+.tw-rail-item .tw-label {
+  color: inherit;
+}
+.tw-rail-item .tw-badge {
+  right: 4px;
+  top: 3px;
+}
+.tw-rail-item .tw-glyph,
+.tw-rail-toggle .tw-glyph,
+.tw-head-btn .tw-glyph {
+  width: 18px;
+  height: 18px;
+}
+.tw-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.tw-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+  padding: 0 var(--s1) 0 var(--s4);
+  background: var(--paper);
+  border-bottom: 0.5px solid var(--hairline-soft);
+}
+.rail-closed .tw-head {
+  padding-left: var(--s1);
+}
+.tw-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fz-xl);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .saved-diagnostics-intro {
   margin: 0;
@@ -305,28 +388,6 @@ body {
   font-size: 8px;
   font-weight: 700;
   color: var(--paper);
-}
-.tw-icon {
-  position: relative;
-  min-width: 0;
-  min-height: 38px;
-  padding: 4px 3px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  align-items: center;
-  justify-content: center;
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r);
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-}
-.tw-icon:hover,
-.tw-icon.on,
-.tw-icon:focus-visible {
-  border-color: var(--ink);
-  background: var(--press);
 }
 .tw-glyph {
   width: 15px;
@@ -364,32 +425,23 @@ body {
   font-size: 8px;
   line-height: 1;
 }
-.tw-modal-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: var(--s3);
-  background: rgba(27, 28, 28, 0.38);
-}
-.tw-modal-layer[hidden] {
-  display: none;
-}
+/* A sidebar panel covers the main column only; the sidebar stays in view. */
 .tw-modal {
-  width: min(520px, 100%);
-  height: min(680px, 100%);
+  position: absolute;
+  inset: 0;
+  z-index: 60;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--r);
+}
+.tw-modal[hidden] {
+  display: none;
 }
 .tw-modal-head {
   flex: none;
-  min-height: 54px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -398,11 +450,10 @@ body {
   border-bottom: 1px solid var(--rule);
 }
 .tw-modal-title {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: var(--fz-xl);
   line-height: 1.2;
   font-weight: 700;
-  text-transform: lowercase;
 }
 .tw-modal-close {
   width: 32px;
@@ -437,6 +488,10 @@ body {
   padding: var(--s4);
 }
 .tw-modal-pane[hidden] {
+  display: none;
+}
+/* the panel title already says History; keep only the count and Refresh beside it */
+.tw-modal-body .sessions-title {
   display: none;
 }
 .tw-modal-body .surface-center,
@@ -494,9 +549,6 @@ body {
 }
 
 @media (max-height: 520px) {
-  .tw-modal-layer {
-    padding: var(--s2);
-  }
   .tw-modal {
     height: 100%;
   }
@@ -3380,6 +3432,11 @@ button.cite:hover {
 }
 /* the attached-context summary is the dropdown toggle for the chips below it */
 .context-strip-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
   border: none;
   background: none;
   padding: 0;
@@ -3387,6 +3444,28 @@ button.cite:hover {
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+.context-strip-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.context-strip-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: 500;
+}
+.context-strip-more {
+  flex: none;
+  color: var(--ink-3);
 }
 /* closed: the heading is the strip's only line, so no gap is left for chips that are not shown */
 .context-strip-heading:last-child {
@@ -3627,7 +3706,6 @@ button.cite:hover {
 /* ============ responsive ============ */
 @media (max-width: 380px) {
   .ph,
-  .tw-bar,
   .surface-center,
   .unit,
   .catalog,
@@ -3680,7 +3758,6 @@ button.cite:hover {
 /* wide browser preview: hold a measured column, spec-sheet style */
 @media (min-width: 520px) {
   .ph,
-  .tw-bar,
   .surface-center,
   .unit,
   .catalog,

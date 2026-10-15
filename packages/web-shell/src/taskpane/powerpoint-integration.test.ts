@@ -33,6 +33,7 @@ describe('PowerPoint full-stack integration', () => {
     await ui!.act(() => void ui!.controller.refreshContext());
     await ui!.flush();
 
+    await ui!.showSources();
     const text = ui!.container.textContent ?? '';
     // The default deck selects slide index 1 → "Slide 2"; the whole-deck chip is always present.
     expect(text).toContain('Slide 2');

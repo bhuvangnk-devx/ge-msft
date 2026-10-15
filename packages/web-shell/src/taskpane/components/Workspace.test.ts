@@ -208,27 +208,32 @@ describe('structured workspace interactions', () => {
           },
         ],
         onInsertArtifact: vi.fn(),
-        onFollowUp: vi.fn(),
       }),
     );
     expect(container.querySelector('.md-artifact-insert')).toBeNull();
     expect(container.querySelector('.answer-actions')).toBeNull();
   });
-  it('allows answer follow-ups without an Excel insertion destination', () => {
-    const follow = vi.fn();
+  it('offers only Copy answer under an answer, and nothing under a clarifying question', () => {
     mount(
       createElement(MessageThread, {
         surface: 'excel',
-        messages: [{ id: 'a', role: 'assistant', text: 'Analysis complete.' }],
-        onFollowUp: follow,
+        messages: [
+          { id: 'a', role: 'assistant', text: 'Analysis complete.' },
+          {
+            id: 'b',
+            role: 'assistant',
+            text: 'Before I plan this, I need one detail.',
+            clarifying: true,
+          },
+        ],
         insertArtifactDisabledReason: 'Select a destination range first.',
       }),
     );
-    const button = [
-      ...container.querySelectorAll<HTMLButtonElement>('.answer-actions button'),
-    ].find((b) => b.textContent === 'Decision brief')!;
-    act(() => button.click());
-    expect(follow).toHaveBeenCalledOnce();
+    const groups = container.querySelectorAll('.answer-actions');
+    expect(groups).toHaveLength(1);
+    expect([...groups[0]!.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      'Copy answer',
+    ]);
   });
   it('uses a live controller in the demo and suspends execution at the real approval coordinator', async () => {
     const controller = makeDemoController('word', { pace: 0 });

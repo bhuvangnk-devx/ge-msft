@@ -34,30 +34,23 @@ export function ContextStrip({
           className="context-strip-toggle"
           aria-expanded={open}
           aria-controls="active-context-chips"
+          aria-label={`Sources: ${attached.length} attached. Show sources`}
           onClick={() => {
             setOpen(!open);
             if (open) setExpanded(false);
           }}
         >
-          Attached context ·{' '}
-          <strong>
-            {attached.length} {attached.length === 1 ? 'source' : 'sources'}
-          </strong>
+          <svg className="context-strip-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+            <path d="M14 3v5h5M9 13h6M9 17h4" />
+          </svg>
+          <span className="context-strip-title">{attached[0]?.title ?? 'No sources attached'}</span>
+          {attached.length > 1 && (
+            <span className="context-strip-more">+{attached.length - 1}</span>
+          )}
           <span className="context-strip-caret" aria-hidden="true">
             {open ? '▴' : '▾'}
           </span>
-        </button>
-        <button
-          type="button"
-          className="text-control"
-          aria-expanded={expanded}
-          aria-controls="active-context-chips"
-          onClick={() => {
-            setExpanded(!expanded);
-            setOpen(true);
-          }}
-        >
-          {expanded ? 'Done' : nearby.length ? `+ ${nearby.length} available` : 'Manage'}
         </button>
       </div>
       {chips
@@ -97,14 +90,23 @@ export function ContextStrip({
               )}
             </span>
           ))}
-          {!expanded && attached.length > 3 && (
+          {expanded ? (
+            <>
+              <button
+                type="button"
+                className="text-control"
+                disabled={disabled}
+                onClick={onRefresh}
+              >
+                Refresh sources
+              </button>
+              <button type="button" className="text-control" onClick={() => setExpanded(false)}>
+                Done
+              </button>
+            </>
+          ) : (
             <button type="button" className="text-control" onClick={() => setExpanded(true)}>
-              +{attached.length - 3} more
-            </button>
-          )}
-          {expanded && (
-            <button type="button" className="text-control" disabled={disabled} onClick={onRefresh}>
-              Refresh sources
+              {nearby.length ? `Add sources (${nearby.length})` : 'Manage sources'}
             </button>
           )}
         </div>
