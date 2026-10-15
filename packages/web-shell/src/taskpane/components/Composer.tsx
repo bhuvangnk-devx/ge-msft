@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ComposerSources, mentionKey, mentionLabel } from './ComposerSources.js';
+import { mentionKey, mentionLabel } from './ComposerSources.js';
 import { extractDirectCommandProgram } from '../direct-command.js';
 import type { Surface, Intent, CommandScope, GroundSource } from '@ge/contracts';
 import { commandPaletteFor, type CommandVerb, type CommandPaletteSpec } from '@ge/contracts';
@@ -524,12 +524,6 @@ export function Composer({
         )}
       </div>
       <div className="composer-tools">
-        <ComposerSources
-          selected={sourcePicks}
-          options={mentionOptions}
-          disabled={busy || disabled || directProgram}
-          onChange={setSourcePicks}
-        />
         <details className="composer-options">
           <summary aria-label="Answer format and style" title="Answer format and style">
             <svg className="composer-options-icon" viewBox="0 0 24 24" aria-hidden="true">

@@ -308,7 +308,6 @@
 .composer-tools summary::-webkit-details-marker {
   display: none;
 }
-.composer-source-picker,
 .composer-options-popover {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -323,12 +322,6 @@
   border-radius: 8px;
   box-shadow: 0 8px 28px #1b1c1c22;
 }
-.composer-source-picker label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-.composer-source-picker input,
 .composer-options-popover select {
   width: 100%;
   color: var(--ink);
@@ -337,31 +330,6 @@
   border-radius: var(--r);
   background: white;
   font: inherit;
-}
-.composer-source-results {
-  margin-top: 8px;
-}
-.composer-source-results button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  border: 0;
-  padding: 10px 6px;
-  background: white;
-  text-align: left;
-  cursor: pointer;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.composer-source-results button[aria-pressed='true'] {
-  color: var(--blue-ink);
-  background: #eff5fc;
-}
-.composer-source-picker p {
-  color: var(--ink-2);
-  line-height: 1.5;
-  margin: 10px 0 0;
 }
 .composer-options-popover {
   display: grid;
@@ -555,8 +523,7 @@
 .panel .library-filters button {
   font-size: 11px;
 }
-.panel .answer-actions button,
-.panel .composer-source-results button {
+.panel .answer-actions button {
   font-size: 12px;
 }
 

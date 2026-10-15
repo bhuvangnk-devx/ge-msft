@@ -521,7 +521,7 @@ describe('OutlookBridge.actuate reply-mail (reviewable reply form)', () => {
       kind: 'reply-mail',
       location: 'reply-form',
     });
-    expect(active.replyForms).toEqual([{ htmlBody: 'We can raise availability to 99.9%.' }]);
+    expect(active.replyForms).toEqual([{ htmlBody: '<p>We can raise availability to 99.9%.</p>' }]);
   });
 
   it('rejects with no_item when there is no active mail to reply to (no form opened)', async () => {
@@ -559,7 +559,7 @@ describe('OutlookBridge.actuate create-mail (reviewable new draft)', () => {
       location: 'new-message-form',
     });
     expect(active.newMessageForms).toEqual([
-      { subject: 'Follow-up on Q3', htmlBody: 'Summary below.' },
+      { subject: 'Follow-up on Q3', htmlBody: '<p>Summary below.</p>' },
     ]);
   });
 
@@ -570,7 +570,7 @@ describe('OutlookBridge.actuate create-mail (reviewable new draft)', () => {
     );
     expect(active.newMessageForms[0]).toEqual({
       subject: 'Re: dates',
-      htmlBody: 'Confirming.',
+      htmlBody: '<p>Confirming.</p>',
       toRecipients: ['pat@acme.com'],
     });
   });
