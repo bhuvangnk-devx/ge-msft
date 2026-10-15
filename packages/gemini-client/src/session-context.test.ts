@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { AssistRequest, ResolvedContext } from '@ge/contracts';
 import { SessionContext, contextValueToQueryPart } from './session-context.js';
-import { buildStreamAssistRequest } from './stream-assist.js';
+import { buildStreamAssistRequest, identityText } from './stream-assist.js';
 
 function textCtx(id: string, text: string): ResolvedContext {
   return {
@@ -67,5 +67,29 @@ describe('buildStreamAssistRequest with live context', () => {
     const body = buildStreamAssistRequest(req, cfg);
     expect(body.query).toHaveProperty('text');
     expect(body.query).not.toHaveProperty('parts');
+  });
+
+  it('puts the branded assistant name first when one is configured', () => {
+    const named = { ...cfg, assistantName: 'CNGPT' };
+    const sc = new SessionContext();
+    sc.add(textCtx('sel', 'SLA is 99.5%'));
+    const parts = (
+      buildStreamAssistRequest(req, named, undefined, sc.list()).query as {
+        parts: unknown[];
+      }
+    ).parts;
+    expect(parts).toEqual([
+      { text: identityText('CNGPT') },
+      { text: 'SLA is 99.5%' },
+      { text: 'Summarize the risk' },
+    ]);
+    const text = (buildStreamAssistRequest(req, named).query as { text: string }).text;
+    expect(text.startsWith(identityText('CNGPT'))).toBe(true);
+    expect(identityText('CNGPT')).toContain('never call yourself Gemini');
+  });
+
+  it('sends no identity line without a branded name', () => {
+    const text = (buildStreamAssistRequest(req, cfg).query as { text: string }).text;
+    expect(text).not.toContain('Your name is');
   });
 });

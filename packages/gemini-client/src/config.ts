@@ -45,6 +45,11 @@ export interface GeminiClientConfig {
   proxyUrl?: string;
   /** Signed-in user identity (e.g. "v.k@acme") for provenance stamping. */
   identity?: string;
+  /**
+   * Branded assistant name (e.g. "CNGPT"). When set, every turn tells the model to call itself
+   * this, never the engine's default "Gemini Enterprise". Unset → the engine's default persona.
+   */
+  assistantName?: string;
 }
 
 export interface GeminiSkillMention {

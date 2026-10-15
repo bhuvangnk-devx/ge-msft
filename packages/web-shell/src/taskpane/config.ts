@@ -7,6 +7,7 @@ import {
   type WifConfig,
 } from '@ge/gemini-client';
 import type { ShellConfig } from '../compose.js';
+import { brand, type Brand } from '../brand.js';
 import type { NaaAuthOptions } from '../auth-client.js';
 import { ReleaseProfileNameSchema, type ReleaseProfileName } from '@ge/contracts';
 
@@ -362,11 +363,12 @@ export function modelIdFromEnv(value: string | undefined): string | undefined {
   return value?.trim() || undefined;
 }
 
-export function shellConfigFromEnv(env: RawEnv): ShellConfig {
+export function shellConfigFromEnv(env: RawEnv, b: Brand = brand): ShellConfig {
   const parsed = parseEnv(env);
   const modelId = modelIdFromEnv(parsed.VITE_GE_MODEL_ID);
   return {
     assistant: assistantFromEnv(env),
+    ...(b.promptName ? { assistantName: b.promptName } : {}),
     ...(widgetFromEnv(env) ? { widget: widgetFromEnv(env) } : {}),
     wif: wifFromEnv(env),
     ...(modelId ? { modelId } : {}),

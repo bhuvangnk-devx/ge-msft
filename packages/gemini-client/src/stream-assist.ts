@@ -614,7 +614,7 @@ export function buildStreamAssistRequest(
   const skillSet = skillsForRoute(cfg, skillRoute);
   const mentionText = skillMentionText(skillSet.mentions);
   const out: Record<string, unknown> = {
-    query: buildQuery(req, attached, mentionText),
+    query: buildQuery(req, attached, mentionText, cfg.assistantName),
   };
   if (isSessionLess) out.isSessionLess = true;
   else if (session) out.session = session;
@@ -655,14 +655,25 @@ function buildQuery(
   req: AssistRequest,
   attached: QueryPart[],
   mentionText?: string,
+  assistantName?: string,
 ): Record<string, unknown> {
+  const identity = assistantName ? identityText(assistantName) : undefined;
   if (attached.length === 0) {
-    return { text: composeQuery(req, mentionText) };
+    const text = composeQuery(req, mentionText);
+    return { text: identity ? `${identity}\n\n${text}` : text };
   }
   const question = withSkillMention(req.query?.trim(), mentionText);
-  const parts: QueryPart[] = [...attached];
+  const parts: QueryPart[] = [...(identity ? [{ text: identity }] : []), ...attached];
   if (question) parts.push({ text: question });
   return { parts };
+}
+
+/** The pane's instruction (not user or document content) naming the branded assistant. */
+export function identityText(assistantName: string): string {
+  return (
+    `Your name is ${assistantName}. If you refer to yourself, call yourself ${assistantName} only; ` +
+    `never call yourself Gemini or Gemini Enterprise.`
+  );
 }
 
 function composeQuery(req: AssistRequest, mentionText?: string): string {

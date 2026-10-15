@@ -50,6 +50,8 @@ export interface ShellConfig {
   proxyUrl?: string;
   /** Release profile that narrows capabilities before UI/model/executor exposure. */
   releaseProfile?: ReleaseProfileName;
+  /** Branded assistant name the model calls itself; unset keeps the engine's default persona. */
+  assistantName?: string;
 }
 
 /**
@@ -140,6 +142,7 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
       ...(config.widget ? { widget: config.widget } : {}),
       identity: identity.username,
       ...(config.modelId ? { modelId: config.modelId } : {}),
+      ...(config.assistantName ? { assistantName: config.assistantName } : {}),
       ...(config.skills?.length ? { skills: config.skills } : {}),
       ...(config.skillMentions?.length ? { skillMentions: config.skillMentions } : {}),
       ...(config.plannerSkills?.length ? { plannerSkills: config.plannerSkills } : {}),
