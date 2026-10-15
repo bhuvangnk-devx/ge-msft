@@ -107,9 +107,10 @@
   background: var(--primary-tint);
 }
 
-.panel .tw-rail-item.on {
+.panel .tw-icon:hover,
+.panel .tw-icon.on {
   background: var(--primary-tint);
-  color: var(--primary-hover);
+  border-color: var(--primary-tint-border);
 }
 
 .panel .scope-option[data-selected='true'] {

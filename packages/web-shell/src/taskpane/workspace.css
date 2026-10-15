@@ -500,8 +500,10 @@
 .panel .tw-label {
   font-size: 11px;
 }
+/* a brand theme's tint when it defines one (CIMB), else the default blue */
 .panel .tw-rail-item.on {
-  background: #eff5fc;
+  background: var(--primary-tint, #eff5fc);
+  color: var(--primary-hover, var(--blue-ink));
 }
 .panel .scope-option {
   font-size: 11px;
