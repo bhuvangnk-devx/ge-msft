@@ -805,7 +805,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-shape',
     title: 'PowerPoint shape/textbox insertion',
     useWhen:
-      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside',
+      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. Text (a title, a label, a text box) is always shapeType=textBox with text= in the SAME command — never a rectangle, which PowerPoint fills with a solid theme colour that hides the text. A slide whose Title placeholder is empty gets its title there instead (shape <ref> "…"). Other shapeType values: line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it',
     hostApis: [
       'PowerPoint.ShapeCollection.addTextBox',
       'PowerPoint.ShapeCollection.addGeometricShape',
@@ -820,8 +820,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Emit one /add-shape command; never infer placement from prose alone.',
     ],
     examples: [
-      '/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60',
       '/add-shape slide=2 shapeType=textBox text="Key risk" left=72 top=300 width=400 height=50',
+      '/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60',
     ],
     preview: ['target slide', 'shape type', 'geometry', 'text/style fields'],
     inverse: 'delete the inserted shape by captured shape id',

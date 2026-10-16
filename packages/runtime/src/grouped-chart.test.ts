@@ -10,7 +10,7 @@ const data = [
 ];
 
 describe('groupedChartPlan', () => {
-  it('builds a Month × Branch summary of live SUMIFS next to the data (CIMB UAT #11)', () => {
+  it('builds a Month × Branch summary of live exact-match sums next to the data (CIMB UAT #11)', () => {
     const plan = groupedChartPlan("'Branch Performance'!A1:D5", data, {
       x: 'month',
       by: 'Branch',
@@ -22,13 +22,13 @@ describe('groupedChartPlan', () => {
         ['Month', 'Jakarta', 'Medan'],
         [
           'Jan',
-          '=SUMIFS($D$2:$D$5,$A$2:$A$5,G$1,$C$2:$C$5,$F2)',
-          '=SUMIFS($D$2:$D$5,$A$2:$A$5,H$1,$C$2:$C$5,$F2)',
+          '=SUMPRODUCT(--($A$2:$A$5=G$1),--($C$2:$C$5=$F2),$D$2:$D$5)',
+          '=SUMPRODUCT(--($A$2:$A$5=H$1),--($C$2:$C$5=$F2),$D$2:$D$5)',
         ],
         [
           'Feb',
-          '=SUMIFS($D$2:$D$5,$A$2:$A$5,G$1,$C$2:$C$5,$F3)',
-          '=SUMIFS($D$2:$D$5,$A$2:$A$5,H$1,$C$2:$C$5,$F3)',
+          '=SUMPRODUCT(--($A$2:$A$5=G$1),--($C$2:$C$5=$F3),$D$2:$D$5)',
+          '=SUMPRODUCT(--($A$2:$A$5=H$1),--($C$2:$C$5=$F3),$D$2:$D$5)',
         ],
       ],
     });
@@ -48,6 +48,21 @@ describe('groupedChartPlan', () => {
     expect(plan).toMatchObject({
       cells: [
         ['Month', `'=HYPERLINK("http://x","y")`],
+        ['Jan', expect.any(String)],
+      ],
+    });
+  });
+
+  it('keeps one column per group as Excel compares labels (case-insensitive)', () => {
+    const rows = [
+      ['Branch', 'Month', 'N'],
+      ['Jakarta', 'Jan', 1],
+      ['JAKARTA', 'Jan', 2],
+    ];
+    const plan = groupedChartPlan('S!A1:C3', rows, { x: 'Month', by: 'Branch', value: 'N' });
+    expect(plan).toMatchObject({
+      cells: [
+        ['Month', 'Jakarta'],
         ['Jan', expect.any(String)],
       ],
     });

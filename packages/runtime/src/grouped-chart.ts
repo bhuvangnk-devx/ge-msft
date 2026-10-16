@@ -2,7 +2,7 @@
  * `chart line Sheet!A1:H25 x=Month by=Branch value=Complaints` — a trend per group from long data
  * (one row per group per month). The pane builds the summary table itself, from the cells it read,
  * so no total is typed by the model (CIMB UAT 2026-10-16: the chart showed 24 raw bars, or numbers
- * the model wrote by hand). Each summary cell is a live SUMIFS over the source columns.
+ * the model wrote by hand). Each summary cell is a live SUMPRODUCT over the source columns (exact match).
  */
 
 type Cell = string | number | boolean | null | undefined;
@@ -51,7 +51,7 @@ export function summaryRange(
   if (!a) return undefined;
   const left = a.lastColumn + 2 + offset;
   const right = left + groups;
-  if (right > 16384) return undefined;
+  if (right > 16384 || a.firstRow + xValues > 1048576) return undefined;
   return `${a.prefix}${columnLabel(left)}${a.firstRow}:${columnLabel(right)}${a.firstRow + xValues}`;
 }
 
@@ -94,9 +94,15 @@ export function groupedChartPlan(
   const rows = values
     .slice(1)
     .filter((r) => r.some((c) => c !== null && c !== undefined && c !== ''));
-  const distinct = (i: number): string[] => [
-    ...new Set(rows.map((r) => String(r[i] ?? '').trim()).filter(Boolean)),
-  ];
+  // One label per value as Excel compares them: case-insensitive, exactly as written in the cell.
+  const distinct = (i: number): string[] => {
+    const seen = new Map<string, string>();
+    for (const r of rows) {
+      const label = String(r[i] ?? '');
+      if (label.trim() && !seen.has(label.toLowerCase())) seen.set(label.toLowerCase(), label);
+    }
+    return [...seen.values()];
+  };
   const xs = distinct(x!);
   const groups = distinct(by!);
   if (xs.length === 0 || groups.length === 0)
@@ -126,7 +132,8 @@ export function groupedChartPlan(
       ...groups.map((_, g) => {
         const groupCell = `${columnLabel(dest.firstColumn + 1 + g)}$${dest.firstRow}`;
         const xCell = `$${columnLabel(dest.firstColumn)}${row}`;
-        return `=SUMIFS(${col(value!)},${col(by!)},${groupCell},${col(x!)},${xCell})`;
+        // Exact match: SUMIFS would read `*`, `?`, `>100` in a label as a pattern or a test.
+        return `=SUMPRODUCT(--(${col(by!)}=${groupCell}),--(${col(x!)}=${xCell}),${col(value!)})`;
       }),
     ]);
   });

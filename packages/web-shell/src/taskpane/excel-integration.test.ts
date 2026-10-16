@@ -380,10 +380,10 @@ describe('Excel full-stack integration', () => {
 
     expect(approvals).toBe(1);
     const sales = sim.snapshot().sheets.find((s) => s.name === 'Sales')!;
-    // Summary at F1: reps down, regions across; every cell a SUMIFS, never a typed number.
+    // Summary at F1: reps down, regions across; every cell a live exact-match sum, never a typed number.
     expect(sales.values[0]?.slice(5, 10)).toEqual(['rep', 'East', 'West', 'North', 'South']);
     expect(sales.values[1]?.[5]).toBe('Alice');
-    expect(sales.values[1]?.[6]).toBe('=SUMIFS($C$2:$C$7,$A$2:$A$7,G$1,$B$2:$B$7,$F2)');
+    expect(sales.values[1]?.[6]).toBe('=SUMPRODUCT(--($A$2:$A$7=G$1),--($B$2:$B$7=$F2),$C$2:$C$7)');
     const chart = sim.snapshot().charts.find((c) => c.title === 'Revenue');
     expect(chart?.source).toContain('F1:J7');
   });

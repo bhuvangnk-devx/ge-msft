@@ -14,7 +14,7 @@ import {
   type AnalysisProgram,
 } from './analysis-program.js';
 import { CommandContextSession } from './command-context-session.js';
-import { groupedChartPlan } from './grouped-chart.js';
+import { groupedChartPlan, parseArea } from './grouped-chart.js';
 import {
   approvalClassOf,
   commandIntentText,
@@ -2491,6 +2491,12 @@ export class AssistSession {
   ): Promise<{ commands: ParsedCommand[] } | { error: string }> {
     const capture = this.bridge.captureCells?.bind(this.bridge);
     if (!capture) return { error: 'chart by= needs to read the sheet, which this host cannot do.' };
+    const area = parseArea(entry.range);
+    if (
+      area &&
+      (area.lastRow - area.firstRow + 1) * (area.lastColumn - area.firstColumn + 1) > 50_000
+    )
+      return { error: `chart ${entry.range}: the range is too large to summarise; narrow it.` };
     let values: Array<Array<string | number | boolean | null>>;
     try {
       values = (await capture(entry.range)).values;
@@ -2503,9 +2509,13 @@ export class AssistSession {
       if ('error' in plan) return plan;
       let taken = true;
       try {
-        taken = (await capture(plan.range)).values.some((row) =>
-          row.some((cell) => cell !== null && cell !== undefined && cell !== ''),
-        );
+        // A formula that shows "" is not empty: check formulas as well as values.
+        const snap = await capture(plan.range);
+        const filled = (cell: unknown): boolean =>
+          cell !== null && cell !== undefined && cell !== '';
+        taken =
+          snap.values.some((row) => row.some(filled)) ||
+          (snap.formulas ?? []).some((row) => row.some(filled));
       } catch {
         taken = true;
       }
