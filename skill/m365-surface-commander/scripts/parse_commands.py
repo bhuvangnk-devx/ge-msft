@@ -102,8 +102,7 @@ def _scan_quoted(rest: str):
     m = _QUOTED.match(rest.strip())
     if not m:
         return None
-    val = m.group(1).replace('\\"', '"').replace("\\\\", "\\")
-    return val, rest.strip()[m.end():].strip()
+    return _unescape(m.group(1)), rest.strip()[m.end():].strip()
 
 
 def _split_first_arg(rest: str):
@@ -141,12 +140,14 @@ def _parse_grid_body(body: str):
 # value"` (with spaces) intact — mirrors the TS `tokenizeArgs` used by table/chart/cf. A
 # `key="quoted"` / `key=bare` match yields a prop; anything else is positional (a range, a chart
 # type, a bare CF mode like `databar`).
-# Double-quoted values honour \" and \\ escapes (mirrors tokenizeArgs in command-grammar.ts).
+# Double-quoted values honour \", \\ and \n escapes (mirrors tokenizeArgs in command-grammar.ts).
 _TOKENIZE = re.compile(r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|(\S+)')
 
 
 def _unescape(value: str) -> str:
-    return re.sub(r'\\(["\\])', r'\1', value)
+    # One escape-aware pass, mirroring scanQuoted/tokenizeArgs in command-grammar.ts: \" and \\
+    # are literal; \n is a line break (a command is one line), so \\n stays backslash + n.
+    return re.sub(r'\\(["\\n])', lambda m: "\n" if m.group(1) == "n" else m.group(1), value)
 
 
 def _tokenize_args(rest: str):

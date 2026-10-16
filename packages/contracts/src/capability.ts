@@ -172,6 +172,12 @@ export const ActuationSchema = z.object({
   description: z.string().optional(),
   reversible: z.boolean(), // false ⇒ the UI must warn before invoking
   appliesTo: z.array(ContextKindSchema).optional(), // context kinds this can target
+  /**
+   * The writes that can deliver what this one asks for when the host refuses it as aimed at the
+   * wrong target (an Outlook draft edit on a received message, answered by a new message).
+   * Omitted: any later write of another kind may count as the recovery. Empty: none can.
+   */
+  substitutes: z.array(ActuationKindSchema).optional(),
 });
 export type Actuation = z.infer<typeof ActuationSchema>;
 

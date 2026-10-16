@@ -310,11 +310,15 @@ export class OutlookBridge implements DocBridge {
             req,
             'no_compose',
             // Say what to do instead: without it the model tried every draft verb in turn, then
-            // `compose` (a NEW message) when a reply was wanted.
-            'The open item is a received message, not a draft being written. To reply to it, use ' +
-              'mail "reply text" (opens a reply draft for review); to start a new message, use ' +
-              'compose "Subject" "body". set-subject, set-body, set-recipients and add-attachment ' +
-              'only work when the task pane is opened from a draft.',
+            // `compose` (a NEW message) when a reply was wanted. But a bare "use mail" hint made it
+            // answer "change the subject" of a draft in another window by opening an unrelated
+            // reply (live 2026-10-14), so the hint is conditional on what the user asked for.
+            'The open item is a received message, not a draft being written, so set-subject, ' +
+              'set-body, set-recipients and add-attachment cannot run here. A draft opened in its ' +
+              'own window cannot be edited from this pane: do not open a reply or a new message ' +
+              'instead; emit done and tell the user to make the change in that draft window, or ' +
+              'to open this add-in from it. Only if the user asked to reply: mail "reply text". ' +
+              'Only if they asked for a new email: compose "Subject" "body".',
           ),
         };
   }

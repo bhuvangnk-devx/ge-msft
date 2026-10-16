@@ -1087,11 +1087,13 @@ function unquoteSetValue(value: string): string {
 function tokenizeArgs(rest: string): { positional: string[]; props: Record<string, string> } {
   const positional: string[] = [];
   const props: Record<string, string> = {};
-  // Double-quoted values honour `\"` and `\\` escapes, so a quoted value can carry quotes — an
-  // OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was otherwise cut at the first one.
+  // Double-quoted values honour `\"`, `\\` and `\n` escapes (as {@link scanQuoted}), so a quoted
+  // value can carry quotes — an OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was
+  // otherwise cut at the first one — and line breaks.
   const re =
     /(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|'([^']*)'(\S*)|(\S+)/g;
-  const unescape = (s: string): string => s.replace(/\\(["\\])/g, '$1');
+  const unescape = (s: string): string =>
+    s.replace(/\\(["\\n])/g, (_, c: string) => (c === 'n' ? '\n' : c));
   let m: RegExpExecArray | null;
   while ((m = re.exec(rest)) !== null) {
     if (m[1] !== undefined) props[m[1]] = unescape(m[2]!);
@@ -1460,8 +1462,11 @@ function scanQuotedList(s: string): string[] | null {
 
 /**
  * Scan a double-quoted string starting at `start` (which must index the opening `"`).
- * Honors `\"` (literal quote) and `\\` (literal backslash). Returns the unescaped value and
- * the index just past the closing quote, or `null` if there is no well-formed quoted string.
+ * Honors `\"` (literal quote), `\\` (literal backslash) and `\n` (line break: a command is one
+ * line, so the model writes a body's line breaks this way; live 2026-10-14 Outlook showed them
+ * literally). Escape-aware, so `\\n` stays a backslash followed by `n` (a path like `C:\\new`).
+ * Returns the unescaped value and the index just past the closing quote, or `null` if there is
+ * no well-formed quoted string.
  */
 export function scanQuoted(s: string, start: number): { value: string; end: number } | null {
   if (s[start] !== '"') return null;
@@ -1471,7 +1476,7 @@ export function scanQuoted(s: string, start: number): { value: string; end: numb
     const ch = s[i]!;
     if (ch === '\\' && i + 1 < s.length) {
       const next = s[i + 1]!;
-      value += next === '"' || next === '\\' ? next : `\\${next}`;
+      value += next === '"' || next === '\\' ? next : next === 'n' ? '\n' : `\\${next}`;
       i += 2;
       continue;
     }

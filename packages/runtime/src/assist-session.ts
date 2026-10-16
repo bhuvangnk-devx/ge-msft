@@ -166,7 +166,10 @@ type StreamOptionsWithGrounding = NonNullable<Parameters<StreamAssistClient['str
 
 /** Default turn bound for the command loop (ADR-0004 §3). */
 const DEFAULT_MAX_TURNS = 12;
-/** Consecutive failing turns allowed after the first before a command task stops as incomplete. */
+/**
+ * Consecutive failing turns allowed after the first before a command task stops as incomplete,
+ * counted separately for read-only turns and for turns whose write or `done` was withheld.
+ */
 const MAX_REPAIR_TURNS = 2;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
@@ -312,8 +315,12 @@ export type CommandLoopEvent =
       /** Inline effects from this program that already landed and must not be re-emitted. */
       alreadyApplied: string[];
     }
-  /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
-  | { type: 'done'; turn: number; answer: string; message?: string }
+  /**
+   * The model emitted `done`; the loop stops. `answer` is the final accumulated text. `incomplete`
+   * marks the closing answer of a run that changed nothing and did not complete: it explains, it
+   * never confirms success (the task's outcome guard reports the failure after it).
+   */
+  | { type: 'done'; turn: number; answer: string; message?: string; incomplete?: true }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string };
 
@@ -674,6 +681,7 @@ export class AssistSession {
             other.ok &&
             (other.kind === result.kind ||
               (WRONG_TARGET_CODES.has(result.error?.code ?? '') &&
+                (this.capabilitySubstitutes.get(result.kind)?.has(other.kind) ?? true) &&
                 (turns[j] ?? 0) > (turns[i] ?? 0) &&
                 completion !== undefined &&
                 ['verified', 'unverified'].includes(assessActuationResult(other)))),
@@ -681,19 +689,45 @@ export class AssistSession {
       // A content-policy block (Model Armor; modelStream marks the task blocked) stays the outcome the
       // user sees, so its own message is not replaced by the generic "did not complete" one. Unless
       // a write's outcome is uncertain: then "incomplete" keeps the "may already have applied" warning.
+      const unsettled = task.effects.filter(
+        (result, i) =>
+          !['verified', 'unverified'].includes(assessActuationResult(result)) &&
+          !retried(result, i),
+      );
+      // Writes the user declined at review are their choice, not a failure: when nothing else landed
+      // the task ends cancelled rather than incomplete (live 2026-10-14: Cancel showed "Some changes
+      // may already have applied"). A decline next to a landed write stays incomplete, so the guard
+      // still reports the partial change.
+      const declinedOnly =
+        unsettled.length > 0 &&
+        unsettled.every((result) => assessActuationResult(result) === 'rejected') &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified'].includes(assessActuationResult(result)),
+        );
       task.status =
         task.status === 'blocked' &&
         !task.effects.some((result) => assessActuationResult(result) === 'uncertain')
           ? 'blocked'
-          : task.effects.some(
-                (result, i) =>
-                  !['verified', 'unverified'].includes(assessActuationResult(result)) &&
-                  !retried(result, i),
-              )
+          : unsettled.length > 0 && !declinedOnly
             ? 'incomplete'
-            : task.status === 'running'
-              ? 'completed'
-              : task.status;
+            : task.status !== 'running'
+              ? task.status
+              : declinedOnly
+                ? 'cancelled'
+                : 'completed';
+      // A command run that changed nothing still delivers the model's closing answer, so its
+      // explanation of why a write could not run here reaches the user; the guard then reports the
+      // incomplete outcome as before (live 2026-10-14: "No changes were applied." with no reason).
+      // Never when a write landed or is uncertain: that answer is only shown once verified.
+      if (
+        completion !== undefined &&
+        mode === 'command' &&
+        task.status === 'incomplete' &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified', 'uncertain'].includes(assessActuationResult(result)),
+        )
+      )
+        yield { ...completion, incomplete: true as const } as typeof completion;
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;
@@ -842,6 +876,11 @@ export class AssistSession {
    * a kind NOT in this set before the effect reaches the gate.
    */
   private capabilityKinds: ReadonlySet<ActuationRequest['kind']> = new Set();
+  /** Per advertised write, the writes its manifest says can stand in for it (`substitutes`). */
+  private capabilitySubstitutes: ReadonlyMap<
+    ActuationRequest['kind'],
+    ReadonlySet<ActuationRequest['kind']>
+  > = new Map();
 
   constructor(
     private readonly bridge: DocBridge,
@@ -1413,6 +1452,7 @@ export class AssistSession {
     const capabilities = await this.effectiveCapabilities();
     // Capture the advertised actuation kinds for the ADR-0005 Phase-2 effect type-check.
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
 
     // Fresh ADR-0005 binding env per task: `$vars` persist across turns WITHIN this loop, but a
     // later independent runCommands() call must not read a binding it never computed.
@@ -1429,7 +1469,8 @@ export class AssistSession {
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
     let pendingNoFenceReprompt = false;
-    let failingTurns = 0;
+    let failingReadTurns = 0;
+    let failingWriteTurns = 0;
     let lastTurn = 0;
 
     for (let turn = 1; turn <= maxTurns || pendingNoFenceReprompt; turn++) {
@@ -1486,7 +1527,7 @@ export class AssistSession {
       }
       pendingNoFenceReprompt = false;
 
-      const { results, done, stopped, message, failed } = yield* this.executeProgramTurn(
+      const { results, done, stopped, message, failed, repair } = yield* this.executeProgramTurn(
         entries,
         turn,
         capabilities,
@@ -1499,10 +1540,20 @@ export class AssistSession {
         return;
       }
       if (stopped) return;
-      // Consecutive turns whose program had a failed line, whether or not it staged a write: a model
-      // that keeps repeating one mistake stops here instead of spending every remaining turn.
-      failingTurns = failed ? failingTurns + 1 : 0;
-      if (failingTurns > MAX_REPAIR_TURNS) {
+      // Consecutive turns whose program had a failed line: a model that keeps repeating one mistake
+      // stops here instead of spending every remaining turn. Failed reads and withheld writes keep
+      // separate counts, so reads that missed cannot use up the corrections a rejected write gets
+      // (live 2026-10-14: two failed `inspect` turns ended the task on the first rejected write,
+      // before the model saw why it was rejected).
+      if (!failed) {
+        failingReadTurns = 0;
+        failingWriteTurns = 0;
+      } else if (repair) {
+        failingWriteTurns++;
+      } else {
+        failingReadTurns++;
+      }
+      if (failingReadTurns > MAX_REPAIR_TURNS || failingWriteTurns > MAX_REPAIR_TURNS) {
         if (this.task) this.task.status = 'incomplete';
         yield {
           type: 'error',
@@ -1658,6 +1709,7 @@ export class AssistSession {
 
     const capabilities = await this.effectiveCapabilities();
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
     this.composeEnv.clear();
     this.resetCommandState();
     this.shareCountThisTask = 0;
@@ -3342,9 +3394,13 @@ export class AssistSession {
         }
         case 'context-kind': {
           const refs = await this.contextRefs(intent.kind);
-          const filtered = intent.selector
+          const exact = intent.selector
             ? refs.filter((ref) => matchesContextSelector(ref, intent.selector!))
             : refs;
+          const filtered =
+            exact.length > 0 || !intent.selector
+              ? exact
+              : refs.filter((ref) => matchesContextLocator(ref, intent.selector!));
           return {
             label: [contextKindVerb(intent.kind), intent.selector].filter(Boolean).join(' '),
             result: contextRefsToData(filtered, this.bridge),
@@ -3353,9 +3409,7 @@ export class AssistSession {
         case 'neighbors': {
           const refs = await this.contextRefs();
           const target =
-            intent.selector !== undefined
-              ? refs.findIndex((ref) => matchesContextSelector(ref, intent.selector!))
-              : -1;
+            intent.selector !== undefined ? findContextRefIndex(refs, intent.selector) : -1;
           const windowed =
             target >= 0
               ? refs.slice(Math.max(0, target - 4), Math.min(refs.length, target + 5))
@@ -3420,7 +3474,7 @@ export class AssistSession {
     const trimmed = selector.trim();
     if (!trimmed) return undefined;
     const refs = await this.toolOperation('context:list', {}, () => this.bridge.listContext());
-    const found = refs.find((ref) => matchesContextSelector(ref, trimmed));
+    const found = refs[findContextRefIndex(refs, trimmed)];
     if (found) return { ref: found, found: true };
     const synthetic = syntheticContextRef(this.bridge.surface, trimmed);
     return synthetic ? { ref: synthetic, found: false } : undefined;
@@ -3689,8 +3743,17 @@ function contextRefProperties(ref: ContextRef, bridge: DocBridge): unknown {
   };
 }
 
+/** Models also write the selector as a prop (`inspect ref="mail:…"`, live 2026-10-14). */
+function selectorNeedle(selector: string): string {
+  return selector
+    .trim()
+    .replace(/^(?:ref|id)\s*=\s*/i, '')
+    .replace(/^(["'])(.*)\1$/, '$2')
+    .trim();
+}
+
 function matchesContextSelector(ref: ContextRef, selector: string): boolean {
-  const needle = selector.trim();
+  const needle = selectorNeedle(selector);
   if (!needle) return false;
   // Models write `inspect selection` / `inspect [selection]` for the live selection ref.
   if (ref.kind === 'selection' && /^\[?\s*selection\s*\]?$/i.test(needle)) return true;
@@ -3702,6 +3765,24 @@ function matchesContextSelector(ref: ContextRef, selector: string): boolean {
     hostRefSelector(ref),
   ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
   return candidates.some((candidate) => candidate === needle);
+}
+
+/**
+ * A read snapshot labels its blocks with a scheme-prefixed locator (Outlook: `mail:<item id>`) that
+ * the model copies, while the context ref carries the bare id. Only ids are compared, never titles
+ * or text, so a prefix-like selector (`A:C`, `Re:Budget`) cannot land on a same-named object.
+ */
+function matchesContextLocator(ref: ContextRef, selector: string): boolean {
+  const needle = selectorNeedle(selector);
+  const unprefixed = needle.replace(/^[a-z][a-z-]*:/i, '');
+  if (!unprefixed || unprefixed === needle) return false;
+  return unprefixed === ref.id || unprefixed === hostRefSelector(ref);
+}
+
+/** Index of the ref a selector names: an exact match on any ref wins over a locator match. */
+function findContextRefIndex(refs: readonly ContextRef[], selector: string): number {
+  const exact = refs.findIndex((ref) => matchesContextSelector(ref, selector));
+  return exact >= 0 ? exact : refs.findIndex((ref) => matchesContextLocator(ref, selector));
 }
 
 function hostRefSelector(ref: ContextRef): string | undefined {
@@ -4241,6 +4322,21 @@ const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([
   'reply-mail',
   'create-mail',
 ]);
+
+/**
+ * The writes each advertised write declares can deliver what it asked for when the host refuses
+ * it as aimed at the wrong target. Only declared kinds are restricted; the rest keep the generic
+ * rule (live 2026-10-14: "change the subject" answered with an unrelated reply counted as done).
+ */
+function substitutesOf(
+  manifest: CapabilityManifest,
+): ReadonlyMap<ActuationRequest['kind'], ReadonlySet<ActuationRequest['kind']>> {
+  return new Map(
+    manifest.actuations.flatMap((a) =>
+      a.substitutes !== undefined ? [[a.kind, new Set(a.substitutes)] as const] : [],
+    ),
+  );
+}
 
 /** Outlook writes that edit the draft the pane is open on, never a window opened by the task. */
 const EDITS_THE_OPEN_DRAFT: ReadonlySet<ActuationRequest['kind']> = new Set([
