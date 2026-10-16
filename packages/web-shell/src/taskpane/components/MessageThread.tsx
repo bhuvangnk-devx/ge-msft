@@ -18,7 +18,6 @@ export interface MessageThreadProps {
   messages: ChatMessage[];
   showEmpty?: boolean;
   disabled?: boolean;
-  onFollowUp?: (text: string) => void;
   surface?: Surface;
   onInsertArtifact?: (artifact: InsertableArtifact) => void;
   onRevealLocation?: (location: string) => void;
@@ -767,15 +766,7 @@ function Citation({ source, id }: { source: SourceRef; id: string }): JSX.Elemen
   );
 }
 
-function AnswerActions({
-  text,
-  onFollowUp,
-  disabled,
-}: {
-  text: string;
-  onFollowUp?: (text: string) => void;
-  disabled: boolean;
-}): JSX.Element {
+function AnswerActions({ text }: { text: string }): JSX.Element {
   const [copyState, setCopyState] = useState('');
   const copy = async (): Promise<void> => {
     const { plain, html } = answerForClipboard(text);
@@ -784,45 +775,12 @@ function AnswerActions({
   return (
     <div className="answer-actions" aria-label="Use this answer">
       <button type="button" onClick={() => void copy()}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V5a1 1 0 0 1 1-1h10" />
+        </svg>
         Copy answer
       </button>
-      {onFollowUp && (
-        <>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              onFollowUp(
-                'Summarize the previous answer as a decision brief: recommendation, evidence, risks, and next steps. Preserve its citations and flag unknowns.',
-              )
-            }
-          >
-            Decision brief
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              onFollowUp(
-                'Turn the previous answer into a checklist with stated owners, dates, and source references. Leave unstated owners and dates blank.',
-              )
-            }
-          >
-            Action checklist
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              onFollowUp(
-                'Check the previous answer against the attached evidence. Separate supported facts, assumptions, contradictions, and unanswered questions. Cite the sources.',
-              )
-            }
-          >
-            Check evidence
-          </button>
-        </>
-      )}
       {copyState && <span role="status">{copyState}</span>}
     </div>
   );
@@ -957,7 +915,6 @@ export function stripCommandBlocks(
 function Message({
   message,
   disabled,
-  onFollowUp,
   surface,
   onInsertArtifact,
   onRevealLocation,
@@ -968,7 +925,6 @@ function Message({
 }: {
   message: ChatMessage;
   disabled: boolean;
-  onFollowUp?: (text: string) => void;
   surface: Surface;
   onInsertArtifact?: (artifact: InsertableArtifact) => void;
   onRevealLocation?: (location: string) => void;
@@ -1066,9 +1022,12 @@ function Message({
             ))}
           </div>
         )}
-        {!isUser && text && !message.streaming && !message.cancelled && !message.error && (
-          <AnswerActions text={text} onFollowUp={onFollowUp} disabled={disabled} />
-        )}
+        {!isUser &&
+          text &&
+          !message.streaming &&
+          !message.cancelled &&
+          !message.error &&
+          !message.clarifying && <AnswerActions text={text} />}
       </div>
     </div>
   );
@@ -1091,7 +1050,6 @@ export function MessageThread({
   messages,
   showEmpty = true,
   disabled = false,
-  onFollowUp,
   surface = 'word',
   onInsertArtifact,
   onRevealLocation,
@@ -1119,7 +1077,6 @@ export function MessageThread({
           key={m.id}
           message={m}
           disabled={disabled}
-          onFollowUp={m === messages[messages.length - 1] ? onFollowUp : undefined}
           surface={surface}
           onInsertArtifact={onInsertArtifact}
           onRevealLocation={onRevealLocation}

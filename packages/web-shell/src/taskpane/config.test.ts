@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { DEFAULT_BRAND } from '../brand.js';
 import {
   reportsFromEnv,
   assistantFromEnv,
@@ -120,6 +121,12 @@ describe('config from env', () => {
       scope: 'https://www.googleapis.com/auth/cloud-platform',
       userProject: 'billing-12345',
     });
+  });
+
+  it('names the assistant in the prompt only when the brand sets promptName', () => {
+    expect(shellConfigFromEnv(full).assistantName).toBeUndefined();
+    const cimb = { ...DEFAULT_BRAND, assistantName: 'CN-GPT', promptName: 'CNGPT' };
+    expect(shellConfigFromEnv(full, cimb).assistantName).toBe('CNGPT');
   });
 
   it('assembles the full shell config with release profile and no secrets', () => {

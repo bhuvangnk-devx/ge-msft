@@ -39,10 +39,12 @@ const chips: ContextChip[] = [
 ];
 
 describe('ContextStrip', () => {
-  it('starts closed: one summary line, no chips', () => {
+  it('starts closed: one line naming the first source, no chips', () => {
     mount(chips);
     const toggle = container.querySelector<HTMLButtonElement>('.context-strip-toggle');
-    expect(toggle?.textContent).toContain('2 sources');
+    expect(toggle?.textContent).toContain('Notebook: Vendor Risk');
+    expect(toggle?.textContent).toContain('+1');
+    expect(toggle?.textContent).not.toContain('available');
     expect(toggle?.getAttribute('aria-expanded')).toBe('false');
     expect(container.querySelectorAll('.smart-chip').length).toBe(0);
   });
@@ -70,12 +72,13 @@ describe('ContextStrip', () => {
     expect(container.querySelectorAll('.smart-chip').length).toBe(2);
   });
 
-  it('opens straight into the manage view from "+ N available"', () => {
+  it('lists every source from "Add sources" inside the dropdown', () => {
     mount(chips);
-    const manage = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('available'),
+    act(() => container.querySelector<HTMLButtonElement>('.context-strip-toggle')?.click());
+    const add = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'Add sources (1)',
     );
-    act(() => manage?.click());
+    act(() => add?.click());
     expect(container.querySelectorAll('.smart-chip').length).toBe(3);
   });
 

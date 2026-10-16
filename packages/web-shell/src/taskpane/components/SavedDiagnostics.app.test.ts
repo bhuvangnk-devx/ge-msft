@@ -4,6 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './App.js';
 import { makeDemoController } from '../preview-interactive.js';
+import type { Reporter, ReportResult } from '../../reporter.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -85,6 +86,54 @@ describe('saved diagnostics in the pane', () => {
   });
 });
 
+describe('the "Reported to support" notice', () => {
+  const notice = (): string | null =>
+    container.querySelector('.report-notice')?.textContent ?? null;
+  const newChat = async (): Promise<void> => {
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="New chat"]')!.click());
+    await settle();
+  };
+
+  it('belongs to the chat it was sent from: New chat clears it', async () => {
+    const reporter = {
+      report: vi.fn(async () => ({
+        status: 'sent' as const,
+        reportId: 'c730e5ec'.padEnd(32, '0'),
+      })),
+    } as unknown as Reporter;
+    const controller = makeDemoController('word', { pace: 0 });
+    act(() => {
+      root.render(createElement(App, { controller, surface: 'word', reporter }));
+    });
+    typeAndSend('what is the launch decision? fail');
+    await settle();
+    expect(reporter.report).toHaveBeenCalledOnce();
+    expect(notice()).toContain('c730e5ec');
+
+    await newChat();
+    expect(notice()).toBeNull();
+  });
+
+  it('is not shown in a new chat when the report finishes sending after it started', async () => {
+    let finish: (r: ReportResult) => void = () => undefined;
+    const reporter = {
+      report: vi.fn(() => new Promise<ReportResult>((resolve) => (finish = resolve))),
+    } as unknown as Reporter;
+    const controller = makeDemoController('word', { pace: 0 });
+    act(() => {
+      root.render(createElement(App, { controller, surface: 'word', reporter }));
+    });
+    typeAndSend('what is the launch decision? fail');
+    await settle();
+    expect(reporter.report).toHaveBeenCalledOnce();
+
+    await newChat();
+    await act(async () => finish({ status: 'sent', reportId: 'c730e5ec'.padEnd(32, '0') }));
+    await settle();
+    expect(notice()).toBeNull();
+  });
+});
+
 describe('the ⋯ earlier-diagnostics button', () => {
   it('is hidden with nothing saved, appears after a request, and copies the chosen one', async () => {
     const writeText = vi.fn(async (_text: string) => undefined);
@@ -93,12 +142,12 @@ describe('the ⋯ earlier-diagnostics button', () => {
     act(() => {
       root.render(createElement(App, { controller, surface: 'word', diagnosticsScope: 'tester' }));
     });
-    expect(container.querySelector('.tw-more')).toBeNull();
+    expect(container.querySelector('[aria-label="Earlier diagnostics"]')).toBeNull();
 
     typeAndSend('what is the launch decision?');
     await settle();
 
-    const more = container.querySelector<HTMLButtonElement>('.tw-more')!;
+    const more = container.querySelector<HTMLButtonElement>('[aria-label="Earlier diagnostics"]')!;
     expect(more).not.toBeNull();
     act(() => more.click());
     const copy = container.querySelector<HTMLButtonElement>(
@@ -110,7 +159,7 @@ describe('the ⋯ earlier-diagnostics button', () => {
     });
 
     act(() => container.querySelector<HTMLButtonElement>('.saved-diagnostics-clear')!.click());
-    expect(container.querySelector('.tw-more')).toBeNull();
+    expect(container.querySelector('[aria-label="Earlier diagnostics"]')).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

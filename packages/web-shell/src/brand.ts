@@ -12,6 +12,8 @@ export interface Brand {
   readonly fullName: string;
   /** Optional line under the name in the header, e.g. "CIMB Niaga AI Assistant". */
   readonly tagline?: string;
+  /** Name the model calls itself in answers (e.g. "CNGPT"); unset keeps the engine's default. */
+  readonly promptName?: string;
 }
 
 declare const __GE_BRAND__: Brand | undefined;

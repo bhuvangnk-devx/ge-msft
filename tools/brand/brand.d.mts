@@ -7,6 +7,8 @@ export interface Brand {
   fullName: string;
   /** Optional line under the product name in the task-pane header. */
   tagline?: string;
+  /** Name the model calls itself; unset keeps the engine's default persona. */
+  promptName?: string;
   fontStylesheet: string;
   iconsDir: string;
   themePath: string | null;
@@ -17,6 +19,7 @@ export interface BrandText {
   assistantName: string;
   fullName: string;
   tagline?: string;
+  promptName?: string;
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];

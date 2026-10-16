@@ -7,8 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Intent, QuickAction, Surface } from '@ge/contracts';
-import type { ContextChip, ConversationsState, Skill } from '../../controller.js';
-import { ContextTray } from './ContextTray.js';
+import type { ConversationsState, Skill } from '../../controller.js';
 import { SkillsPanel } from './SkillsPanel.js';
 import { ActionLibrary } from './ActionLibrary.js';
 import { ConversationHistoryPanel } from './ConversationHistoryPanel.js';
@@ -23,9 +22,6 @@ export interface ToolbarProps {
   /** Combined busy/gate block for actions (state.busy || hasBlockingGate). */
   busy: boolean;
   hasGate: boolean;
-  chips: ContextChip[];
-  attachedCount: number;
-  availableCount: number;
   messageCount: number;
   proposalCount: number;
   skills: Skill[];
@@ -34,9 +30,10 @@ export interface ToolbarProps {
   primaryActionIds: string[];
   hasSettings: boolean;
   settingsPanel?: ReactNode;
-  onToggleChip: (id: string, attach: boolean) => void;
-  onRevealChip: (id: string) => void;
-  onRefreshContext: () => void;
+  /** Extra tools shown under the actions in the Tools panel (e.g. Excel workflows). */
+  tools?: ReactNode;
+  /** The pane's main column, shown beside the sidebar. */
+  children?: ReactNode;
   onRefreshConversations: () => void;
   onResumeConversation: (name: string) => void;
   onInvokeSkill: (name: string, args: Record<string, string>) => void;
@@ -48,39 +45,55 @@ export interface ToolbarProps {
   onClearSavedDiagnostics?: () => void;
 }
 
-type Panel = 'context' | 'actions' | 'skills' | 'sessions' | 'settings' | 'diagnostics';
+type Panel = 'actions' | 'skills' | 'sessions' | 'settings' | 'diagnostics';
 
 const PANEL_TITLE: Readonly<Record<Panel, string>> = {
-  context: 'Context and grounding',
-  actions: 'Find your next action',
+  actions: 'Tools',
   skills: 'Session skills',
-  sessions: 'Conversation history',
-  settings: 'Catalog and routing',
+  sessions: 'History',
+  settings: 'Settings',
   diagnostics: 'Earlier diagnostics',
 };
 
+/** The sidebar's open/closed choice is a per-viewer convenience; storage may be unavailable. */
+const RAIL_KEY = 'cngpt.sidebar';
+/** Below this pane width the sidebar starts collapsed, until the user opens it themselves. */
+const NARROW_PANE = 360;
+function readRailOpen(): boolean {
+  let saved: string | null = null;
+  try {
+    saved = window.localStorage.getItem(RAIL_KEY);
+  } catch {
+    // Storage blocked: fall back to the pane width.
+  }
+  if (saved) return saved !== 'closed';
+  return window.innerWidth >= NARROW_PANE;
+}
+function writeRailOpen(open: boolean): void {
+  try {
+    window.localStorage.setItem(RAIL_KEY, open ? 'open' : 'closed');
+  } catch {
+    // Storage blocked: the choice lasts until the pane closes.
+  }
+}
+
 /**
- * The single icon toolbar that replaces the stacked chrome: the product mark, then one icon per
- * disclosure (Context / Actions / Skills) plus a settings gear. Each icon
- * opens one in-pane modal holding the existing section component in `embedded` mode. The modal owns
- * the available viewport and its own scrolling, so Office's narrow task panes cannot clip long quick
- * task or routing lists behind the composer. Closing: backdrop, close button, or Escape.
+ * The pane shell: a collapsible left sidebar (Chat / Tools / Skills / History / Settings) beside the
+ * main column, which starts with a slim header (mark, name, new chat, ⋯). Each sidebar item opens one
+ * panel over the main column holding the existing section component; Chat closes it. Closing: the
+ * close button, Escape, or Chat.
  */
 export function Toolbar({
   surface,
   allowedIntents,
   busy,
-  chips,
-  attachedCount,
-  availableCount,
-
+  hasGate,
   skills,
   conversations,
   hasSettings,
   settingsPanel,
-  onToggleChip,
-  onRevealChip,
-  onRefreshContext,
+  tools,
+  children,
   onRefreshConversations,
   onResumeConversation,
   onInvokeSkill,
@@ -90,6 +103,7 @@ export function Toolbar({
   onClearSavedDiagnostics,
 }: ToolbarProps): JSX.Element {
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [railOpen, setRailOpen] = useState(readRailOpen);
   const rootRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -108,11 +122,21 @@ export function Toolbar({
     },
     [close, panel],
   );
+  const toggleRail = (): void => {
+    setRailOpen((open) => {
+      writeRailOpen(!open);
+      return !open;
+    });
+  };
+
+  // A decision card (plan, write or share approval) sits in the main column: an open panel would
+  // cover it, e.g. when a workflow run from Tools stages its write. Close the panel so it is seen.
+  useEffect(() => {
+    if (hasGate) setPanel(null);
+  }, [hasGate]);
 
   useEffect(() => {
     if (!panel) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const focusTimer = window.setTimeout(() => {
       dialogRef.current?.querySelector<HTMLButtonElement>('.tw-modal-close')?.focus();
     }, 0);
@@ -122,7 +146,6 @@ export function Toolbar({
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [close, panel]);
@@ -156,7 +179,7 @@ export function Toolbar({
     const shortcut = (event: KeyboardEvent): void => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        const trigger = rootRef.current?.querySelector<HTMLButtonElement>('[aria-label="Actions"]');
+        const trigger = rootRef.current?.querySelector<HTMLButtonElement>('[data-panel="actions"]');
         if (trigger) choose('actions', trigger);
       }
     };
@@ -165,147 +188,116 @@ export function Toolbar({
   }, [choose]);
 
   const hasSkills = skills.length > 0;
+  const railItem = (
+    name: Panel,
+    icon: ToolbarIconName,
+    label: string,
+    title: string,
+    badge?: number,
+  ): JSX.Element => (
+    <button
+      type="button"
+      className={`tw-rail-item${panel === name ? ' on' : ''}`}
+      data-panel={name}
+      aria-expanded={panel === name}
+      aria-controls={`tw-panel-${name}`}
+      title={title}
+      onClick={(event) => choose(name, event.currentTarget)}
+    >
+      <ToolbarIcon name={icon} />
+      <span className="tw-label">{label}</span>
+      {badge ? <span className="tw-badge">{badge}</span> : null}
+    </button>
+  );
 
   return (
-    <div className="tw" ref={rootRef}>
-      <div
-        className={`tw-bar${savedDiagnostics.length > 0 ? ' has-more' : ''}`}
-        role="toolbar"
-        aria-label={`${brand.name} controls`}
-      >
-        <span className="tw-brand" role="img" aria-label={brand.name} title={brand.name} />
-
-        {onNewConversation && (
+    <div className={`tw-shell${railOpen ? '' : ' rail-closed'}`} ref={rootRef}>
+      {railOpen && (
+        <nav className="tw-rail" aria-label={`${brand.name} sidebar`}>
           <button
             type="button"
-            className="tw-icon"
-            aria-label="New chat"
-            title="Start a new chat"
-            disabled={busy}
-            onClick={onNewConversation}
+            className="tw-rail-toggle"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            onClick={toggleRail}
           >
-            <ToolbarIcon name="new" />
-            <span className="tw-label">New</span>
+            <ToolbarIcon name="collapse" />
           </button>
-        )}
-        <button
-          type="button"
-          className={`tw-icon${panel === 'context' ? ' on' : ''}`}
-          aria-expanded={panel === 'context'}
-          aria-haspopup="dialog"
-          aria-controls="tw-panel-context"
-          aria-label={`Context — ${attachedCount} attached, ${availableCount} nearby`}
-          title="Context & grounding"
-          onClick={(event) => choose('context', event.currentTarget)}
-        >
-          <ToolbarIcon name="context" />
-          <span className="tw-label">Context</span>
-          {attachedCount > 0 && <span className="tw-badge">{attachedCount}</span>}
-        </button>
-
-        <button
-          type="button"
-          className={`tw-icon${panel === 'actions' ? ' on' : ''}`}
-          aria-expanded={panel === 'actions'}
-          aria-haspopup="dialog"
-          aria-controls="tw-panel-actions"
-          aria-label="Actions"
-          title="Find actions (Ctrl / ⌘ K)"
-          onClick={(event) => choose('actions', event.currentTarget)}
-        >
-          <ToolbarIcon name="actions" />
-          <span className="tw-label">Actions</span>
-        </button>
-
-        {hasSkills && (
           <button
             type="button"
-            className={`tw-icon${panel === 'skills' ? ' on' : ''}`}
-            aria-expanded={panel === 'skills'}
-            aria-haspopup="dialog"
-            aria-controls="tw-panel-skills"
-            aria-label={`Skills — ${skills.length} registered`}
-            title="Session skills"
-            onClick={(event) => choose('skills', event.currentTarget)}
+            className={`tw-rail-item${panel === null ? ' on' : ''}`}
+            aria-current={panel === null ? 'page' : undefined}
+            title="Chat"
+            onClick={() => panel && close()}
           >
-            <ToolbarIcon name="skills" />
-            <span className="tw-label">Skills</span>
-            <span className="tw-badge">{skills.length}</span>
+            <ToolbarIcon name="chat" />
+            <span className="tw-label">Chat</span>
           </button>
-        )}
+          {railItem('actions', 'tools', 'Tools', 'Tools (Ctrl / ⌘ K)')}
+          {hasSkills && railItem('skills', 'skills', 'Skills', 'Session skills', skills.length)}
+          {railItem('sessions', 'sessions', 'History', 'Conversation history')}
+          <span className="tw-rail-spacer" />
+          {hasSettings && railItem('settings', 'settings', 'Settings', 'Catalog and routing')}
+        </nav>
+      )}
 
-        <button
-          type="button"
-          className={`tw-icon${panel === 'sessions' ? ' on' : ''}`}
-          aria-expanded={panel === 'sessions'}
-          aria-haspopup="dialog"
-          aria-controls="tw-panel-sessions"
-          aria-label={`Conversations — ${conversations.items.length} loaded`}
-          title="Conversations"
-          onClick={(event) => choose('sessions', event.currentTarget)}
-        >
-          <ToolbarIcon name="sessions" />
-          <span className="tw-label">History</span>
-          {conversations.items.length > 0 && (
-            <span className="tw-badge">{conversations.items.length}</span>
+      <div className="tw-main">
+        <header className="tw-head" role="toolbar" aria-label={`${brand.name} controls`}>
+          {!railOpen && (
+            <button
+              type="button"
+              className="tw-head-btn"
+              aria-label="Open sidebar"
+              title="Open sidebar"
+              onClick={toggleRail}
+            >
+              <ToolbarIcon name="menu" />
+            </button>
           )}
-        </button>
+          <span className="tw-brand" role="img" aria-label={brand.name} title={brand.name} />
+          <span className="tw-name">{brand.name}</span>
+          {onNewConversation && (
+            <button
+              type="button"
+              className="tw-head-btn"
+              aria-label="New chat"
+              title="Start a new chat"
+              disabled={busy}
+              onClick={onNewConversation}
+            >
+              <ToolbarIcon name="new" />
+            </button>
+          )}
+          {savedDiagnostics.length > 0 && (
+            <button
+              type="button"
+              className={`tw-head-btn${panel === 'diagnostics' ? ' on' : ''}`}
+              aria-expanded={panel === 'diagnostics'}
+              aria-controls="tw-panel-diagnostics"
+              aria-label="Earlier diagnostics"
+              title="Earlier diagnostics"
+              onClick={(event) => choose('diagnostics', event.currentTarget)}
+            >
+              <ToolbarIcon name="more" />
+            </button>
+          )}
+        </header>
 
-        {hasSettings && (
-          <button
-            type="button"
-            className={`tw-icon${panel === 'settings' ? ' on' : ''}`}
-            aria-expanded={panel === 'settings'}
-            aria-haspopup="dialog"
-            aria-controls="tw-panel-settings"
-            aria-label="Catalog and routing settings"
-            title="Routing"
-            onClick={(event) => choose('settings', event.currentTarget)}
-          >
-            <ToolbarIcon name="settings" />
-            <span className="tw-label">Routing</span>
-          </button>
-        )}
-        {savedDiagnostics.length > 0 && (
-          <button
-            type="button"
-            className={`tw-icon tw-more${panel === 'diagnostics' ? ' on' : ''}`}
-            aria-expanded={panel === 'diagnostics'}
-            aria-haspopup="dialog"
-            aria-controls="tw-panel-diagnostics"
-            aria-label="Earlier diagnostics"
-            title="Earlier diagnostics"
-            onClick={(event) => choose('diagnostics', event.currentTarget)}
-          >
-            <span aria-hidden="true">⋯</span>
-          </button>
-        )}
-      </div>
+        {children}
 
-      {/* Keep every pane mounted so context/catalog state remains warm between disclosures. */}
-      <div
-        className="tw-modal-layer"
-        hidden={!panel}
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) close();
-        }}
-      >
+        {/* Keep every pane mounted so catalog and history state remain warm between disclosures. */}
         <section
           id="tw-modal-dialog"
           ref={dialogRef}
           className="tw-modal"
-          role="dialog"
-          aria-modal="true"
+          hidden={!panel}
           aria-labelledby="tw-modal-title"
           onKeyDown={trapFocus}
         >
           <header className="tw-modal-head">
-            <div>
-              <span className="eyebrow">{brand.name}</span>
-              <h2 id="tw-modal-title" className="tw-modal-title">
-                {panel ? PANEL_TITLE[panel] : 'Commands'}
-              </h2>
-            </div>
+            <h2 id="tw-modal-title" className="tw-modal-title">
+              {panel ? PANEL_TITLE[panel] : ''}
+            </h2>
             <button type="button" className="tw-modal-close" aria-label="Close" onClick={close}>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
@@ -314,17 +306,6 @@ export function Toolbar({
           </header>
 
           <div className="tw-modal-body">
-            <div id="tw-panel-context" className="tw-modal-pane" hidden={panel !== 'context'}>
-              <ContextTray
-                embedded
-                disabled={busy}
-                chips={chips}
-                onToggle={onToggleChip}
-                onReveal={onRevealChip}
-                onRefresh={onRefreshContext}
-              />
-            </div>
-
             <div id="tw-panel-actions" className="tw-modal-pane" hidden={panel !== 'actions'}>
               <ActionLibrary
                 surface={surface}
@@ -335,6 +316,7 @@ export function Toolbar({
                   close();
                 }}
               />
+              {tools}
             </div>
 
             <div id="tw-panel-skills" className="tw-modal-pane" hidden={panel !== 'skills'}>
@@ -394,25 +376,50 @@ export function Toolbar({
   );
 }
 
-type ToolbarIconName = 'new' | 'context' | 'actions' | 'skills' | 'sessions' | 'settings';
+type ToolbarIconName =
+  | 'new'
+  | 'chat'
+  | 'tools'
+  | 'skills'
+  | 'sessions'
+  | 'settings'
+  | 'collapse'
+  | 'menu'
+  | 'more';
 
 function ToolbarIcon({ name }: { name: ToolbarIconName }): JSX.Element {
   const paths: Record<ToolbarIconName, JSX.Element> = {
     new: (
       <>
-        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.3A2.5 2.5 0 0 1 4 13.5z" />
-        <path d="M12 6.5v6M9 9.5h6" />
+        <path d="M12 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+        <path d="M17 3l4 4-9 9H8v-4z" />
       </>
     ),
-    context: (
+    chat: (
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-6 4z" />
+    ),
+    tools: (
       <>
-        <circle cx="12" cy="12" r="3" />
-        <circle cx="5" cy="6" r="2" />
-        <circle cx="19" cy="6" r="2" />
-        <path d="M6.7 7.2 9.4 10M17.3 7.2 14.6 10M12 15v4" />
+        <rect x="4" y="4" width="6.5" height="6.5" rx="1" />
+        <rect x="13.5" y="4" width="6.5" height="6.5" rx="1" />
+        <rect x="4" y="13.5" width="6.5" height="6.5" rx="1" />
+        <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1" />
       </>
     ),
-    actions: <path d="m13 2-8 12h6l-1 8 9-13h-6z" />,
+    collapse: (
+      <>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16M15.5 10 13.5 12l2 2" />
+      </>
+    ),
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    more: (
+      <>
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+      </>
+    ),
     skills: (
       <>
         <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z" />

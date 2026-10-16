@@ -63,6 +63,12 @@ export function loadBrand(id = selectedBrand()) {
     throw new Error(`brands/${id}/brand.json: "tagline" must be a non-empty string when set.`);
   }
   if (
+    raw.promptName !== undefined &&
+    (typeof raw.promptName !== 'string' || !raw.promptName.trim())
+  ) {
+    throw new Error(`brands/${id}/brand.json: "promptName" must be a non-empty string when set.`);
+  }
+  if (
     !raw.fontStylesheet.startsWith('https://fonts.googleapis.com/') ||
     /["'<>\s]/.test(raw.fontStylesheet)
   ) {
@@ -80,6 +86,7 @@ export function loadBrand(id = selectedBrand()) {
     assistantName: raw.assistantName,
     fullName: raw.fullName,
     ...(raw.tagline ? { tagline: raw.tagline } : {}),
+    ...(raw.promptName ? { promptName: raw.promptName } : {}),
     fontStylesheet: raw.fontStylesheet,
     iconsDir,
     themePath: existsSync(themePath) ? themePath : null,
@@ -94,6 +101,7 @@ export function brandText(brand) {
     assistantName: brand.assistantName,
     fullName: brand.fullName,
     ...(brand.tagline ? { tagline: brand.tagline } : {}),
+    ...(brand.promptName ? { promptName: brand.promptName } : {}),
   };
 }
 

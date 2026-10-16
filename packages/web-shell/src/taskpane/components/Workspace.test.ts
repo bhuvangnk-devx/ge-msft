@@ -6,7 +6,6 @@ import { quickActionsForSurface } from '@ge/contracts';
 import { Composer, parseComposerInput } from './Composer.js';
 import { ActionLibrary, filterActions } from './ActionLibrary.js';
 import { invocationToSeed } from './quick-action-seed.js';
-import { invocationToGrounding } from './App.js';
 import { ContextStrip } from './ContextStrip.js';
 import { MessageThread } from './MessageThread.js';
 import { makeDemoController } from '../preview-interactive.js';
@@ -87,29 +86,10 @@ describe('structured workspace interactions', () => {
       'Output format: Decision brief. Writing style: Executive.',
     );
   });
-  it('carries a source picker id into real request grounding, then clears per-request picks', () => {
-    const id = 'projects/p/locations/global/collections/default_collection/dataStores/policy';
-    const invoke = mountComposer({
-      mentionOptions: { datastore: [{ id, label: 'Policy library' }] },
-    });
-    click('.composer-source-results button');
-    expect(container.querySelector('.composer-picked')?.textContent).toContain('Policy library');
-    change('textarea', 'What changed?');
-    submit();
-    const invocation = invoke.mock.calls[0]![0];
-    expect(invocation.raw).toBe('What changed?');
-    expect(invocationToGrounding(invocation)?.dataStoreSpecs).toEqual([{ dataStore: id }]);
-    expect(container.querySelector('.composer-picked')).toBeNull();
-  });
-  it('removes a picked source from grounding before submission', () => {
-    const invoke = mountComposer({
-      mentionOptions: { datastore: [{ id: 'store-1', label: 'Policies' }] },
-    });
-    click('.composer-source-results button');
-    click('.composer-picked button');
-    change('textarea', 'Question');
-    submit();
-    expect(invoke.mock.calls[0]![0].mentions).toEqual([]);
+  it('has no + Sources picker under the ask box', () => {
+    mountComposer({ mentionOptions: { datastore: [{ id: 'store-1', label: 'Policies' }] } });
+    expect(container.querySelector('[aria-label="Add sources to this request"]')).toBeNull();
+    expect(container.textContent).not.toContain('+ Sources');
   });
   it('an unsupported typed verb cannot become a write', () => {
     const invoke = mountComposer();
@@ -208,27 +188,32 @@ describe('structured workspace interactions', () => {
           },
         ],
         onInsertArtifact: vi.fn(),
-        onFollowUp: vi.fn(),
       }),
     );
     expect(container.querySelector('.md-artifact-insert')).toBeNull();
     expect(container.querySelector('.answer-actions')).toBeNull();
   });
-  it('allows answer follow-ups without an Excel insertion destination', () => {
-    const follow = vi.fn();
+  it('offers only Copy answer under an answer, and nothing under a clarifying question', () => {
     mount(
       createElement(MessageThread, {
         surface: 'excel',
-        messages: [{ id: 'a', role: 'assistant', text: 'Analysis complete.' }],
-        onFollowUp: follow,
+        messages: [
+          { id: 'a', role: 'assistant', text: 'Analysis complete.' },
+          {
+            id: 'b',
+            role: 'assistant',
+            text: 'Before I plan this, I need one detail.',
+            clarifying: true,
+          },
+        ],
         insertArtifactDisabledReason: 'Select a destination range first.',
       }),
     );
-    const button = [
-      ...container.querySelectorAll<HTMLButtonElement>('.answer-actions button'),
-    ].find((b) => b.textContent === 'Decision brief')!;
-    act(() => button.click());
-    expect(follow).toHaveBeenCalledOnce();
+    const groups = container.querySelectorAll('.answer-actions');
+    expect(groups).toHaveLength(1);
+    expect([...groups[0]!.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      'Copy answer',
+    ]);
   });
   it('uses a live controller in the demo and suspends execution at the real approval coordinator', async () => {
     const controller = makeDemoController('word', { pace: 0 });

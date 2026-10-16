@@ -40,7 +40,8 @@ describe('Excel full-stack integration', () => {
     await ui!.act(() => void ui!.controller.refreshContext());
     await ui!.flush();
 
-    const chips = ui!.container.querySelectorAll('.chip');
+    await ui!.showSources();
+    const chips = ui!.container.querySelectorAll('.smart-chip');
     expect(chips.length).toBeGreaterThanOrEqual(2);
     const text = ui!.container.textContent ?? '';
     // The seeded selection (Sales!A2:D2) and the used range (Sales!A1:D7) both appear as chips.

@@ -1,7 +1,7 @@
 import { AnalysisWorkbench } from './AnalysisWorkbench.js';
 import { WorkflowWorkbench } from './WorkflowWorkbench.js';
 import { EvidencePanel } from './EvidencePanel.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   deriveOutput,
   actionParameters,
@@ -70,6 +70,8 @@ export interface AppProps {
   diagnosticsScope?: string;
   /** Sends an error report for each failed request (reports mode `auto`). */
   reporter?: Reporter;
+  /** The signed-in user's name for the home greeting; the greeting has no name without it. */
+  userName?: string;
 }
 
 const SURFACE_PLACEHOLDER: Readonly<Record<string, string>> = {
@@ -382,6 +384,7 @@ export function App({
   onCatalogRouting,
   diagnosticsScope,
   reporter,
+  userName,
 }: AppProps): JSX.Element {
   const state = usePanelState(controller);
   const savedStore = useMemo(
@@ -413,6 +416,15 @@ export function App({
   const wasBusy = useRef(false);
   const requestStarted = useRef<string>();
   const [reportNotice, setReportNotice] = useState<ReportResult>();
+  // The notice belongs to the chat it was sent from: a new (empty) chat clears it, and a report
+  // that finishes sending after the chat changed is not shown.
+  const reportChat = useRef(0);
+  const chatIsEmpty = state.messages.length === 0;
+  useEffect(() => {
+    if (!chatIsEmpty) return;
+    reportChat.current += 1;
+    setReportNotice(undefined);
+  }, [chatIsEmpty]);
   useEffect(() => {
     const question = typedQuestion.current;
     if (!wasBusy.current && state.busy) {
@@ -429,9 +441,12 @@ export function App({
           const report: CopyDiagnostics = copy.question
             ? { question: copy.question, diagnostic: copy.diagnostic! }
             : { question: '(not captured)', diagnostic: copy };
+          const chat = reportChat.current;
           void readHost(surface)
             .then((host) => reporter.report(kind, host, report))
-            .then(setReportNotice)
+            .then((result) => {
+              if (reportChat.current === chat) setReportNotice(result);
+            })
             .catch(() => undefined);
         }
       } catch {
@@ -453,13 +468,34 @@ export function App({
     wasBusy.current = state.busy;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- activityDiagnostics reads refs only
   }, [state.busy, controller, surface, savedStore, reporter]);
-  const [composerDraft, setComposerDraft] = useState<{ id: number; text: string }>();
   // The parameterized action awaiting its `{{name}}` fill values (Workstream H), or undefined.
   const [paramFill, setParamFill] = useState<QuickAction | undefined>(undefined);
   const hasBlockingGate = Boolean(
     state.pendingCommandPlan ?? state.pendingPlan ?? state.pendingWrite ?? state.pendingShare,
   );
   const actionBlocked = state.busy || hasBlockingGate;
+
+  // Keep the newest message in view: follow the thread while the user is at the bottom, stop when
+  // they scroll up to read, and jump back down when they send a new message.
+  const threadRef = useRef<HTMLElement>(null);
+  const followThread = useRef(true);
+  const seenMessages = useRef(0);
+  useLayoutEffect(() => {
+    const region = threadRef.current;
+    const count = state.messages.length;
+    if (count < seenMessages.current) followThread.current = true; // a new chat
+    if (state.messages.slice(seenMessages.current).some((m) => m.role === 'user')) {
+      followThread.current = true;
+    }
+    seenMessages.current = count;
+    if (region && followThread.current) region.scrollTop = region.scrollHeight;
+  }, [state.messages, state.steps, state.proposals, state.error, state.pendingPlanClarification]);
+  const onThreadScroll = (): void => {
+    const region = threadRef.current;
+    if (!region) return;
+    followThread.current = region.scrollHeight - region.scrollTop - region.clientHeight < 48;
+  };
+
   const primaryActions = useMemo(
     () => surfacePrimaryActions(surface, allowedIntents),
     [allowedIntents, surface],
@@ -468,8 +504,6 @@ export function App({
     () => primaryActions.map((action) => action.id),
     [primaryActions],
   );
-  const attachedCount = state.chips.filter((chip) => chip.attached).length;
-  const availableCount = Math.max(0, state.chips.length - attachedCount);
   const proposalCount = state.proposals.filter((proposal) => proposal.status === 'pending').length;
   const insertExcelRange = surface === 'excel' ? excelSelectionRange(state.chips) : undefined;
   const insertArtifactDisabledReason = actionBlocked
@@ -581,9 +615,6 @@ export function App({
         agentLabel={agentLabel}
         busy={actionBlocked}
         hasGate={hasBlockingGate}
-        chips={state.chips}
-        attachedCount={attachedCount}
-        availableCount={availableCount}
         messageCount={state.messages.length}
         proposalCount={proposalCount}
         skills={state.skills ?? []}
@@ -599,12 +630,17 @@ export function App({
             }}
           />
         }
-        onToggleChip={onToggle}
-        onRevealChip={(id) => void controller.reveal(id)}
-        onRefreshContext={() => void controller.refreshContext()}
+        tools={
+          <>
+            <WorkflowWorkbench state={state} controller={controller} disabled={actionBlocked} />
+            <AnalysisWorkbench state={state} controller={controller} disabled={actionBlocked} />
+          </>
+        }
         onRefreshConversations={() => void controller.refreshConversations()}
         onResumeConversation={(name) => {
           typedQuestion.current = undefined;
+          reportChat.current += 1;
+          setReportNotice(undefined);
           void controller.resumeConversation(name);
         }}
         onNewConversation={() => {
@@ -618,174 +654,174 @@ export function App({
         }}
         onInvokeSkill={(name, args) => void controller.invokeSkill(name, args)}
         onQuickAction={onQuickAction}
-      />
+      >
+        <ContextStrip
+          chips={state.chips}
+          disabled={actionBlocked}
+          onToggle={onToggle}
+          onReveal={(id) => void controller.reveal(id)}
+          onRefresh={() => void controller.refreshContext()}
+        />
 
-      <ContextStrip
-        chips={state.chips}
-        disabled={actionBlocked}
-        onToggle={onToggle}
-        onReveal={(id) => void controller.reveal(id)}
-        onRefresh={() => void controller.refreshContext()}
-      />
-
-      {state.suggestions.length > 0 && (
-        <section className="suggestions" aria-label="Suggestions">
-          {state.suggestions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="suggestion"
-              disabled={actionBlocked}
-              onClick={() => {
-                if (s.query) controller.onAutomate(s.query);
-                controller.dismissSuggestion(s.id);
-              }}
-            >
-              <span className="s-title">{s.title}</span>
-              {s.detail && <span className="s-detail">{s.detail}</span>}
-            </button>
-          ))}
-        </section>
-      )}
-
-      <main className="thread-region" aria-label="Conversation and activity">
-        <WorkflowWorkbench state={state} controller={controller} disabled={actionBlocked} />
-        <AnalysisWorkbench state={state} controller={controller} disabled={actionBlocked} />
-        <EvidencePanel evidence={state.evidence} />
-        {state.resume && !state.busy ? (
-          <ResumeCard
-            request={state.resume.request}
-            made={state.resume.changes.length}
-            onFinish={() => void controller.finishResume()}
-            onDismiss={() => controller.dismissResume()}
-          />
-        ) : null}
-        {state.messages.length === 0 && (
-          <WorkspaceHome
-            surface={surface}
-            actions={primaryActions}
-            disabled={actionBlocked}
-            onAction={onQuickAction}
-          />
+        {state.suggestions.length > 0 && (
+          <section className="suggestions" aria-label="Suggestions">
+            {state.suggestions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className="suggestion"
+                disabled={actionBlocked}
+                onClick={() => {
+                  if (s.query) controller.onAutomate(s.query);
+                  controller.dismissSuggestion(s.id);
+                }}
+              >
+                <span className="s-title">{s.title}</span>
+                {s.detail && <span className="s-detail">{s.detail}</span>}
+              </button>
+            ))}
+          </section>
         )}
-        {state.conversationFrom && state.conversationFrom !== surface ? (
-          <p className="conversation-from" role="note">
-            This chat started in {appName(state.conversationFrom)}. Earlier answers are about that{' '}
-            {appItem(state.conversationFrom)}; new questions use this {appItem(surface)}.
-          </p>
-        ) : null}
-        <MessageThread
-          messages={state.messages}
-          showEmpty={false}
+
+        <main
+          className="thread-region"
+          aria-label="Conversation and activity"
+          ref={threadRef}
+          onScroll={onThreadScroll}
+        >
+          <EvidencePanel evidence={state.evidence} />
+          {state.resume && !state.busy ? (
+            <ResumeCard
+              request={state.resume.request}
+              made={state.resume.changes.length}
+              onFinish={() => void controller.finishResume()}
+              onDismiss={() => controller.dismissResume()}
+            />
+          ) : null}
+          {state.messages.length === 0 && (
+            <WorkspaceHome
+              surface={surface}
+              userName={userName}
+              actions={primaryActions}
+              disabled={actionBlocked}
+              onAction={onQuickAction}
+            />
+          )}
+          {state.conversationFrom && state.conversationFrom !== surface ? (
+            <p className="conversation-from" role="note">
+              This chat started in {appName(state.conversationFrom)}. Earlier answers are about that{' '}
+              {appItem(state.conversationFrom)}; new questions use this {appItem(surface)}.
+            </p>
+          ) : null}
+          <MessageThread
+            messages={state.messages}
+            showEmpty={false}
+            disabled={actionBlocked}
+            surface={surface}
+            onInsertArtifact={onInsertArtifact}
+            onRevealLocation={(target) => void controller.revealLocation(surface, target)}
+            insertArtifactDisabledReason={insertArtifactDisabledReason}
+            language={state.language ?? 'en'}
+            onUndoChanges={(id) => void controller.undoChanges(id)}
+            onRetry={() => void controller.retryLast()}
+          />
+
+          {reportNotice?.status === 'sent' ? (
+            <p className="report-notice" role="status">
+              {uiStrings(state.language ?? 'en').reportSent(reportNotice.reportId.slice(0, 8))}
+            </p>
+          ) : reportNotice?.status === 'failed' ? (
+            <p className="report-notice" role="status">
+              {uiStrings(state.language ?? 'en').reportNotSent}
+            </p>
+          ) : null}
+
+          <PlanClarificationCard
+            pending={state.pendingPlanClarification}
+            disabled={state.busy}
+            onAnswer={(answer) => controller.answerPlanClarification(answer)}
+          />
+
+          <RunSteps steps={state.steps} diagnostics={activityDiagnostics} />
+
+          <ProposalCard
+            proposals={state.proposals}
+            disabled={actionBlocked}
+            onApply={(id: ChangeId) => {
+              if (!actionBlocked) void controller.applyProposal(id);
+            }}
+          />
+
+          {state.error && (
+            <div className="panel-error" role="alert">
+              {state.error}
+            </div>
+          )}
+        </main>
+
+        {hasBlockingGate && (
+          <section className="gate-rail" aria-label="Decision required">
+            <CommandPlanCard
+              language={state.language ?? 'en'}
+              pending={state.pendingCommandPlan}
+              onConfirm={() => controller.confirmCommandPlan()}
+              onCancel={() => controller.cancelCommandPlan()}
+            />
+
+            <PlanApprovalCard
+              language={state.language ?? 'en'}
+              plan={state.pendingPlan}
+              onRevealTarget={(target) => void controller.revealLocation(surface, target)}
+              onApprove={() => controller.approvePlan()}
+              onReject={() => controller.rejectPlan()}
+            />
+
+            <WriteApprovalCard
+              language={state.language ?? 'en'}
+              pending={state.pendingWrite}
+              onApprove={() => controller.approvePendingWrite()}
+              onReject={() => controller.rejectPendingWrite()}
+            />
+
+            <ShareApprovalCard
+              pending={state.pendingShare}
+              onApprove={() => controller.approvePendingShare()}
+              onReject={() => controller.rejectPendingShare()}
+            />
+          </section>
+        )}
+
+        <QuickActionParamForm
+          key={paramFill?.id}
+          action={paramFill}
           disabled={actionBlocked}
-          onFollowUp={(text) =>
-            setComposerDraft((previous) => ({ id: (previous?.id ?? 0) + 1, text }))
-          }
+          onSubmit={onParamFillSubmit}
+          onCancel={() => setParamFill(undefined)}
+        />
+
+        <Composer
+          key={surface}
+          busy={state.busy}
+          disabled={hasBlockingGate}
           surface={surface}
-          onInsertArtifact={onInsertArtifact}
-          onRevealLocation={(target) => void controller.revealLocation(surface, target)}
-          insertArtifactDisabledReason={insertArtifactDisabledReason}
-          language={state.language ?? 'en'}
-          onUndoChanges={(id) => void controller.undoChanges(id)}
-          onRetry={() => void controller.retryLast()}
-        />
-
-        {reportNotice?.status === 'sent' ? (
-          <p className="report-notice" role="status">
-            {uiStrings(state.language ?? 'en').reportSent(reportNotice.reportId.slice(0, 8))}
-          </p>
-        ) : reportNotice?.status === 'failed' ? (
-          <p className="report-notice" role="status">
-            {uiStrings(state.language ?? 'en').reportNotSent}
-          </p>
-        ) : null}
-
-        <PlanClarificationCard
-          pending={state.pendingPlanClarification}
-          disabled={state.busy}
-          onAnswer={(answer) => controller.answerPlanClarification(answer)}
-        />
-
-        <RunSteps steps={state.steps} diagnostics={activityDiagnostics} />
-
-        <ProposalCard
-          proposals={state.proposals}
-          disabled={actionBlocked}
-          onApply={(id: ChangeId) => {
-            if (!actionBlocked) void controller.applyProposal(id);
+          allowedIntents={allowedIntents}
+          // The plain-string fallback (unreachable while `onInvoke` is set, since Composer prefers it).
+          // Still guarded against an unfilled `{{…}}` so this is not a second un-guarded `send` seam if a
+          // refactor ever drops `onInvoke` (security review H, LOW).
+          onSend={(q) => {
+            if (!hasUnfilledPlaceholder(q)) void controller.send(q);
+          }}
+          onCancel={() => controller.cancel()}
+          onInvoke={onInvoke}
+          placeholder={SURFACE_PLACEHOLDER[surface]}
+          mentionOptions={{
+            datastore: state.availableDataStores.map((d) => ({
+              id: d.resourceName,
+              label: d.displayName,
+            })),
           }}
         />
-
-        {state.error && (
-          <div className="panel-error" role="alert">
-            {state.error}
-          </div>
-        )}
-      </main>
-
-      {hasBlockingGate && (
-        <section className="gate-rail" aria-label="Decision required">
-          <CommandPlanCard
-            language={state.language ?? 'en'}
-            pending={state.pendingCommandPlan}
-            onConfirm={() => controller.confirmCommandPlan()}
-            onCancel={() => controller.cancelCommandPlan()}
-          />
-
-          <PlanApprovalCard
-            language={state.language ?? 'en'}
-            plan={state.pendingPlan}
-            onRevealTarget={(target) => void controller.revealLocation(surface, target)}
-            onApprove={() => controller.approvePlan()}
-            onReject={() => controller.rejectPlan()}
-          />
-
-          <WriteApprovalCard
-            language={state.language ?? 'en'}
-            pending={state.pendingWrite}
-            onApprove={() => controller.approvePendingWrite()}
-            onReject={() => controller.rejectPendingWrite()}
-          />
-
-          <ShareApprovalCard
-            pending={state.pendingShare}
-            onApprove={() => controller.approvePendingShare()}
-            onReject={() => controller.rejectPendingShare()}
-          />
-        </section>
-      )}
-
-      <QuickActionParamForm
-        key={paramFill?.id}
-        action={paramFill}
-        disabled={actionBlocked}
-        onSubmit={onParamFillSubmit}
-        onCancel={() => setParamFill(undefined)}
-      />
-
-      <Composer
-        key={surface}
-        draft={composerDraft}
-        busy={state.busy}
-        disabled={hasBlockingGate}
-        surface={surface}
-        allowedIntents={allowedIntents}
-        // The plain-string fallback (unreachable while `onInvoke` is set, since Composer prefers it).
-        // Still guarded against an unfilled `{{…}}` so this is not a second un-guarded `send` seam if a
-        // refactor ever drops `onInvoke` (security review H, LOW).
-        onSend={(q) => {
-          if (!hasUnfilledPlaceholder(q)) void controller.send(q);
-        }}
-        onCancel={() => controller.cancel()}
-        onInvoke={onInvoke}
-        placeholder={SURFACE_PLACEHOLDER[surface]}
-        mentionOptions={{
-          datastore: state.availableDataStores.map((d) => ({
-            id: d.resourceName,
-            label: d.displayName,
-          })),
-        }}
-      />
+      </Toolbar>
     </div>
   );
 }

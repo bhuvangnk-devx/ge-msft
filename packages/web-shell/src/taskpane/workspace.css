@@ -1,7 +1,7 @@
 /* Workspace controls extend the existing paper, ink, and functional blue palette. */
 .context-strip {
   flex: 0 0 auto;
-  padding: 10px var(--s5) 12px;
+  padding: 8px var(--s4) 10px;
   border-bottom: 1px solid var(--hairline-soft);
   background: var(--surface);
   font-size: var(--fz-sm);
@@ -91,73 +91,63 @@
   padding: 3px 0;
 }
 .workspace-home {
-  padding: 28px var(--s5) 20px;
+  padding: 24px var(--s4) 16px;
   max-width: 720px;
-  margin: auto;
-}
-.workspace-kicker {
-  color: var(--blue-ink);
-  font-size: var(--fz-sm);
-  font-weight: 600;
+  margin: 0 auto;
+  width: 100%;
 }
 .workspace-home h1 {
-  font-size: 26px;
-  line-height: 1.15;
-  letter-spacing: -0.8px;
-  font-weight: 600;
-  margin: 10px 0;
-  max-width: 430px;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  font-weight: 700;
+  margin: 0;
 }
 .workspace-home > p {
-  font-size: var(--fz-lg);
-  line-height: 1.6;
+  font-size: var(--fz-xl);
+  line-height: 1.5;
   color: var(--ink-2);
-  margin: 0 0 22px;
-  max-width: 490px;
+  margin: 2px 0 18px;
+}
+.workspace-try {
+  margin-bottom: 8px;
+  font-size: var(--fz-md);
+  color: var(--ink-2);
 }
 .workspace-actions {
   display: grid;
-  border-top: 1px solid var(--hairline-soft);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
-.workspace-action {
+.workspace-actions .workspace-action {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 4px;
-  border: 0;
-  border-bottom: 1px solid var(--hairline-soft);
-  background: transparent;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fz-md);
+  font-weight: 500;
+  line-height: 1.3;
   text-align: left;
   cursor: pointer;
 }
 .workspace-action:hover:not(:disabled) {
-  background: var(--surface);
+  border-color: var(--hairline);
+  background: var(--hover);
 }
-.workspace-action-index {
-  font: 10px var(--mono);
-  color: var(--ink-2);
-}
-.workspace-action strong {
-  display: block;
-  font-size: var(--fz-lg);
-  line-height: 1.35;
-  font-weight: 600;
-}
-.workspace-action small {
-  display: block;
-  margin-top: 5px;
-  color: var(--ink-2);
-  font-size: var(--fz-sm);
-}
-.workspace-action-arrow {
-  margin-left: auto;
-  color: var(--blue);
-}
-.workspace-hint {
-  margin-top: 16px;
-  font-size: var(--fz-sm);
-  color: var(--ink-2);
-  line-height: 1.5;
+.workspace-action-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--blue-ink);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .action-library {
   padding: 0 0 12px;
@@ -318,7 +308,6 @@
 .composer-tools summary::-webkit-details-marker {
   display: none;
 }
-.composer-source-picker,
 .composer-options-popover {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -333,12 +322,6 @@
   border-radius: 8px;
   box-shadow: 0 8px 28px #1b1c1c22;
 }
-.composer-source-picker label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-.composer-source-picker input,
 .composer-options-popover select {
   width: 100%;
   color: var(--ink);
@@ -347,31 +330,6 @@
   border-radius: var(--r);
   background: white;
   font: inherit;
-}
-.composer-source-results {
-  margin-top: 8px;
-}
-.composer-source-results button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  border: 0;
-  padding: 10px 6px;
-  background: white;
-  text-align: left;
-  cursor: pointer;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.composer-source-results button[aria-pressed='true'] {
-  color: var(--blue-ink);
-  background: #eff5fc;
-}
-.composer-source-picker p {
-  color: var(--ink-2);
-  line-height: 1.5;
-  margin: 10px 0 0;
 }
 .composer-options-popover {
   display: grid;
@@ -389,6 +347,9 @@
   margin: 12px 0 2px;
 }
 .answer-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid var(--hairline-soft);
   border-radius: 12px;
   padding: 5px 8px;
@@ -399,6 +360,24 @@
 }
 .answer-actions button:hover:not(:disabled) {
   background: #eff5fc;
+}
+.answer-actions svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.composer-options-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
 }
 .answer-actions > span {
   font-size: var(--fz-sm);
@@ -489,14 +468,10 @@
 .panel .tw-label {
   font-size: 11px;
 }
-.panel .tw-icon {
-  border-color: transparent;
-  border-radius: 5px;
-}
-.panel .tw-icon:hover,
-.panel .tw-icon.on {
-  background: #eff5fc;
-  border-color: #bacce0;
+/* a brand theme's tint when it defines one (CIMB), else the default blue */
+.panel .tw-rail-item.on {
+  background: var(--primary-tint, #eff5fc);
+  color: var(--primary-hover, var(--blue-ink));
 }
 .panel .scope-option {
   font-size: 11px;
@@ -548,8 +523,7 @@
 .panel .library-filters button {
   font-size: 11px;
 }
-.panel .answer-actions button,
-.panel .composer-source-results button {
+.panel .answer-actions button {
   font-size: 12px;
 }
 
