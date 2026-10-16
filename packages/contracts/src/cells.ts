@@ -79,3 +79,62 @@ export function rangeForGrid(address: string, rows: number, columns: number): st
   const origin = `${label(firstColumn)}${firstRow}`;
   return `${prefix}${origin}${rows === 1 && columns === 1 ? '' : `:${label(lastColumn)}${lastRow}`}`;
 }
+
+const columnIndex = (letters: string): number =>
+  [...letters.toUpperCase()].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0);
+const columnLabel = (index: number): string => {
+  let s = '';
+  for (let n = index; n > 0; n = Math.floor((n - 1) / 26))
+    s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+};
+
+/**
+ * A formula moved `rows` down and `columns` right, as Excel adjusts it on fill or copy: relative
+ * A1 references shift, `$`-anchored parts stay. Text in double quotes, function names (`LOG10(`) and
+ * whole-column references (`A:A`) are left alone. A value that is not a formula is returned as is.
+ */
+export function shiftFormula(formula: string, rows: number, columns: number): string {
+  if (!formula.startsWith('=')) return formula;
+  return (
+    formula
+      // Text in double quotes and quoted sheet names ('Q1'!A1) are never references to shift.
+      .split(/("(?:[^"]|"")*"|'(?:[^']|'')*')/)
+      .map((part, i) =>
+        i % 2 === 1
+          ? part
+          : part.replace(
+              /(?<![A-Za-z0-9_.])(\$?)([A-Za-z]{1,3})(\$?)([1-9]\d*)(?![\w(!])/g,
+              (ref, colAbs: string, col: string, rowAbs: string, row: string) => {
+                const c = colAbs ? columnIndex(col) : columnIndex(col) + columns;
+                const r = rowAbs ? Number(row) : Number(row) + rows;
+                if (c < 1 || c > 16384 || r < 1 || r > 1048576)
+                  throw new Error(
+                    `Filling ${ref} moves it off the worksheet; choose a smaller range.`,
+                  );
+                return `${colAbs}${colAbs ? col : columnLabel(c)}${rowAbs}${r}`;
+              },
+            ),
+      )
+      .join('')
+  );
+}
+
+/**
+ * The grid for writing one value over a whole range (`set I2:I57 =IF(A2=A1,…)`), like Excel's
+ * Ctrl+Enter: the formula as written goes to the first cell and shifts for every other cell; a
+ * plain value repeats. Undefined for a single cell, so `set` keeps writing just that cell.
+ */
+export function fillRange(address: string, value: string): string[][] | undefined {
+  const match = /^\$?([A-Za-z]{1,3})\$?([1-9]\d*):\$?([A-Za-z]{1,3})\$?([1-9]\d*)$/.exec(
+    address.slice(address.lastIndexOf('!') + 1),
+  );
+  if (!match) return undefined;
+  const rows = Number(match[4]) - Number(match[2]) + 1;
+  const columns = columnIndex(match[3]!) - columnIndex(match[1]!) + 1;
+  if (rows < 1 || columns < 1 || rows * columns === 1) return undefined;
+  if (rows * columns > 100_000) throw new Error('Write dimensions exceed the cell budget.');
+  return Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: columns }, (_, c) => shiftFormula(value, r, c)),
+  );
+}

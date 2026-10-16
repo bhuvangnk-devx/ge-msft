@@ -607,10 +607,10 @@ def parse_line(line: str):
     if verb == "set":
         sp = re.search(r"\s", rest)
         if not sp:
-            return {"error": "set needs a cell and a value — usage: set <A1> <value|=formula>"}
+            return {"error": "set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>"}
         cell, value = rest[: sp.start()], rest[sp.start():].strip()
         if not cell or not value:
-            return {"error": "set needs a cell and a value — usage: set <A1> <value|=formula>"}
+            return {"error": "set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>"}
         return {"verb": "set", "cell": cell, "value": value}
 
     if verb == "grid":

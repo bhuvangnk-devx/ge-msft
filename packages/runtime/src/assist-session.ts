@@ -19,6 +19,7 @@ import {
   commandIntentText,
   CONFIRMED_PLAN_CLOSE,
   CONFIRMED_PLAN_OPEN,
+  fillRange,
   intentsForManifest,
   isReversibleKind,
   isAnalysisBindingKind,
@@ -1953,21 +1954,26 @@ export class AssistSession {
           result.error != null,
       );
       const effects = this.task?.effects ?? [];
+      // Same rule as the end of the task: a write the host cannot read back (format, chart)
+      // counts when it landed cleanly; an uncertain, failed or mismatched one never does
+      // (CIMB UAT 2026-10-16: "did not finish" next to the landed change).
       const verified =
         this.shareCountThisTask === 0 &&
-        effects.every((result) => assessActuationResult(result) === 'verified');
+        effects.every((result) =>
+          ['verified', 'unverified'].includes(assessActuationResult(result)),
+        );
       if (!errors && verified && this.task?.status === 'running') plan.done = true;
       else {
         plan.results.push({
           error:
-            'Verified completion requires successful operations and verified readback for every effect. Review the receipts; do not replay a landed write.',
+            'Verified completion requires successful operations, and a matching readback wherever the host returns one. Review the receipts; do not replay a landed write.',
         });
         if (this.task) this.task.status = 'incomplete';
         yield {
           type: 'error',
           code: 'verification_incomplete',
           message:
-            'Some operations could not be verified. Review the receipts; a landed write must not be replayed.',
+            'Some operations failed or could not be confirmed. Review the receipts; a landed write must not be replayed.',
         };
       }
     }
@@ -4004,7 +4010,14 @@ function renderCommandLine(
       // The expression form is written with an assignment `=` (`set B2 = ($t | sum X)`); a literal
       // is verbatim (`set F2 =SUM(A1,A2)` / `set B16 Total`).
       const value = command.valueExpr ? `= ${renderExprArg(command.valueExpr)}` : command.value;
-      return `set ${command.cell} ${value}`;
+      // A range fill shows its size, and an empty value says it clears (the reviewer sees what lands).
+      const grid = command.valueExpr ? undefined : safeFill(command.cell, command.value);
+      const size = grid ? grid.length * (grid[0]?.length ?? 0) : 1;
+      if (value === '')
+        return `set ${command.cell} "" (clears ${size} cell${size === 1 ? '' : 's'})`;
+      return grid
+        ? `set ${command.cell} ${value} (fills ${size} cells)`
+        : `set ${command.cell} ${value}`;
     }
     case 'grid':
       return `grid ${command.range} (${command.cells.length}x${command.cells[0]?.length ?? 0})`;
@@ -4080,6 +4093,14 @@ function renderCommandLine(
     }
   }
   return command.verb;
+}
+
+function safeFill(cell: string, value: string): string[][] | undefined {
+  try {
+    return fillRange(cell, value);
+  } catch {
+    return undefined;
+  }
 }
 
 /** True when the effect's value/text/bullets came from a composed expression (not a literal). */
@@ -4428,7 +4449,26 @@ function answerOnlyIntent(task: string): string | undefined {
 
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 function effectKey(request: ActuationRequest): string {
-  return JSON.stringify({ kind: request.kind, surface: request.surface, params: request.params });
+  const range = request.params.target?.range;
+  // One spelling per range: the recorded write drops the sheet quotes, the model may or may not
+  // write them (CIMB UAT 2026-10-16: the same fill was approved and applied three times).
+  const params =
+    typeof range === 'string'
+      ? { ...request.params, target: { ...request.params.target, range: rangeKey(range) } }
+      : request.params;
+  return JSON.stringify({ kind: request.kind, surface: request.surface, params });
+}
+
+/** `'Branch Performance'!$I$2:i25` and `Branch Performance!I2:I25` compare equal. */
+function rangeKey(range: string): string {
+  const bang = range.lastIndexOf('!');
+  const sheet = bang < 0 ? '' : range.slice(0, bang);
+  const unquoted = /^'(.*)'$/.exec(sheet)?.[1]?.replaceAll("''", "'") ?? sheet;
+  const cells = range
+    .slice(bang + 1)
+    .replaceAll('$', '')
+    .toUpperCase();
+  return bang < 0 ? cells : `${unquoted}!${cells}`;
 }
 
 /** Command text for a held-back write, so the model can resend it verbatim. */
@@ -4441,8 +4481,10 @@ function commandText(command: ParsedCommand): string {
       .join(' ');
     return `format ${c.range} ${props}`;
   }
-  if (c.verb === 'set' && typeof c.cell === 'string')
-    return `set ${c.cell} ${String(c.value ?? '')}`;
+  if (c.verb === 'set' && typeof c.cell === 'string') {
+    const value = String(c.value ?? '');
+    return `set ${c.cell} ${value === '' ? '""' : /"/.test(value) ? JSON.stringify(value) : value}`;
+  }
   const target = ['range', 'cell', 'selector', 'slide', 'title'].find(
     (key) => typeof c[key] === 'string',
   );

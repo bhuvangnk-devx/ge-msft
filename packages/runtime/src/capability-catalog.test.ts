@@ -197,6 +197,20 @@ describe('command discovery', () => {
     expect(renderCommandBootstrap(current)).toContain('Program control: finish when=verified');
     const help = renderCommandHelp(current, 'finish');
     expect(help).toContain('Syntax: finish when=verified');
-    expect(help).toContain('Unknown, unsupported or mismatched readback cannot satisfy');
+    expect(help).toContain('An uncertain, failed or mismatched write cannot satisfy');
+  });
+
+  it('tells the Excel model to fill a column in one set, never cell by cell (CIMB UAT #7)', () => {
+    const excel: CapabilityManifest = {
+      surface: 'excel',
+      contextKinds: ['range'],
+      reads: ['read'],
+      actuations: [
+        { kind: 'write-cells', surface: 'excel', title: 'Write cells', reversible: true },
+      ],
+    };
+    const prompt = renderCommandBootstrap(excel);
+    expect(prompt).toContain('Fill a column with one formula in ONE write');
+    expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(COMMAND_BOOTSTRAP_MAX_BYTES);
   });
 });

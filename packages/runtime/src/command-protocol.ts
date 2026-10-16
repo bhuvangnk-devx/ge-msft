@@ -4,6 +4,7 @@ import {
   FORMAT_KEYS_USAGE,
   POWERPOINT_GEOMETRIES,
   commandIntentText,
+  fillRange,
   WRITE_VERB_TO_KIND,
   grammarFor,
   powerpointGeometry,
@@ -209,11 +210,17 @@ export function compileCommand(
       return { kind: 'control', verb: 'done' };
     case 'help':
       return { kind: 'control', verb: 'help', ...(cmd.topic ? { topic: cmd.topic } : {}) };
-    case 'set':
-      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, {
-        target: { range: cmd.cell },
-        cells: [[cmd.value]],
-      });
+    case 'set': {
+      // A range fills like Excel's Ctrl+Enter: one write, the formula shifted per cell (CIMB UAT
+      // 2026-10-16: 56 one-cell sets hit the per-turn write cap and the column stayed half empty).
+      let cells: string[][];
+      try {
+        cells = fillRange(cmd.cell, cmd.value) ?? [[cmd.value]];
+      } catch (error) {
+        return { error: `set ${cmd.cell}: ${(error as Error).message}` };
+      }
+      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, { target: { range: cmd.cell }, cells });
+    }
     case 'grid':
       return compileWrite(WRITE_VERB_TO_KIND.grid, ctx, {
         target: { range: cmd.range },
@@ -1169,11 +1176,16 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(`let $rows = ${source} | head 3`);
     lines.push(allowed.has('set') ? 'set Summary!B2 = ($rows | count)' : '$rows | count');
   }
+  // CIMB UAT 2026-10-16: a MoM column took 13 turns of one-cell sets against the write cap.
+  if (allowed.has('set') && manifest.surface === 'excel')
+    lines.push(
+      'Fill a column with one formula in ONE write: set Sheet!I2:I57 =IF(A2=A1,(F2-F1)/F1,"") — references shift per row like Excel fill-down. Never one set per cell. set Sheet!I2 "" clears a cell.',
+    );
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint
     // programs kept ending with `finish when=verified`, which no PowerPoint write can satisfy.
-    'Program control: finish when=verified completes only after every effect verifies and no error remains. Only Excel cell writes return readback.',
+    'Program control: finish when=verified completes only after every effect succeeds and no error remains. Only Excel cell writes return readback, and theirs must match. End a block with done OR finish when=verified, never both.',
     // `done "<answer>"` answers a question (help done has the detail).
     'For any other write, inspect the outcome and emit done alone when complete (done "<answer>" answers a question). Never claim unsupported verification. Always emit the closing fence.',
   );
@@ -1250,7 +1262,7 @@ export function renderCommandHelp(manifest: CapabilityManifest, topic?: string):
       'Command: finish',
       'Syntax: finish when=verified',
       'Program control: place last, after effects. The host finishes only when every effect has verified and no error or pending recovery remains.',
-      'Unknown, unsupported or mismatched readback cannot satisfy this condition. It never grants approval or declares success.',
+      'An uncertain, failed or mismatched write cannot satisfy this condition; a write with no readback counts once it landed. It never grants approval or declares success.',
       'Use done alone after inspecting outcomes when the task is complete without supported readback; do not claim verification.',
     ].join('\n');
   }

@@ -108,7 +108,7 @@ that support it (see [capability-map.md](capability-map.md)).
 
 | Command   | Effect             | Apps        | Usage                                                                                                 |
 | --------- | ------------------ | ----------- | ----------------------------------------------------------------------------------------------------- |
-| `set`     | write a cell       | Excel       | `set <A1> <value\|=formula>` — e.g. `set Sales!F2 =C2-D2`                                             |
+| `set`     | write a cell or fill a range | Excel | `set <A1\|A1:A50> <value\|=formula>` — e.g. `set Sales!F2 =C2-D2`; `set Sales!F2:F57 =C2-D2` fills down (refs shift per row) |
 | `grid`    | write a cell grid  | Excel       | `grid <range> = "a\tb\nc\td"` — write a rectangular literal TSV grid as one change                    |
 | `suggest` | tracked change     | Word        | `suggest "old text" => "new text"` (anchored on exact text)                                           |
 | `comment` | add a comment      | Word, Excel | `comment <cell> "text"` or `comment "anchor" "text"`                                                  |

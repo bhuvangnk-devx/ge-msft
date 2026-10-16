@@ -139,3 +139,47 @@ export function liveFetch(
     return res;
   }) as typeof fetch;
 }
+
+/**
+ * Replays a recorded scenario run: each streamAssist call gets the next recorded reply, in order,
+ * and nothing reaches Google. Reproduces a live bug (and checks its fix) at no Gemini cost. If the
+ * code asks the model more often than the recording did, the extra turns get an empty reply.
+ */
+export function replayFetch(
+  recordedReplies: string[],
+  transcript: TranscriptEntry[],
+): typeof fetch {
+  const replies = [...recordedReplies];
+  return (async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes(':streamAssist')) {
+      const text = replies.shift() ?? '';
+      transcript.push({
+        at: new Date().toISOString(),
+        url: url.replace(/projects\/[^/]+/, 'projects/…'),
+        status: 200,
+        request: typeof init.body === 'string' ? init.body : '',
+        reply: text,
+      });
+      const chunk = {
+        answer: { state: 'SUCCEEDED', replies: [{ groundedContent: { content: { text } } }] },
+        sessionInfo: { session: 'projects/replay/locations/global/sessions/replay' },
+      };
+      return new Response(JSON.stringify([chunk]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.startsWith('https://sts.googleapis.com/'))
+      return new Response(
+        JSON.stringify({
+          access_token: 'replay-token',
+          token_type: 'Bearer',
+          issued_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+          expires_in: 2700,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+}

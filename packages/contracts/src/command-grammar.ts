@@ -582,12 +582,15 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'set': {
       const split = splitFirstArg(rest);
       if (!split) {
-        return { error: 'set needs a cell and a value — usage: set <A1> <value|=formula>' };
+        return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
       const cell = split.arg;
-      const value = unquoteSetValue(split.tail.trim());
+      const raw = split.tail.trim();
+      const value = unquoteSetValue(raw);
+      // `set I2 ""` clears the cell (the model writes it for a first month with no previous one).
+      if (raw === '""' && cell !== '') return { verb: 'set', cell, value: '' };
       if (cell === '' || value === '') {
-        return { error: 'set needs a cell and a value — usage: set <A1> <value|=formula>' };
+        return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
       // ADR-0005 Phase 2: the value may be an effect-arg EXPRESSION (`$var` or `( <pipeline> )`)
       // evaluated against the env at dry-run; otherwise it is a LITERAL (commas/spaces/`=SUM(A1,
@@ -1075,6 +1078,10 @@ function splitFirstArg(rest: string): { arg: string; tail: string } | undefined 
 
 /** `set A1 "hello world"` is a scalar cell value, not a request to include quote characters. */
 function unquoteSetValue(value: string): string {
+  // A double-quoted value honours `\"` and `\\` (CIMB UAT 2026-10-16: the model wrote
+  // `set I3 "=IF(A3=A2,(F3-F2)/F2,\"\")"` and the backslashes reached the formula).
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"'))
+    return value.slice(1, -1).replace(/\\(["\\])/g, '$1');
   return stripWrappingQuotes(value);
 }
 
@@ -1980,8 +1987,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'set':
       return {
         verb: 'set',
-        usage: 'set <A1> <value|=formula>',
-        hint: 'write one cell, e.g. set Sales!F2 =C2-D2',
+        usage: 'set <A1|A1:A50> <value|=formula>',
+        hint: 'write one cell, or fill a range with one formula (references shift per row, like Excel fill-down), e.g. set Sales!F2:F57 =C2-D2',
       };
     case 'grid':
       return {

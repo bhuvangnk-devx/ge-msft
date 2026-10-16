@@ -25,13 +25,24 @@ import { excelSeed, installFakeExcel } from '../test-harness/fake-excel.js';
 import { installFakeOutlook, outlookSeed } from '../test-harness/fake-outlook.js';
 import { installFakePowerPoint, powerPointSeed } from '../test-harness/fake-powerpoint.js';
 import { installFakeWord, wordSeed } from '../test-harness/fake-word.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   liveFetch,
   loadShellEnv,
+  replayFetch,
   scenarioAuth,
   scenarioBrand,
   type TranscriptEntry,
 } from './live-env.js';
+
+/** The model replies of a recorded run (`GE_SCENARIO_REPLAY=<results dir>`), in order. */
+function recordedReplies(dir: string, id: string): string[] {
+  const run = JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8')) as {
+    transcript?: Array<{ reply?: string }>;
+  };
+  return (run.transcript ?? []).map((entry) => entry.reply ?? '');
+}
 
 export interface ScenarioExpect {
   /** Final status of the last task (default "completed"; "any" skips the check). */
@@ -142,7 +153,9 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       triggers: runtime.triggers,
       primeOnHostEvent: false,
       discoverCatalog: false,
-      fetchImpl: liveFetch(env, transcript),
+      fetchImpl: process.env.GE_SCENARIO_REPLAY
+        ? replayFetch(recordedReplies(process.env.GE_SCENARIO_REPLAY, scenario.id), transcript)
+        : liveFetch(env, transcript),
     });
     const controller = new PanelController(session, bridge);
     const panel = connectPanelRuntime({ session, bridge, controller, triggers: runtime.triggers });

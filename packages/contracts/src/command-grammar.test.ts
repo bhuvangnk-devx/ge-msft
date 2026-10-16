@@ -56,6 +56,25 @@ describe('command-grammar — verb map', () => {
   });
 });
 
+describe('command-grammar — set', () => {
+  it('accepts set <cell> "" as clearing the cell (CIMB UAT 2026-10-16)', () => {
+    expect(parseCommandLine('set Sheet1!I2 ""')).toEqual({
+      verb: 'set',
+      cell: 'Sheet1!I2',
+      value: '',
+    });
+    expect(parseCommandLine('set Sheet1!I2')).toHaveProperty('error');
+  });
+
+  it('decodes \\" inside a double-quoted set value', () => {
+    expect(parseCommandLine('set I3 "=IF(A3=A2,(F3-F2)/F2,\\"\\")"')).toEqual({
+      verb: 'set',
+      cell: 'I3',
+      value: '=IF(A3=A2,(F3-F2)/F2,"")',
+    });
+  });
+});
+
 describe('command-grammar — parseCommandLine (control + reads)', () => {
   it('parses no-arg verbs', () => {
     expect(parseCommandLine('outline')).toEqual({ verb: 'outline' });

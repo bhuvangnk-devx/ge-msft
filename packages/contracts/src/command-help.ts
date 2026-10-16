@@ -40,7 +40,7 @@ export const COMMAND_HELP = {
       'Never invent artifact IDs or use arbitrary files, URLs or SQL extensions.',
       'Do not use this command for recovery or undo.',
       'Only capture, query, reconcile, filter, and inspect can bind artifacts. Variables resolve only in artifact reference fields, never in arbitrary text.',
-      'finish when=verified must end a closed cmd block. It never bypasses approval and cannot claim verification for unsupported effects.',
+      'finish when=verified must end a closed cmd block. It never bypasses approval; it succeeds only when every effect landed, and a readback must match wherever the host returns one.',
     ],
     failureModes: [
       'Stale sources require capture and recomputation.',
@@ -291,7 +291,19 @@ export const COMMAND_HELP = {
     'tail <path> [n]',
     'you need only the last n lines (default 10) of a saved artifact or document entry, not the whole file',
   ),
-  set: genericWrite('set', 'set <A1> <value|=formula>', 'you need to write one Excel cell'),
+  set: {
+    ...genericWrite(
+      'set',
+      'set <A1|A1:A50> <value|=formula>',
+      'you need to write one Excel cell, or fill a whole range with one formula',
+    ),
+    examples: ['set Sales!F2 =C2-D2', 'set Sales!F2:F57 =C2-D2'],
+    doNot: [
+      'Do not write before reading.',
+      'Do not use unavailable verbs.',
+      'Do not write a formula cell by cell: set the whole range once; references shift per row like Excel fill-down.',
+    ],
+  },
   grid: {
     command: 'grid',
     useWhen:

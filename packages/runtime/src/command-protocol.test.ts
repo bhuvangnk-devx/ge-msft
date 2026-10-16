@@ -44,6 +44,29 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles `set` over a range → one write that fills the formula down (CIMB UAT #7)', () => {
+    const parsed = parseCommandLine(
+      `set 'Branch Performance'!I2:I57 "=IF(A2=A1,(F2-F1)/F1,\\"\\")"`,
+    );
+    if ('error' in parsed) throw new Error(parsed.error);
+    const c = compileCommand(parsed, { surface: 'excel', mintChangeId: mint });
+    if (!('request' in c)) throw new Error('not a write');
+    const cells = c.request.params.cells!;
+    expect(c.request.params.target).toEqual({ range: "'Branch Performance'!I2:I57" });
+    expect(cells).toHaveLength(56);
+    expect(cells[0]).toEqual(['=IF(A2=A1,(F2-F1)/F1,"")']);
+    expect(cells[55]).toEqual(['=IF(A57=A56,(F57-F56)/F56,"")']);
+    expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
+  it('a fill that would move a reference off the sheet is a correction, not a crash', () => {
+    const parsed = parseCommandLine('set A1:B2 =XFD1');
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'excel', mintChangeId: mint })).toEqual({
+      error: expect.stringContaining('off the worksheet'),
+    });
+  });
+
   it('turns the \n escape into a line break in quoted text, keeping \\n literal (live 2026-10-14)', () => {
     // Commands are one line, so the model writes line breaks as `\n`; Outlook showed them literally.
     const compiled = (line: string, surface: Surface) => {
@@ -1212,7 +1235,7 @@ describe('compileCommand', () => {
 describe('renderGrammarPrompt', () => {
   it('advertises set for Excel and not suggest', () => {
     const prompt = renderGrammarPrompt(excelManifest);
-    expect(prompt).toContain('set <A1> <value|=formula>');
+    expect(prompt).toContain('set <A1|A1:A50> <value|=formula>');
     expect(prompt).toContain('grid <range> = "a\\tb\\nc\\td"');
     expect(prompt).toContain('read <A1|NamedRange>');
     expect(prompt).toContain('context [incremental|inline-preferred');
