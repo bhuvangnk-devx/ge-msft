@@ -1089,9 +1089,10 @@ function tokenizeArgs(rest: string): { positional: string[]; props: Record<strin
   const props: Record<string, string> = {};
   // Double-quoted values honour `\"`, `\\` and `\n` escapes (as {@link scanQuoted}), so a quoted
   // value can carry quotes — an OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was
-  // otherwise cut at the first one — and line breaks.
+  // otherwise cut at the first one — and line breaks. A token that starts with a quoted sheet name
+  // keeps later quoted sheet names whole (`'A B'!C1:C9,'A B'!I1:I9`, UAT 2026-10).
   const re =
-    /(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|'([^']*)'(\S*)|(\S+)/g;
+    /(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|'([^']*)'((?:[^\s']|'[^']*'(?=!))*)|(\S+)/g;
   const unescape = (s: string): string =>
     s.replace(/\\(["\\n])/g, (_, c: string) => (c === 'n' ? '\n' : c));
   let m: RegExpExecArray | null;
@@ -1123,8 +1124,10 @@ function parseChart(rest: string): ParsedCommand | CommandParseError {
     'chart needs a type and a range — usage: chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns]';
   const { positional, props } = tokenizeArgs(rest);
   const chartType = positional[0];
-  const range = positional[1];
+  let range = positional[1];
   if (chartType === undefined || range === undefined) return { error: usage };
+  // The source may put a space after a comma (`C1:C9, G1:G9`); rejoin the areas split there.
+  for (let i = 2; range.endsWith(',') && positional[i] !== undefined; i++) range += positional[i];
   return { verb: 'chart', chartType: chartType.toLowerCase(), range, props };
 }
 

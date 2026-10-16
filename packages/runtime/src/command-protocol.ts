@@ -1170,6 +1170,12 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(`let $rows = ${source} | head 3`);
     lines.push(allowed.has('set') ? 'set Summary!B2 = ($rows | count)' : '$rows | count');
   }
+  if (allowed.has('set')) {
+    // UAT 2026-10: the client reads a blank first period as a missing value.
+    lines.push(
+      'A calculated column is one set over every data row, e.g. set Data!I2:I57 =IF(A2=A1,(F2-F1)/F1,0); a change with no previous period is 0, not blank.',
+    );
+  }
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint

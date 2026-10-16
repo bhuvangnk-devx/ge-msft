@@ -545,6 +545,21 @@ describe('command-grammar — ADR-0007 host-native verbs (table / chart / cf)', 
     });
   });
 
+  it('keeps a multi-area chart range on a quoted sheet name whole (UAT 2026-10)', () => {
+    // UAT row 9: the second quoted sheet name was cut at its space, so every chart over Month +
+    // Growth on 'Branch Performance' failed the range check until the repair budget ran out.
+    const months = `'Branch Performance'!C1:C55`;
+    const growth = `'Branch Performance'!I1:I55`;
+    for (const line of [`chart line ${months},${growth}`, `chart line ${months}, ${growth}`]) {
+      expect(parseCommandLine(`${line} title="MoM"`)).toEqual({
+        verb: 'chart',
+        chartType: 'line',
+        range: `${months},${growth}`,
+        props: { title: 'MoM' },
+      });
+    }
+  });
+
   it('chart needs a type and a range', () => {
     expect(parseCommandLine('chart column')).toMatchObject({
       error: expect.stringContaining('range'),

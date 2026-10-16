@@ -799,6 +799,23 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles a chart over two areas of a quoted sheet name (UAT 2026-10)', () => {
+    // UAT row 9: this line failed "could not build a valid insert-chart request" on every turn.
+    const parsed = parseCommandLine(
+      `chart line 'Branch Performance'!C1:C55, 'Branch Performance'!I1:I55 title="MoM growth"`,
+    );
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'excel', mintChangeId: mint })).toMatchObject({
+      kind: 'write',
+      request: {
+        kind: 'insert-chart',
+        params: {
+          chart: { sourceRange: `'Branch Performance'!C1:C55,'Branch Performance'!I1:I55` },
+        },
+      },
+    });
+  });
+
   it('rejects an unknown chart type at schema validation (corrective, not a bad write)', () => {
     const c = compileCommand(
       { verb: 'chart', chartType: 'donut', range: 'A1:B2', props: {} },
