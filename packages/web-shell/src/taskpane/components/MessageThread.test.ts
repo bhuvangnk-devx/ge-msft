@@ -88,6 +88,14 @@ describe('MessageThread', () => {
     );
   });
 
+  it('hides command lines the grammar rejects (CIMB UAT 2026-10-16)', () => {
+    expect(stripCommandBlocks('set I2 "" finish when=verified').text).toBe('');
+    expect(stripCommandBlocks('finish when=verified finish when=verified').text).toBe('');
+    expect(stripCommandBlocks('```\nsave\n```\nAdded the column.').text).toBe('Added the column.');
+    // Prose that starts with a verb word but has no command structure stays.
+    expect(stripCommandBlocks('chart looks good now').text).toBe('chart looks good now');
+  });
+
   it('copies an answer with the legacy command when the clipboard API is blocked', async () => {
     Object.assign(navigator, {
       clipboard: { writeText: () => Promise.reject(new Error('blocked')) },

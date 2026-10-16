@@ -9,6 +9,12 @@ export interface Brand {
   tagline?: string;
   /** Name the model calls itself; unset keeps the engine's default persona. */
   promptName?: string;
+  /** Writing rules sent with the name on every turn; `{ text, surfaces }` limits one to those apps. */
+  promptRules?: Array<
+    string | { text: string; surfaces?: string[]; turns?: Array<'chat' | 'planner' | 'command'> }
+  >;
+  /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
+  draftGreeting?: { replace: string[]; with: string };
   fontStylesheet: string;
   iconsDir: string;
   themePath: string | null;
@@ -20,6 +26,11 @@ export interface BrandText {
   fullName: string;
   tagline?: string;
   promptName?: string;
+  promptRules?: Array<
+    string | { text: string; surfaces?: string[]; turns?: Array<'chat' | 'planner' | 'command'> }
+  >;
+  /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
+  draftGreeting?: { replace: string[]; with: string };
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];

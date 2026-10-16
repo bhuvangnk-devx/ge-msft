@@ -23,7 +23,7 @@ import {
 import { contentHash } from './hash.js';
 import { parseJsonArrayStream } from './json-stream.js';
 import { WifTokenClient } from './wif.js';
-import { StreamAssistClient, buildStreamAssistRequest } from './stream-assist.js';
+import { StreamAssistClient, buildStreamAssistRequest, paneInstructions } from './stream-assist.js';
 import { ConversationClient } from './sessions.js';
 import { ByteOffsetMapper, byteOffsetToCharIndex } from './byte-offset.js';
 
@@ -331,6 +331,32 @@ describe('ConversationClient', () => {
     const out = await client.getConversation('sess-4');
     expect(out.turns[0]?.userText).toBeUndefined();
     expect(out.title).toBe('sess-4');
+  });
+
+  it("never shows the pane's own instructions (name, writing rules) as the user's words", async () => {
+    const question = 'check email from jessica and summarise it';
+    const legacy =
+      'Your name is CNGPT. If you refer to yourself, call yourself CNGPT only; never call yourself Gemini or Gemini Enterprise.';
+    const f = vi.fn(async () =>
+      jsonResponse({
+        name: 'projects/proj/locations/eu/collections/default_collection/engines/eng1/sessions/s5',
+        turns: [
+          {
+            query: {
+              text: `${paneInstructions('CNGPT', ['Open emails with Halo.'])}\n\n${question}`,
+            },
+          },
+          { query: { parts: [{ text: paneInstructions('CNGPT')! }, { text: question }] } },
+          { query: { text: `${legacy}\n\n${question}` } },
+          // Old wording as its own part, as Outlook sent it with the email attached.
+          { query: { parts: [{ text: legacy }, { text: question }] } },
+        ],
+      }),
+    );
+    const client = new ConversationClient(tokens, cfg(), f as never);
+    const out = await client.getConversation('s5');
+    expect(out.turns.map((t) => t.userText)).toEqual([question, question, question, question]);
+    expect(out.title).toBe(question);
   });
 
   it('reads which Office app a chat ran in from its document snapshot', async () => {

@@ -14,10 +14,7 @@ import {
   type GroundingSelection,
 } from '@ge/contracts';
 import {
-  applyCatalogSelection,
   resolveGrounding,
-  type DiscoveryCatalogClient,
-  type GeminiCatalogSelection,
   type GroundingResolveContext,
   type ResolvedGrounding,
 } from '@ge/gemini-client';
@@ -45,7 +42,7 @@ import { PlanApprovalCard } from './PlanApprovalCard.js';
 import { ShareApprovalCard } from './ShareApprovalCard.js';
 import { CommandPlanCard } from './CommandPlanCard.js';
 import { PlanClarificationCard } from './PlanClarificationCard.js';
-import { GeminiCatalogPanel } from './GeminiCatalogPanel.js';
+import { AnswerOptions, type AnswerOptionsValue } from './AnswerOptions.js';
 import { surfacePrimaryActions } from './SurfaceCommandCenter.js';
 import { ContextStrip } from './ContextStrip.js';
 import { WorkspaceHome } from './WorkspaceHome.js';
@@ -64,8 +61,6 @@ export interface AppProps {
    * (preview/tests), only the per-surface filter applies.
    */
   allowedIntents?: Iterable<Intent>;
-  catalogClient?: DiscoveryCatalogClient;
-  onCatalogRouting?: (selection: ReturnType<typeof applyCatalogSelection>) => void;
   /** The signed-in account's hash for saved diagnostics; without it nothing is saved. */
   diagnosticsScope?: string;
   /** Sends an error report for each failed request (reports mode `auto`). */
@@ -380,8 +375,6 @@ export function App({
   surface,
   agentLabel,
   allowedIntents,
-  catalogClient,
-  onCatalogRouting,
   diagnosticsScope,
   reporter,
   userName,
@@ -470,6 +463,9 @@ export function App({
   }, [state.busy, controller, surface, savedStore, reporter]);
   // The parameterized action awaiting its `{{name}}` fill values (Workstream H), or undefined.
   const [paramFill, setParamFill] = useState<QuickAction | undefined>(undefined);
+  // Answer format and style live in Settings; a new surface starts from the defaults.
+  const [answerOptions, setAnswerOptions] = useState<AnswerOptionsValue>({});
+  useEffect(() => setAnswerOptions({}), [surface]);
   const hasBlockingGate = Boolean(
     state.pendingCommandPlan ?? state.pendingPlan ?? state.pendingWrite ?? state.pendingShare,
   );
@@ -617,17 +613,14 @@ export function App({
         hasGate={hasBlockingGate}
         messageCount={state.messages.length}
         proposalCount={proposalCount}
-        skills={state.skills ?? []}
         conversations={state.conversations}
         primaryActionIds={primaryActionIds}
-        hasSettings={Boolean(catalogClient)}
+        hasSettings
         settingsPanel={
-          <GeminiCatalogPanel
-            catalogClient={catalogClient}
+          <AnswerOptions
+            value={answerOptions}
             disabled={actionBlocked}
-            onApply={(selection: GeminiCatalogSelection) => {
-              onCatalogRouting?.(applyCatalogSelection(selection));
-            }}
+            onChange={setAnswerOptions}
           />
         }
         tools={
@@ -652,7 +645,6 @@ export function App({
           savedStore.clear();
           setSavedDiagnostics([]);
         }}
-        onInvokeSkill={(name, args) => void controller.invokeSkill(name, args)}
         onQuickAction={onQuickAction}
       >
         <ContextStrip
@@ -814,6 +806,7 @@ export function App({
           onCancel={() => controller.cancel()}
           onInvoke={onInvoke}
           placeholder={SURFACE_PLACEHOLDER[surface]}
+          answerOptions={answerOptions}
           mentionOptions={{
             datastore: state.availableDataStores.map((d) => ({
               id: d.resourceName,
@@ -845,10 +838,10 @@ function ResumeCard({
       <div className="error-card-title">{t.resumeTitle}</div>
       <div className="error-card-body">{t.resumeBody(shown, made)}</div>
       <div className="result-card-actions">
-        <button type="button" className="error-card-retry" onClick={onFinish}>
+        <button type="button" className="btn sm pr" onClick={onFinish}>
           {t.resumeFinish}
         </button>
-        <button type="button" onClick={onDismiss}>
+        <button type="button" className="btn sm" onClick={onDismiss}>
           {t.resumeDismiss}
         </button>
       </div>

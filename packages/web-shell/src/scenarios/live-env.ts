@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AuthClient } from '@ge/runtime';
+import type { Brand } from '../brand.js';
 
 export interface TranscriptEntry {
   at: string;
@@ -19,6 +20,31 @@ export interface TranscriptEntry {
 }
 
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..');
+
+/**
+ * The build's brand (GE_BRAND, else `brands/current`), read from this repo the way the web build
+ * applies it, so a scenario sends the same name line and writing rules users of that build get.
+ */
+export function scenarioBrand(): Brand {
+  const pinned = join(REPO_ROOT, 'brands', 'current');
+  const id =
+    process.env.GE_BRAND?.trim() ||
+    (existsSync(pinned) ? readFileSync(pinned, 'utf8').trim() : '') ||
+    'default';
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`GE_BRAND "${id}" is not a brand id.`);
+  const raw = JSON.parse(
+    readFileSync(join(REPO_ROOT, 'brands', id, 'brand.json'), 'utf8'),
+  ) as Brand;
+  // The fields the pane reads from its build-time brand (see tools/brand/brand.mjs `brandText`).
+  return {
+    name: raw.name,
+    assistantName: raw.assistantName,
+    fullName: raw.fullName,
+    ...(raw.tagline ? { tagline: raw.tagline } : {}),
+    ...(raw.promptName ? { promptName: raw.promptName } : {}),
+    ...(raw.promptRules?.length ? { promptRules: raw.promptRules } : {}),
+  };
+}
 
 /** `packages/web-shell/.env`, then the process environment (same order as the Vite build). */
 export function loadShellEnv(): Record<string, string> {

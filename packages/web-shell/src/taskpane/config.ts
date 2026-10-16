@@ -369,6 +369,8 @@ export function shellConfigFromEnv(env: RawEnv, b: Brand = brand): ShellConfig {
   return {
     assistant: assistantFromEnv(env),
     ...(b.promptName ? { assistantName: b.promptName } : {}),
+    ...(b.promptRules?.length ? { assistantRules: b.promptRules } : {}),
+    ...(b.draftGreeting ? { draftGreeting: b.draftGreeting } : {}),
     ...(widgetFromEnv(env) ? { widget: widgetFromEnv(env) } : {}),
     wif: wifFromEnv(env),
     ...(modelId ? { modelId } : {}),

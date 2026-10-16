@@ -301,6 +301,34 @@ describe('compileCommand', () => {
     expect(c).toMatchObject({ request: { kind: 'insert-ooxml', params: { ooxml: '<w:p/>' } } });
   });
 
+  it('keeps the empty rows asked for under a /insert-table header (CIMB UAT 2026-10-16)', () => {
+    const c = compileCommand(
+      {
+        verb: 'invoke',
+        kind: 'insert-table',
+        props: {
+          rows: '#\\tAktivitas\\tDeliverable\\tPenanggung Jawab\\n\\t\\t\\t\\n\\t\\t\\t\\n\\t\\t\\t',
+        },
+        args: [],
+      } as never,
+      { surface: 'word', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({
+      request: {
+        params: {
+          tableGrid: {
+            rows: [
+              ['#', 'Aktivitas', 'Deliverable', 'Penanggung Jawab'],
+              ['', '', '', ''],
+              ['', '', '', ''],
+              ['', '', '', ''],
+            ],
+          },
+        },
+      },
+    });
+  });
+
   it('takes positional text for /replace-selection when text= is missing', () => {
     const c = compileCommand(
       { verb: 'invoke', kind: 'replace-selection', props: {}, args: ['Short new text.'] } as never,

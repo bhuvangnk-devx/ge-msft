@@ -295,7 +295,7 @@ export class PowerPointBridge implements DocBridge {
   private async applySetShapeText(req: ActuationRequest): Promise<ActuationResult> {
     const slideId = req.params.target?.slideId;
     const shapeId = req.params.target?.shapeId;
-    const text = req.params.text;
+    const text = lineBreaks(req.params.text);
     if (!slideId || !shapeId) {
       return {
         ok: false,
@@ -831,7 +831,7 @@ export class PowerPointBridge implements DocBridge {
         const table = added.getTable();
         grid.rows.forEach((row, r) => {
           row.forEach((value, c) => {
-            table.getCellOrNullObject(r, c).text = value;
+            table.getCellOrNullObject(r, c).text = lineBreaks(value);
           });
         });
         added.load('id');
@@ -1043,7 +1043,7 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
           'text="Draft" left=72 top=330 width=400 height=40',
       };
     }
-    return { ok: true, op: { ...base, type: 'textBox', text: shape.text ?? '' } };
+    return { ok: true, op: { ...base, type: 'textBox', text: lineBreaks(shape.text) ?? '' } };
   }
   if (shape.shapeType === 'line') {
     return {
@@ -1064,8 +1064,16 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
       message: `add-shape geometry "${shape.geometryType ?? ''}" is not supported.`,
     };
   }
-  const text = shape.text?.trim();
+  const text = lineBreaks(shape.text?.trim());
   return { ok: true, op: { ...base, type: 'geometric', geometry, ...(text ? { text } : {}) } };
+}
+
+/**
+ * The model writes line breaks as a literal `\n` inside a command argument; the slide showed the
+ * two characters (CIMB UAT 2026-10-16). Make them real breaks.
+ */
+function lineBreaks<T extends string | undefined>(text: T): T {
+  return (text?.replace(/(?:\\r)?\\n/g, '\n') ?? text) as T;
 }
 
 async function deckInsertOptions(
@@ -1338,9 +1346,11 @@ async function writeComposedSlide(
   ctx: PowerPoint.RequestContext,
   slideIndex: number,
   shapes: PowerPoint.Shape[],
-  title: string,
-  bullets: string[],
+  rawTitle: string,
+  rawBullets: string[],
 ): Promise<void> {
+  const title = lineBreaks(rawTitle);
+  const bullets = rawBullets.map(lineBreaks);
   const { titleShape, bodyShape } = await findTextPlaceholders(ctx, shapes);
   const needsBox = (title && !titleShape) || (bullets.length > 0 && !bodyShape);
   const size = needsBox ? await slideSize(ctx) : FALLBACK_SLIDE_SIZE;

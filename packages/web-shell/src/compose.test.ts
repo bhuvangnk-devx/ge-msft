@@ -62,6 +62,32 @@ describe('composeSession', () => {
     expect(tokens).toBeDefined();
     expect(client).toBeDefined();
   });
+
+  it('sends only the brand writing rules for the open app (email rules only from Outlook)', async () => {
+    const rules = [
+      'Keep answers short.',
+      { text: 'Open Bahasa emails with "Halo".', surfaces: ['outlook'] },
+      { text: 'Sign emails as CNGPT.', surfaces: ['outlook'], turns: ['command' as const] },
+    ];
+    const rulesSent = async (surface: 'word' | 'outlook'): Promise<unknown> => {
+      const bridge = Object.assign(new FakeBridge(), { surface });
+      const { client } = await composeSession({
+        config: { ...config, assistantName: 'CNGPT', assistantRules: rules },
+        auth,
+        bridge: bridge as unknown as DocBridge,
+        unit,
+        fetchImpl: vi.fn() as unknown as typeof fetch,
+      });
+      return (client as unknown as { config: { assistantRules?: string[] } }).config.assistantRules;
+    };
+    expect(await rulesSent('outlook')).toEqual([
+      'Keep answers short.',
+      'Open Bahasa emails with "Halo".',
+      // A rule limited to turns keeps that limit for the client (only command turns send it).
+      { text: 'Sign emails as CNGPT.', routes: ['command'] },
+    ]);
+    expect(await rulesSent('word')).toEqual(['Keep answers short.']);
+  });
 });
 
 describe('estateWritesEnabledFor — release-profile enforcement', () => {

@@ -71,9 +71,9 @@ function mountComposer(extra = {}): ReturnType<typeof vi.fn> {
 
 describe('structured workspace interactions', () => {
   it('routes a typed verb and the Settings response controls into the invocation', () => {
-    const invoke = mountComposer();
-    change('[aria-label="Response format"]', 'Decision brief');
-    change('[aria-label="Writing style"]', 'Executive');
+    const invoke = mountComposer({
+      answerOptions: { format: 'Decision brief', style: 'Executive' },
+    });
     change('textarea', '/rewrite Preserve the 99.9% commitment.');
     submit();
     expect(invoke).toHaveBeenCalledOnce();
@@ -101,8 +101,7 @@ describe('structured workspace interactions', () => {
     expect(invoke.mock.calls[1]![0].intent).toBeUndefined();
   });
   it('leaves pasted programs byte-for-byte intact despite response preferences', () => {
-    const invoke = mountComposer();
-    change('[aria-label="Response format"]', 'Comparison table');
+    const invoke = mountComposer({ answerOptions: { format: 'Comparison table' } });
     change('textarea', 'suggest "before" => "after"');
     submit();
     expect(invoke.mock.calls[0]![0].instruction).toBe('suggest "before" => "after"');

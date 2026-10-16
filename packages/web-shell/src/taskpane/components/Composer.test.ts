@@ -379,13 +379,10 @@ describe('Composer / and @ palette + scope control + structured submit', () => {
     expect(onInvoke.mock.calls[0]![0].scope.kind).toBe('selection');
   });
 
-  it('keeps the response options behind the format and style icon', () => {
+  it('has no format and style button under the ask box (it lives in Settings)', () => {
     render({ surface: 'word' });
-    const settings = container.querySelector('.composer-options');
-    expect(settings?.querySelector('summary')?.getAttribute('aria-label')).toBe(
-      'Answer format and style',
-    );
-    expect(settings?.querySelector('[aria-label="Response format"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Answer format and style"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Response format"]')).toBeNull();
   });
 
   it('routes a structured submit through onInvoke with the parsed intent + typed mentions', () => {

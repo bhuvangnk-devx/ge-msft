@@ -112,6 +112,7 @@ import {
 import { byteLength, truncateToBytes } from './docfs/bytes.js';
 import { RuntimeHooks, HookBlockedError, snapshot } from './hooks.js';
 import { ExecutionLedger, type RunOutcome, type TaskMode } from './execution-ledger.js';
+import { withDraftGreeting, type DraftGreeting } from './draft-greeting.js';
 
 /**
  * Bounded-history compaction policy for the resident `SessionContext` (ADR-0003, element 5).
@@ -318,9 +319,18 @@ export type CommandLoopEvent =
   /**
    * The model emitted `done`; the loop stops. `answer` is the final accumulated text. `incomplete`
    * marks the closing answer of a run that changed nothing and did not complete: it explains, it
-   * never confirms success (the task's outcome guard reports the failure after it).
+   * never confirms success (the task's outcome guard reports the failure after it). `answerOnly`:
+   * the model replied in prose twice and no command ran, so `answer` is that last reply, shown as
+   * the answer in place of everything streamed before it.
    */
-  | { type: 'done'; turn: number; answer: string; message?: string; incomplete?: true }
+  | {
+      type: 'done';
+      turn: number;
+      answer: string;
+      message?: string;
+      incomplete?: true;
+      answerOnly?: true;
+    }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string };
 
@@ -467,6 +477,8 @@ export interface AssistSessionOptions {
   commandDisclosure?: 'compact' | 'full';
   /** Internal command/planner exchanges default to isolated v1alpha requests; chat keeps its session. */
   commandSessionMode?: 'sessionless' | 'conversation';
+  /** A brand's email opening: Outlook drafts that start with one of `replace` start with `with`. */
+  draftGreeting?: DraftGreeting;
   /** Deterministic live state is the sessionless default; transcript replays all prior observations. */
   commandContextMode?: 'projection' | 'transcript';
   /** Maximum UTF-8 query bytes for a complete sessionless command capsule (default 64 KiB). */
@@ -566,6 +578,22 @@ type WorkspaceCommand = Extract<ParsedCommand, { verb: WorkspaceVerb }>;
 
 function isWorkspaceCommand(command: ParsedCommand): command is WorkspaceCommand {
   return WORKSPACE_COMMAND_VERBS.has(command.verb as WorkspaceVerb);
+}
+
+/** Why a planner call produced no answer at all (not a model reply without a plan block). */
+export interface PlannerFailure {
+  message: string;
+  code?: string;
+  /** The call was blocked by policy (Model Armor). */
+  blocked?: boolean;
+}
+
+/** The planner pre-stage result; `failure` is set when the call itself failed or was blocked. */
+export interface PlanResult {
+  plan: CommandPlan | null;
+  errors: string[];
+  needsClarification: boolean;
+  failure?: PlannerFailure;
 }
 
 export class AssistSession {
@@ -1228,10 +1256,11 @@ export class AssistSession {
     };
     let delivered = false;
     try {
-      for await (const event of this.modelStream(
-        req,
-        this.streamOptions({ grounding: opts.grounding, signal: opts.signal }),
-      )) {
+      for await (const event of this.modelStream(req, {
+        ...this.streamOptions({ grounding: opts.grounding, signal: opts.signal }),
+        // A chat question is the user's own words, so a skipped one may be asked again, framed.
+        retrySkipped: true,
+      })) {
         if (event.type === 'done') delivered = true;
         if (event.type === 'citation') this.citations.push(event.source);
         if (event.type === 'provenance') {
@@ -1469,6 +1498,7 @@ export class AssistSession {
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
     let pendingNoFenceReprompt = false;
+    let ranProgram = false;
     let failingReadTurns = 0;
     let failingWriteTurns = 0;
     let lastTurn = 0;
@@ -1518,7 +1548,17 @@ export class AssistSession {
           return;
         }
         yield { type: 'no-fence', turn, rawSnippet: redactedSnippet(turnText) };
-        if (pendingNoFenceReprompt) break;
+        if (pendingNoFenceReprompt) {
+          // Prose twice, even after the re-prompt, and no command ran: the request was answered,
+          // not acted on ("hi", "thanks", a question the planner sent here). End as an answer; the
+          // pane says nothing changed if the text claims a change. Not when the user confirmed a
+          // plan that changes the document: that run stays incomplete, never a "completed" no-op.
+          if (!ranProgram && !this.task?.effects.length && !this.changeAwaited && turnText.trim()) {
+            yield { type: 'done', turn, answer: turnText, answerOnly: true };
+            return;
+          }
+          break;
+        }
         pendingNoFenceReprompt = true;
         const correction = noFenceReprompt(turnHadCodeExecution);
         this.commandContext.record({ program: turnText, correction });
@@ -1526,6 +1566,7 @@ export class AssistSession {
         continue;
       }
       pendingNoFenceReprompt = false;
+      ranProgram = true;
 
       const { results, done, stopped, message, failed, repair } = yield* this.executeProgramTurn(
         entries,
@@ -2334,7 +2375,13 @@ export class AssistSession {
       return;
     }
 
-    const resolved = await this.resolveEffect(command);
+    const effect = await this.resolveEffect(command);
+    // A brand's email opening ("Halo", not "Yth.") is applied here, before the dry-run and the
+    // approval card, so the user reviews exactly the text that reaches the draft.
+    const resolved =
+      'error' in effect
+        ? effect
+        : { ...effect, request: withDraftGreeting(effect.request, this.options.draftGreeting) };
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).
@@ -2715,7 +2762,7 @@ export class AssistSession {
   async plan(
     task: string,
     opts: { signal?: AbortSignal; grounding?: ResolvedGrounding } = {},
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
+  ): Promise<PlanResult> {
     let result!: Awaited<ReturnType<AssistSession['planCore']>>;
     const plan = () => this.planCore(task, opts);
     for await (const value of this.withTask('planner', task, opts.signal, async function* () {
@@ -2728,7 +2775,7 @@ export class AssistSession {
   private async planCore(
     task: string,
     opts: { signal?: AbortSignal; grounding?: ResolvedGrounding },
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
+  ): Promise<PlanResult> {
     const capabilities = await this.effectiveCapabilities();
     const offered = new Set(intentsForManifest(capabilities));
     const protocol = renderPlanPrompt(
@@ -2743,6 +2790,7 @@ export class AssistSession {
     this.currentTurnProvenance = undefined; // a planner turn must not leave provenance for a later write
     let text = '';
     const failures: string[] = [];
+    let failure: PlannerFailure | undefined;
     for await (const event of this.streamTurn(
       parts.join('\n\n'),
       opts.signal,
@@ -2750,11 +2798,17 @@ export class AssistSession {
       'planner',
     )) {
       if (event.type === 'token') text += event.text;
-      if (event.type === 'error') failures.push(event.message);
-      if (event.type === 'policy' && event.verdict === 'block')
-        failures.push('The planner request was blocked by policy.');
+      if (event.type === 'error') {
+        failures.push(event.message);
+        failure ??= { message: event.message, ...(event.code ? { code: event.code } : {}) };
+      }
+      if (event.type === 'policy' && event.verdict === 'block') {
+        const message = 'The planner request was blocked by policy.';
+        failures.push(message);
+        failure ??= { message, blocked: true };
+      }
     }
-    if (failures.length) return { plan: null, errors: failures, needsClarification: false };
+    if (failure) return { plan: null, errors: failures, needsClarification: false, failure };
     return parsePlanBlock(text);
   }
 

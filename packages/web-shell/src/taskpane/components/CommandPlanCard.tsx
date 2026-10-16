@@ -12,11 +12,32 @@ export interface CommandPlanCardProps {
 }
 
 /**
+ * A ref the planner copied from the host, as users should read it. An email ref is an Outlook item
+ * id the planner wrote, so it reads "an email" (the card cannot tell it is the open one). Any other
+ * single token of 32+ characters is an internal id (a shape or slide id, a content-control id) and
+ * reads "an item". Excel sheet names stop at 31 characters, cell ranges carry `!` and links start
+ * with http, so readable refs are shown as written.
+ */
+export function readableRef(ref: string, t: UiStrings): { text: string; own: boolean } | undefined {
+  const value = ref.trim();
+  if (!value) return undefined;
+  if (/^mail:/i.test(value)) return { text: t.planAnEmail, own: true };
+  const opaque = /^\S{32,}$/.test(value) && !value.includes('!') && !/^https?:\/\//i.test(value);
+  return opaque ? { text: t.planAnItem, own: true } : { text: value, own: false };
+}
+
+/**
  * Where the plan works: "In <ref>", "Using your selection", or nothing. The ref is model-written, so
  * it is set apart from the card's own words (see {@link LabelValue}).
  */
 function scopeLabel(scope: CommandScope | undefined, t: UiStrings): JSX.Element | undefined {
-  if (scope?.ref) return <LabelValue label={t.planIn} value={scope.ref} />;
+  const ref = scope?.ref ? readableRef(scope.ref, t) : undefined;
+  if (ref)
+    return ref.own ? (
+      <>{`${t.planIn} ${ref.text}`}</>
+    ) : (
+      <LabelValue label={t.planIn} value={ref.text} />
+    );
   return scope?.kind === 'selection' ? <>{t.planSelection}</> : undefined;
 }
 
@@ -50,7 +71,9 @@ export function CommandPlanCard({
   const t = uiStrings(language);
   const where = scopeLabel(plan.scope, t);
   // Named sources only: bare keywords ("this", "unit") are planner vocabulary, not words for users.
-  const sources = plan.ground.flatMap((g) => (g.ref ? [g.ref] : []));
+  const refs = plan.ground.flatMap((g) => (g.ref ? [readableRef(g.ref, t)] : []));
+  const ownWords = [...new Set(refs.flatMap((r) => (r?.own ? [r.text] : [])))];
+  const sources = refs.flatMap((r) => (r && !r.own ? [r.text] : []));
   return (
     <section className="command-plan" role="group" aria-label="Proposed plan">
       <div className="command-plan-head">
@@ -71,9 +94,16 @@ export function CommandPlanCard({
           ))}
         </ul>
       )}
-      {sources.length > 0 && (
+      {ownWords.length + sources.length > 0 && (
         <div className="command-plan-ground">
-          <LabelValue label={t.planUsing} value={sources.join(', ')} />
+          {sources.length > 0 ? (
+            <LabelValue
+              label={[t.planUsing, ...ownWords].join(' ') + (ownWords.length ? ',' : '')}
+              value={sources.join(', ')}
+            />
+          ) : (
+            `${t.planUsing} ${ownWords.join(', ')}`
+          )}
         </div>
       )}
       <div className="command-plan-actions">

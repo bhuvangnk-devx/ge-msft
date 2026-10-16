@@ -797,12 +797,13 @@ function addShapeKind(
 }
 
 function rowsFromProp(value: string): string[][] {
-  const normalized = value.replaceAll('\\n', '\n').replaceAll('\\t', '\t').trim();
-  if (!normalized) return [];
-  return normalized
-    .split(/\r?\n/)
+  const normalized = value.replaceAll('\\n', '\n').replaceAll('\\t', '\t');
+  // Drop blank lines only: a row of tabs is an empty row the user asked for (CIMB UAT 2026-10-16:
+  // "add 3 empty rows under the header" inserted the header alone).
+  const lines = normalized.split(/\r?\n/).filter((line) => line.trim() || line.includes('\t'));
+  return lines
     .map((row) => row.split('\t').map((cell) => cell.trim()))
-    .filter((row) => row.some((cell) => cell.length > 0));
+    .filter((row) => row.length > 1 || row.some((cell) => cell.length > 0));
 }
 
 type ShapeFont = NonNullable<NonNullable<ActuationRequest['params']['shapeFormat']>['font']>;

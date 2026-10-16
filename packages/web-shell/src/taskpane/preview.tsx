@@ -13,7 +13,6 @@ import {
   FIXTURE_PLAN,
   FIXTURE_PENDING_WRITE,
   FIXTURE_PROPOSALS,
-  FIXTURE_SKILLS,
   FIXTURE_CONVERSATIONS,
   FIXTURE_ERROR,
   PREVIEW_SURFACES,
@@ -36,7 +35,6 @@ interface Toggles {
   chips: boolean;
   messages: boolean;
   suggestions: boolean;
-  skills: boolean;
   steps: boolean;
   plan: boolean;
   write: boolean;
@@ -49,7 +47,6 @@ const ALL_ON: Toggles = {
   chips: true,
   messages: true,
   suggestions: true,
-  skills: true,
   steps: true,
   plan: true,
   write: true,
@@ -62,7 +59,6 @@ const README_CAPTURE: Toggles = {
   chips: true,
   messages: true,
   suggestions: true,
-  skills: true,
   steps: true,
   plan: true,
   write: false,
@@ -94,7 +90,6 @@ function buildState(t: Toggles): PanelState {
     availableAgents: [],
     availableDataStores: [],
     conversations: FIXTURE_CONVERSATIONS,
-    ...(t.skills ? { skills: FIXTURE_SKILLS } : {}),
     ...(t.write ? { pendingWrite: FIXTURE_PENDING_WRITE } : {}),
     ...(t.plan ? { pendingPlan: FIXTURE_PLAN } : {}),
     busy: t.busy,
@@ -162,7 +157,6 @@ const TOGGLE_LABELS: ReadonlyArray<[keyof Toggles, string]> = [
   ['chips', 'Context'],
   ['messages', 'Thread'],
   ['suggestions', 'Suggestions'],
-  ['skills', 'Skills'],
   ['steps', 'Run steps'],
   ['plan', 'Plan'],
   ['write', 'Write'],
@@ -304,7 +298,6 @@ function Preview(): JSX.Element {
                 chips: false,
                 messages: true,
                 suggestions: false,
-                skills: false,
                 steps: false,
                 plan: false,
                 write: false,

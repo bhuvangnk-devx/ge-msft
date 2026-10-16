@@ -2257,4 +2257,28 @@ describe('AssistSession.plan — the planner pre-stage (§F)', () => {
     expect(needsClarification).toBe(true);
     expect(plan?.clarify).toEqual(['which section — §4 or §5?']);
   });
+
+  it('reports a failed planner call as a failure, apart from a reply with no plan block', async () => {
+    const bridge = new FakeBridge();
+    const denied = vi.fn(async () => new Response('denied', { status: 401 }));
+    const failing = new AssistSession(
+      bridge,
+      new StreamAssistClient(tokens, cfg, denied as never),
+      {
+        unit,
+      },
+    );
+    const failed = await failing.plan('hii');
+    expect(failed.plan).toBeNull();
+    expect(failed.failure).toMatchObject({ code: 'http_401' });
+
+    const prose = new AssistSession(
+      bridge,
+      new StreamAssistClient(tokens, cfg, fetchText('Hello! How can I help?') as never),
+      { unit },
+    );
+    const noBlock = await prose.plan('hii');
+    expect(noBlock.plan).toBeNull();
+    expect(noBlock.failure).toBeUndefined();
+  });
 });

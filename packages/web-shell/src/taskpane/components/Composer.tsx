@@ -54,6 +54,8 @@ export interface ComposerProps {
    * entry here (or an empty list) just has no refinement step — `@kind ` alone is still accepted.
    */
   mentionOptions?: Partial<Record<GroundSource, { id: string; label: string }[]>>;
+  /** Answer format and style from the pane Settings; applied to each typed request. */
+  answerOptions?: { format?: string; style?: string };
 }
 
 /** A `GroundSource` kind, as a fast membership test for the tokenizer's `@kind` recognition. */
@@ -151,12 +153,13 @@ export function Composer({
   onInvoke,
   placeholder,
   mentionOptions,
+  answerOptions = {},
 }: ComposerProps): JSX.Element {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sourcePicks, setSourcePicks] = useState<ComposerMention[]>([]);
-  const [format, setFormat] = useState('');
-  const [tone, setTone] = useState('');
+  const format = answerOptions.format ?? '';
+  const tone = answerOptions.style ?? '';
   // The pane opens ready to type: put the cursor in the box on load, whenever Office shows the
   // pane again (it keeps a hidden task pane alive), and when the box becomes usable again (it is
   // disabled during sign-in, a turn or an approval). Never take focus from another pane control.
@@ -187,15 +190,11 @@ export function Composer({
     if (draft) {
       setValue(draft.text);
       setSourcePicks([]);
-      setFormat('');
-      setTone('');
       textareaRef.current?.focus();
     }
   }, [draft]);
   useEffect(() => {
     setSourcePicks([]);
-    setFormat('');
-    setTone('');
   }, [surface]);
 
   const palette = useMemo(
@@ -522,49 +521,6 @@ export function Composer({
             </svg>
           </button>
         )}
-      </div>
-      <div className="composer-tools">
-        <details className="composer-options">
-          <summary aria-label="Answer format and style" title="Answer format and style">
-            <svg className="composer-options-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
-              <circle cx="16" cy="7" r="2" />
-              <circle cx="10" cy="17" r="2" />
-            </svg>
-            {format || tone ? <span aria-hidden="true"> •</span> : null}
-          </summary>
-          <div className="composer-options-popover">
-            <label>
-              Format
-              <select
-                aria-label="Response format"
-                disabled={busy || disabled || directProgram}
-                value={format}
-                onChange={(event) => setFormat(event.target.value)}
-              >
-                <option value="">Let {brand.assistantName} choose</option>
-                <option>Concise bullets</option>
-                <option>Comparison table</option>
-                <option>Decision brief</option>
-                <option>Checklist with owners</option>
-              </select>
-            </label>
-            <label>
-              Style
-              <select
-                aria-label="Writing style"
-                disabled={busy || disabled || directProgram}
-                value={tone}
-                onChange={(event) => setTone(event.target.value)}
-              >
-                <option value="">Default</option>
-                <option>Plain language</option>
-                <option>Executive</option>
-                <option>Technical</option>
-              </select>
-            </label>
-          </div>
-        </details>
       </div>
       <p className="cb-disclaimer">{disclaimerText()}</p>
     </form>
