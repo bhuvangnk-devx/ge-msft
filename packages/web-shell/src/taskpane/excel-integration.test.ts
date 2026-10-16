@@ -356,4 +356,35 @@ describe('Excel full-stack integration', () => {
     expect(ui!.container.querySelector('.error-card')).toBeNull();
     expect(ui!.container.querySelector('.result-card')).not.toBeNull();
   });
+
+  it('chart by= builds the summary table from the cells read, then charts it — one approval (CIMB UAT #11)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nchart column Sales!A1:D7 x=rep by=region value=revenue title="Revenue"\n```',
+        '```cmd\ndone "Charted."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let approvals = 0;
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('chart revenue per region by rep');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    approvals++;
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+
+    expect(approvals).toBe(1);
+    const sales = sim.snapshot().sheets.find((s) => s.name === 'Sales')!;
+    // Summary at F1: reps down, regions across; every cell a SUMIFS, never a typed number.
+    expect(sales.values[0]?.slice(5, 10)).toEqual(['rep', 'East', 'West', 'North', 'South']);
+    expect(sales.values[1]?.[5]).toBe('Alice');
+    expect(sales.values[1]?.[6]).toBe('=SUMIFS($C$2:$C$7,$A$2:$A$7,G$1,$B$2:$B$7,$F2)');
+    const chart = sim.snapshot().charts.find((c) => c.title === 'Revenue');
+    expect(chart?.source).toContain('F1:J7');
+  });
 });

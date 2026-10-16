@@ -516,7 +516,8 @@ export const COMMAND_HELP = {
     command: 'chart',
     useWhen:
       'you need an Excel chart; chart only the label column and its value column(s), listing separate areas for non-adjacent columns (C1:C11,G1:G11), never a whole multi-column table',
-    syntax: 'chart <column|bar|line|pie|scatter|area> <range> [title="..."] [series=rows|columns]',
+    syntax:
+      'chart <column|bar|line|pie|scatter|area> <range> [title="..."] [series=rows|columns] [x=<col> by=<col> value=<col>]',
     discovery: [
       'read <source-range>',
       'read adjacent label/header columns when the selection is unlabeled',
@@ -525,6 +526,7 @@ export const COMMAND_HELP = {
     sequence: [
       'Read the live source range before choosing a chart.',
       'Classify the question: trend, ranking, part-to-whole, correlation, or schedule/text summary.',
+      'For long data (one row per group per period, e.g. Branch + Month + Complaints) and a trend or comparison per group, use x=<period column> by=<group column> value=<number column> on the whole data range: the pane builds a live SUMIFS summary table next to the data and charts it, in one approval. Never type the totals yourself.',
       'For schedules, calendars, sparse ranges, and text grids, first create a small summary table with grid/spill, then chart that summary range.',
       'Choose the chart type by rubric: bar for ranked categories or long labels; column for short categories; line for ordered dates/times; scatter for numeric X/Y; pie only for <=6 non-negative parts of one meaningful total; area only for cumulative trends.',
       'Preview chart type, range, title, and series orientation, then wait for approval.',
@@ -532,6 +534,7 @@ export const COMMAND_HELP = {
     examples: [
       'chart bar Sheet2!C1:C11,Sheet2!G1:G11 title="Total by product"',
       'chart column Report!A1:B11 title="Top regions"',
+      'chart line \'Branch Performance\'!A1:H25 x=Month by=Branch value=Complaints title="Complaints per branch"',
       'chart bar \'Daily schedule\'!K6:L18 title="Weekly Hours by Activity" series=columns',
     ],
     doNot: [

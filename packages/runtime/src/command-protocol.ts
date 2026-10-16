@@ -1181,6 +1181,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(
       'Fill a column with one formula in ONE write: set Sheet!I2:I57 =IF(A2=A1,(F2-F1)/F1,"") — references shift per row like Excel fill-down. Never one set per cell. set Sheet!I2 "" clears a cell.',
     );
+  // CIMB UAT 2026-10-16: "trend per branch" on one-row-per-branch-per-month data charted raw columns.
+  if (allowed.has('chart') && manifest.surface === 'excel')
+    lines.push(
+      'Trend or comparison per group from long data (one row per group per month): chart line Sheet!A1:H25 x=Month by=Branch value=Complaints — the pane builds the summary table and the chart in one approval. Never type totals yourself.',
+    );
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint

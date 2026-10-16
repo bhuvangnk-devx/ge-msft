@@ -105,6 +105,9 @@ def _scan_quoted(rest: str):
     return _unescape(m.group(1)), rest.strip()[m.end():].strip()
 
 
+_QUOTED_SHEET = r"'(?:[^']|'')*'(?:[^\s']+|'(?:[^']|'')*')*"
+
+
 def _split_first_arg(rest: str):
     """Split the first argument while preserving single-quoted sheet names.
 
@@ -114,15 +117,13 @@ def _split_first_arg(rest: str):
     s = rest.lstrip()
     if not s:
         return None
-    m = re.match(r'"([^"]*)"(\S*)|\'([^\']*)\'(\S*)|(\S+)', s)
+    m = re.match(r'"([^"]*)"(\S*)|(' + _QUOTED_SHEET + r')|(\S+)', s)
     if not m:
         return None
     if m.group(1) is not None:
         arg = f"{m.group(1)}{m.group(2) or ''}"
-    elif m.group(3) is not None:
-        arg = f"'{m.group(3)}'{m.group(4) or ''}"
     else:
-        arg = m.group(5)
+        arg = m.group(3) if m.group(3) is not None else m.group(4)
     return arg, s[m.end():]
 
 
@@ -141,7 +142,13 @@ def _parse_grid_body(body: str):
 # `key="quoted"` / `key=bare` match yields a prop; anything else is positional (a range, a chart
 # type, a bare CF mode like `databar`).
 # Double-quoted values honour \", \\ and \n escapes (mirrors tokenizeArgs in command-grammar.ts).
-_TOKENIZE = re.compile(r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|(\S+)')
+# A token starting with a single-quoted sheet name runs on through later quoted areas
+# ('A B'!A1,'A B'!C1); mirrors QUOTED_SHEET_TOKEN in command-grammar.ts.
+_TOKENIZE = re.compile(
+    r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(' + _QUOTED_SHEET + r'|\S+)|"((?:[^"\\]|\\.)*)"|('
+    + _QUOTED_SHEET
+    + r'|\S+)'
+)
 
 
 def _unescape(value: str) -> str:
@@ -750,7 +757,8 @@ def parse_line(line: str):
     # ADR-0007 `chart <type> <range> [title="…"] [series=rows|columns]` — a chart over a range.
     if verb == "chart":
         usage = ("chart needs a type and a range — usage: chart "
-                 "<column|bar|line|pie|scatter|area> <range> [title=\"…\"] [series=rows|columns]")
+                 "<column|bar|line|pie|scatter|area> <range> [title=\"…\"] [series=rows|columns] "
+                 "[x=<col> by=<col> value=<col>]")
         positional, props = _tokenize_args(rest)
         if len(positional) < 2:
             return {"error": usage}

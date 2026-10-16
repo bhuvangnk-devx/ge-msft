@@ -14,6 +14,7 @@ import {
   type AnalysisProgram,
 } from './analysis-program.js';
 import { CommandContextSession } from './command-context-session.js';
+import { groupedChartPlan } from './grouped-chart.js';
 import {
   approvalClassOf,
   commandIntentText,
@@ -2048,6 +2049,29 @@ export class AssistSession {
       plan.results.push({ error: 'No operation may follow finish when=verified.' });
       return;
     }
+    // `chart line Sheet!A1:H25 x=Month by=Branch value=Complaints`: the summary table is built from
+    // the cells read here, then staged with the chart under the same approval.
+    if ('verb' in entry && entry.verb === 'chart' && entry.props.by !== undefined) {
+      const expanded = await this.groupedChartCommands(entry);
+      if ('error' in expanded) {
+        plan.results.push({ error: expanded.error });
+        yield { type: 'command', turn, command: entry, compiled: { error: expanded.error } };
+        return;
+      }
+      for (const sub of expanded.commands) {
+        for await (const ev of this.processEntry(
+          sub,
+          plan,
+          capabilities,
+          depth + 1,
+          opts,
+          turnProvenance,
+        ))
+          yield ev;
+        if (plan.done) return;
+      }
+      return;
+    }
     if (isProgramAnalysisBinding(entry)) {
       try {
         if (this.composeEnv.has(entry.name) || this.analysisBindings.has(entry.name))
@@ -2459,6 +2483,47 @@ export class AssistSession {
       compiled: { kind: 'write', request: resolved.request },
     };
     plan.planSlots.push({ index: slotIndex, effect: resolved });
+  }
+
+  /** The summary `grid` + `chart` for a grouped chart, placed in the first empty block to the right. */
+  private async groupedChartCommands(
+    entry: Extract<ParsedCommand, { verb: 'chart' }>,
+  ): Promise<{ commands: ParsedCommand[] } | { error: string }> {
+    const capture = this.bridge.captureCells?.bind(this.bridge);
+    if (!capture) return { error: 'chart by= needs to read the sheet, which this host cannot do.' };
+    let values: Array<Array<string | number | boolean | null>>;
+    try {
+      values = (await capture(entry.range)).values;
+    } catch {
+      return { error: `chart ${entry.range}: could not read the source range; read it and retry.` };
+    }
+    const { x, by, value, ...rest } = entry.props;
+    for (let attempt = 0, offset = 0; attempt < 6; attempt++) {
+      const plan = groupedChartPlan(entry.range, values, { x, by, value }, offset);
+      if ('error' in plan) return plan;
+      let taken = true;
+      try {
+        taken = (await capture(plan.range)).values.some((row) =>
+          row.some((cell) => cell !== null && cell !== undefined && cell !== ''),
+        );
+      } catch {
+        taken = true;
+      }
+      if (!taken)
+        return {
+          commands: [
+            { verb: 'grid', range: plan.range, cells: plan.cells },
+            {
+              verb: 'chart',
+              chartType: entry.chartType,
+              range: plan.range,
+              props: { ...rest, series: 'columns' },
+            },
+          ],
+        };
+      offset += (plan.cells[0]?.length ?? 1) + 1;
+    }
+    return { error: `chart ${entry.range}: no empty space to the right for the summary table.` };
   }
 
   /** Whether a reply or new-message window was opened, or is staged, in this task. */

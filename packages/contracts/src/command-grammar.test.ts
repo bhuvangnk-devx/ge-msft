@@ -56,6 +56,21 @@ describe('command-grammar — verb map', () => {
   });
 });
 
+describe('command-grammar — quoted sheet names', () => {
+  it('keeps a multi-area chart range on a quoted sheet as one token (CIMB UAT #11)', () => {
+    expect(
+      parseCommandLine(
+        "chart line 'Branch Performance'!A1:A25,'Branch Performance'!H1:H25 title=\"Trend\"",
+      ),
+    ).toMatchObject({
+      verb: 'chart',
+      chartType: 'line',
+      range: "'Branch Performance'!A1:A25,'Branch Performance'!H1:H25",
+      props: { title: 'Trend' },
+    });
+  });
+});
+
 describe('command-grammar — set', () => {
   it('accepts set <cell> "" as clearing the cell (CIMB UAT 2026-10-16)', () => {
     expect(parseCommandLine('set Sheet1!I2 ""')).toEqual({
