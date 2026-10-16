@@ -611,6 +611,8 @@ class FakeNamedItem {
 }
 
 const protectedSheets = new Set<string>();
+/** While true, every sync is rejected like Excel with a cell in edit mode (nothing commits). */
+let cellEditMode = false;
 
 class FakeWorksheet {
   get id(): string {
@@ -805,6 +807,12 @@ class FakeContext {
     };
   }
   sync(): Promise<void> {
+    if (cellEditMode)
+      return Promise.reject(
+        Object.assign(new Error('The cell is being edited.'), {
+          code: 'InvalidOperationInCellEditMode',
+        }),
+      );
     if (this.invalidSelection)
       return Promise.reject(
         Object.assign(new Error('The current selection is invalid for this operation.'), {
@@ -1562,6 +1570,25 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
       expect(active.seed.sheets[0]?.values).toEqual(before);
     } finally {
       protectedSheets.clear();
+    }
+  });
+
+  it.each([
+    ['write-cells', writeCells({ target: { range: 'Sales!A2:C2' }, cells: [['x', 'y', 'z']] })],
+    ['format-cells', formatCells({ target: { range: 'Sales!A2:C2' }, format: { bold: true } })],
+  ])('refuses %s while a cell is being edited, before writing', async (_kind, request) => {
+    active = installExcel(salesSeed());
+    const before = structuredClone(active.seed.sheets[0]?.values);
+    cellEditMode = true;
+    try {
+      const res = await new ExcelBridge().actuate(request);
+      expect(res).toMatchObject({
+        ok: false,
+        error: { code: 'host_refused', reason: 'edit_mode' },
+      });
+      expect(active.seed.sheets[0]?.values).toEqual(before);
+    } finally {
+      cellEditMode = false;
     }
   });
 

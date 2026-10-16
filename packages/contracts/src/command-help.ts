@@ -40,7 +40,7 @@ export const COMMAND_HELP = {
       'Never invent artifact IDs or use arbitrary files, URLs or SQL extensions.',
       'Do not use this command for recovery or undo.',
       'Only capture, query, reconcile, filter, and inspect can bind artifacts. Variables resolve only in artifact reference fields, never in arbitrary text.',
-      'finish when=verified must end a closed cmd block. It never bypasses approval and cannot claim verification for unsupported effects.',
+      'finish when=verified must end a closed cmd block. It never bypasses approval; it succeeds only when every effect landed, and a readback must match wherever the host returns one.',
     ],
     failureModes: [
       'Stale sources require capture and recomputation.',
@@ -291,7 +291,19 @@ export const COMMAND_HELP = {
     'tail <path> [n]',
     'you need only the last n lines (default 10) of a saved artifact or document entry, not the whole file',
   ),
-  set: genericWrite('set', 'set <A1> <value|=formula>', 'you need to write one Excel cell'),
+  set: {
+    ...genericWrite(
+      'set',
+      'set <A1|A1:A50> <value|=formula>',
+      'you need to write one Excel cell, or fill a whole range with one formula',
+    ),
+    examples: ['set Sales!F2 =C2-D2', 'set Sales!F2:F57 =C2-D2'],
+    doNot: [
+      'Do not write before reading.',
+      'Do not use unavailable verbs.',
+      'Do not write a formula cell by cell: set the whole range once; references shift per row like Excel fill-down.',
+    ],
+  },
   grid: {
     command: 'grid',
     useWhen:
@@ -410,8 +422,9 @@ export const COMMAND_HELP = {
   'insert-text': {
     command: '/insert-text',
     useWhen:
-      'the user asks to insert a small amount of plain text in Word without using tracked changes',
-    syntax: '/insert-text text="..." [match="exact anchor"] [contextHint="..."]',
+      'the user asks to insert a small amount of text in Word without using tracked changes, at the cursor ("pada lokasi kursor") or after an anchor, optionally formatted (bold, font, size) in the same command',
+    syntax:
+      '/insert-text text="..." [match="exact anchor"] [contextHint="..."] [bold=true] [italic=true] [underline=true] [font=<name>] [size=<pt>] [color=#RRGGBB]',
     discovery: [
       'search <exact anchor text>',
       'inspect <word:paragraph:N>',
@@ -419,10 +432,14 @@ export const COMMAND_HELP = {
     ],
     sequence: [
       'Read or search the exact insertion anchor, unless the user explicitly wants the current selection.',
-      'Use match/contextHint when anchoring after existing text; omit them only for current-selection insertion.',
+      'Use match/contextHint when anchoring after existing text; omit them for "at the cursor" / current-selection insertion.',
+      'Put the requested formatting on the same command (bold=true font=Arial size=16); never a second style command for it.',
       'Emit one /insert-text command and wait for preview, approval, and result.',
     ],
-    examples: ['/insert-text text=" Effective July 1." match="This agreement begins"'],
+    examples: [
+      '/insert-text text=" Effective July 1." match="This agreement begins"',
+      '/insert-text text="AI COE" bold=true font=Arial size=16',
+    ],
     doNot: [
       'Do not use for rewrites; use suggest or /replace-selection.',
       'Do not invent anchor text.',
@@ -504,7 +521,8 @@ export const COMMAND_HELP = {
     command: 'chart',
     useWhen:
       'you need an Excel chart; chart only the label column and its value column(s), listing separate areas for non-adjacent columns (C1:C11,G1:G11), never a whole multi-column table',
-    syntax: 'chart <column|bar|line|pie|scatter|area> <range> [title="..."] [series=rows|columns]',
+    syntax:
+      'chart <column|bar|line|pie|scatter|area> <range> [title="..."] [series=rows|columns] [x=<col> by=<col> value=<col>]',
     discovery: [
       'read <source-range>',
       'read adjacent label/header columns when the selection is unlabeled',
@@ -513,6 +531,7 @@ export const COMMAND_HELP = {
     sequence: [
       'Read the live source range before choosing a chart.',
       'Classify the question: trend, ranking, part-to-whole, correlation, or schedule/text summary.',
+      'For long data (one row per group per period, e.g. Branch + Month + Complaints) and a trend or comparison per group, use x=<period column> by=<group column> value=<number column> on the whole data range: the pane builds a live summary table next to the data and charts it, in one approval. Never type the totals yourself.',
       'For schedules, calendars, sparse ranges, and text grids, first create a small summary table with grid/spill, then chart that summary range.',
       'Choose the chart type by rubric: bar for ranked categories or long labels; column for short categories; line for ordered dates/times; scatter for numeric X/Y; pie only for <=6 non-negative parts of one meaningful total; area only for cumulative trends.',
       'Preview chart type, range, title, and series orientation, then wait for approval.',
@@ -520,6 +539,7 @@ export const COMMAND_HELP = {
     examples: [
       'chart bar Sheet2!C1:C11,Sheet2!G1:G11 title="Total by product"',
       'chart column Report!A1:B11 title="Top regions"',
+      'chart line \'Branch Performance\'!A1:H25 x=Month by=Branch value=Complaints title="Complaints per branch"',
       'chart bar \'Daily schedule\'!K6:L18 title="Weekly Hours by Activity" series=columns',
     ],
     doNot: [

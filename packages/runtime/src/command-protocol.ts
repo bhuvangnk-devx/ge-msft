@@ -1,9 +1,11 @@
+import { textToDocx } from './docx.js';
 import {
   ActuationRequestSchema,
   COMMAND_HELP,
   FORMAT_KEYS_USAGE,
   POWERPOINT_GEOMETRIES,
   commandIntentText,
+  fillRange,
   WRITE_VERB_TO_KIND,
   grammarFor,
   powerpointGeometry,
@@ -209,11 +211,17 @@ export function compileCommand(
       return { kind: 'control', verb: 'done' };
     case 'help':
       return { kind: 'control', verb: 'help', ...(cmd.topic ? { topic: cmd.topic } : {}) };
-    case 'set':
-      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, {
-        target: { range: cmd.cell },
-        cells: [[cmd.value]],
-      });
+    case 'set': {
+      // A range fills like Excel's Ctrl+Enter: one write, the formula shifted per cell (CIMB UAT
+      // 2026-10-16: 56 one-cell sets hit the per-turn write cap and the column stayed half empty).
+      let cells: string[][];
+      try {
+        cells = fillRange(cmd.cell, cmd.value) ?? [[cmd.value]];
+      } catch (error) {
+        return { error: `set ${cmd.cell}: ${(error as Error).message}` };
+      }
+      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, { target: { range: cmd.cell }, cells });
+    }
     case 'grid':
       return compileWrite(WRITE_VERB_TO_KIND.grid, ctx, {
         target: { range: cmd.range },
@@ -337,6 +345,10 @@ export function compileCommand(
         const shape = addShapeKind(cmd.props);
         if ('error' in shape) return shape;
       }
+      if (cmd.kind === 'add-attachment') {
+        const unbuildable = textAttachmentError(cmd.props);
+        if (unbuildable) return { error: unbuildable };
+      }
       return compileWrite(
         cmd.kind as ActuationKind,
         ctx,
@@ -394,6 +406,12 @@ function paramsFromInvoke(
         ...numberProp(props, 'top'),
       };
       break;
+    case 'insert-text': {
+      // CIMB UAT 2026-10-16: "AI COE" in bold Arial 16 came out as Aptos 12.
+      const font = wordFontFromProps(props);
+      if (font) p.textFont = font;
+      break;
+    }
     case 'insert-table':
       p.tableGrid = {
         rows: rowsFromProp(props.rows ?? props.tsv ?? ''),
@@ -511,7 +529,15 @@ function paramsFromInvoke(
       // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
       // produce base64 itself (it reliably writes the text, not the encoding).
       const text = props.text ?? props.content;
-      const base64 = props.base64 ?? (text !== undefined ? utf8ToBase64(text) : undefined);
+      // A .docx is built as a real Word file (CIMB UAT 2026-10-16: plain text named .docx would
+      // not open); any other name gets the text as is.
+      const base64 =
+        props.base64 ??
+        (text === undefined
+          ? undefined
+          : /\.docx$/i.test(props.name ?? '')
+            ? bytesToBase64(textToDocx(text))
+            : utf8ToBase64(text));
       p.attachment = {
         ...(props.name ? { name: props.name } : {}),
         ...(base64 ? { base64 } : {}),
@@ -596,6 +622,7 @@ function paramsFromInvoke(
       p.tableGrid = {
         rows: quoted?.rows ?? rowsFromProp(props.rows ?? props.tsv ?? ''),
         hasHeaders: boolFromProp(props.headers, true),
+        ...(props.headerFill ? { headerFill: props.headerFill } : {}),
         ...numberProp(props, 'left'),
         ...numberProp(props, 'top'),
         ...numberProp(props, 'width'),
@@ -796,12 +823,13 @@ function addShapeKind(
 }
 
 function rowsFromProp(value: string): string[][] {
-  const normalized = value.replaceAll('\\n', '\n').replaceAll('\\t', '\t').trim();
-  if (!normalized) return [];
-  return normalized
-    .split(/\r?\n/)
+  const normalized = value.replaceAll('\\n', '\n').replaceAll('\\t', '\t');
+  // Drop blank lines only: a row of tabs is an empty row the user asked for (CIMB UAT 2026-10-16:
+  // "add 3 empty rows under the header" inserted the header alone).
+  const lines = normalized.split(/\r?\n/).filter((line) => line.trim() || line.includes('\t'));
+  return lines
     .map((row) => row.split('\t').map((cell) => cell.trim()))
-    .filter((row) => row.some((cell) => cell.length > 0));
+    .filter((row) => row.length > 1 || row.some((cell) => cell.length > 0));
 }
 
 type ShapeFont = NonNullable<NonNullable<ActuationRequest['params']['shapeFormat']>['font']>;
@@ -855,6 +883,26 @@ function dottedStyleProps(args: string[]): Record<string, string> {
     else if (f === 'color') out[g] = value;
   }
   return out;
+}
+
+/** `bold=true italic=true underline=true font=Arial size=16 color=#C8102E` (or the font* names). */
+function wordFontFromProps(
+  props: Record<string, string>,
+): ActuationRequest['params']['textFont'] | undefined {
+  const font: NonNullable<ActuationRequest['params']['textFont']> = {};
+  const bold = props.bold ?? props.fontBold;
+  const italic = props.italic ?? props.fontItalic;
+  const underline = props.underline ?? props.fontUnderline;
+  if (bold !== undefined) font.bold = boolFromProp(bold, false);
+  if (italic !== undefined) font.italic = boolFromProp(italic, false);
+  if (underline !== undefined) font.underline = boolFromProp(underline, false);
+  const name = props.font ?? props.fontName;
+  if (name) font.name = name;
+  const size = numberFromProp(props.size ?? props.fontSize);
+  if (size !== undefined) font.size = size;
+  const color = props.color ?? props.fontColor;
+  if (color) font.color = color;
+  return Object.keys(font).length > 0 ? font : undefined;
 }
 
 function shapeFontFromProps(props: Record<string, string>): ShapeFont | undefined {
@@ -1114,7 +1162,8 @@ function compileWrite(
  * advertised write's exact syntax is in the base prompt (~3.7 KB on Excel), so the two task-ranked
  * cards need the headroom above it; at 4 KB they never fit and the chart card was dropped.
  */
-export const COMMAND_BOOTSTRAP_MAX_BYTES = 5120;
+// 5.5 KB: the honest-stop rules (2026-10-16) plus the most relevant command card must both fit.
+export const COMMAND_BOOTSTRAP_MAX_BYTES = 5632;
 
 /** What to do when the request needs an operation the live command list does not have. */
 const CANNOT_DO_RULE =
@@ -1168,11 +1217,12 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     'let $x = <read/pure expression>; reuse $x. Pipelines do not write. Exact transform syntax: help full.',
     'Pipelines cannot compute or build targets. After a read, choose the target yourself from the result and write it literally.',
   ];
-  // Live 2026-10-15: a column filled one `set` per cell hit the per-turn write cap and ended
-  // incomplete. One block write is one effect, one approval and one undo.
-  if (allowed.has('grid') || allowed.has('spill'))
+  // Live 2026-10-15 / CIMB UAT 2026-10-16: a column filled one `set` per cell hit the per-turn
+  // write cap. One block write is one effect, one approval and one undo.
+  const fill = allowed.has('set') && manifest.surface === 'excel';
+  if (allowed.has('grid') || allowed.has('spill') || fill)
     lines.push(
-      `Write neighbouring cells as ONE ${allowed.has('grid') ? 'grid' : 'spill'} command, never one set per cell; a block runs only a few writes.`,
+      `Write neighbouring cells in ONE write, never one set per cell: values as one ${allowed.has('grid') ? 'grid' : 'spill'}${fill ? '; one formula down a column as set Sheet!I2:I57 =IF(A2=A1,(F2-F1)/F1,"") (references shift per row); set Sheet!I2 "" clears a cell' : ''}.`,
     );
   if (allowed.has('analyze')) {
     lines.push(
@@ -1186,11 +1236,31 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(`let $rows = ${source} | head 3`);
     lines.push(allowed.has('set') ? 'set Summary!B2 = ($rows | count)' : '$rows | count');
   }
+  // CIMB UAT 2026-10-16: an icon request drew a blue circle and called it done.
+  if (manifest.surface === 'powerpoint')
+    lines.push(
+      'There is no image, picture or icon insertion on PowerPoint here. When asked for one, never draw a shape as a stand-in: answer with done "…", in the language the user wrote in, that icons and pictures cannot be added yet (Insert → Icons in PowerPoint does it), and offer a short text label instead.',
+    );
+  // CIMB UAT 2026-10-16: "8 slides" took 20+ minutes, repeated a topic and counted existing slides.
+  if (manifest.surface === 'powerpoint' && allowed.has('slide'))
+    lines.push(
+      '"Make N slides" means N NEW slides; existing slides do not count. Write them all in ONE block, one slide command per topic in the order given, never a topic twice: a short title and 3–5 short bullets (one idea each, no paragraphs).',
+    );
+  // CIMB UAT 2026-10-16: "table 3x3" came back as a header and 2 empty rows.
+  if (manifest.actuations.some((a) => a.kind === 'add-table-slide'))
+    lines.push(
+      'A "3x3" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide\'s topic; empty cells only when the user asks for empty rows.',
+    );
+  // CIMB UAT 2026-10-16: "trend per branch" on one-row-per-branch-per-month data charted raw columns.
+  if (allowed.has('chart') && manifest.surface === 'excel')
+    lines.push(
+      'Per-group trend from long data (one row per group per month): chart line Sheet!A1:H25 x=Month by=Branch value=Complaints (the pane builds the summary; never type totals).',
+    );
   lines.push(
     'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
     // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint
     // programs kept ending with `finish when=verified`, which no PowerPoint write can satisfy.
-    'Program control: finish when=verified completes only after every effect verifies and no error remains. Only Excel cell writes return readback.',
+    'Program control: finish when=verified completes only after every effect succeeds and no error remains. Only Excel cell writes return readback, and theirs must match. End a block with done OR finish when=verified, never both.',
     // `done "<answer>"` answers a question (help done has the detail).
     'For any other write, inspect the outcome and emit done alone when complete (done "<answer>" answers a question). Never claim unsupported verification. Always emit the closing fence.',
   );
@@ -1268,7 +1338,7 @@ export function renderCommandHelp(manifest: CapabilityManifest, topic?: string):
       'Command: finish',
       'Syntax: finish when=verified',
       'Program control: place last, after effects. The host finishes only when every effect has verified and no error or pending recovery remains.',
-      'Unknown, unsupported or mismatched readback cannot satisfy this condition. It never grants approval or declares success.',
+      'An uncertain, failed or mismatched write cannot satisfy this condition; a write with no readback counts once it landed. It never grants approval or declares success.',
       'Use done alone after inspecting outcomes when the task is complete without supported readback; do not claim verification.',
     ].join('\n');
   }
@@ -1404,6 +1474,21 @@ export function normalizeCommentId(raw: string): string {
 }
 
 /** UTF-8 text → base64, without `Buffer` (this runs in the task pane). */
+/** An Office or PDF file cannot be made from plain text here (only .docx and text files can). */
+function textAttachmentError(props: Record<string, string>): string | undefined {
+  if (props.base64 !== undefined || (props.text ?? props.content) === undefined) return undefined;
+  const ext = /\.(xlsx|xlsm|xls|pptx|ppt|doc|pdf)$/i.exec(props.name ?? '')?.[1];
+  return ext
+    ? `/add-attachment cannot build a .${ext.toLowerCase()} file from text= — attach it as name="….docx" (a Word file) or name="….txt", or tell the user to attach the file themselves.`
+    : undefined;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 function utf8ToBase64(text: string): string {
   let binary = '';
   for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);

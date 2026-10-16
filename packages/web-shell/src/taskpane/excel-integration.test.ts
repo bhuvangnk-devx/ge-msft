@@ -296,4 +296,95 @@ describe('Excel full-stack integration', () => {
     expect(fmt?.bold).toBe(true);
     expect(fmt?.fill).toBe('#FFF2CC');
   });
+
+  it('a range set repeated in a later turn is not applied (or approved) twice (CIMB UAT #7c)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nset Sales!E1 "Double"\nset Sales!E2:E4 =C2*2\nformat Sales!E2:E4 numberFormat="0.0"\n```',
+        '```cmd\nfinish when=verified\ndone "Filled."\n```',
+        "```cmd\nread 'Sales'!A1:E4\n```",
+        // The model quotes the sheet this time; the recorded write has no quotes.
+        '```cmd\nset \'Sales\'!E2:E4 =C2*2\nformat \'Sales\'!$E$2:$E$4 numberFormat="0.0"\ndone "Filled E2:E4."\n```',
+      ]),
+    });
+    await ui!.flush();
+
+    let approvals = 0;
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('double revenue into E');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    approvals++;
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy || s.pendingPlan !== undefined);
+    if (ui!.controller.getState().pendingPlan) {
+      approvals++;
+      await ui!.act(() => ui!.controller.approvePlan());
+    }
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+
+    expect(approvals).toBe(1);
+    expect(sim.snapshot().sheets.find((s) => s.name === 'Sales')?.values[3]?.[4]).toBe('=C4*2');
+  });
+
+  it('a verified finish after a cell write + format ends done, not "did not finish" (CIMB UAT #10)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nset Sales!C8 =SUM(C2:C7)\nformat Sales!C8 numberFormat="0.0%"\nfinish when=verified\n```',
+      ]),
+    });
+    await ui!.flush();
+
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('total revenue as a percentage');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    await ui!.flush();
+
+    expect(sim.snapshot().formats.get('Sales!C8')?.numberFormat).toBe('0.0%');
+    // The format has no readback; that is not a failure. Only the result card shows.
+    expect(ui!.container.querySelector('.error-card')).toBeNull();
+    expect(ui!.container.querySelector('.result-card')).not.toBeNull();
+  });
+
+  it('chart by= builds the summary table from the cells read, then charts it — one approval (CIMB UAT #11)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nchart column Sales!A1:D7 x=rep by=region value=revenue title="Revenue"\n```',
+        '```cmd\ndone "Charted."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let approvals = 0;
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('chart revenue per region by rep');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    approvals++;
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+
+    expect(approvals).toBe(1);
+    const sales = sim.snapshot().sheets.find((s) => s.name === 'Sales')!;
+    // Summary at F1: reps down, regions across; every cell a live exact-match sum, never a typed number.
+    expect(sales.values[0]?.slice(5, 10)).toEqual(['rep', 'East', 'West', 'North', 'South']);
+    expect(sales.values[1]?.[5]).toBe('Alice');
+    expect(sales.values[1]?.[6]).toBe('=SUMPRODUCT(--($A$2:$A$7=G$1),--($B$2:$B$7=$F2),$C$2:$C$7)');
+    const chart = sim.snapshot().charts.find((c) => c.title === 'Revenue');
+    expect(chart?.source).toContain('F1:J7');
+  });
 });

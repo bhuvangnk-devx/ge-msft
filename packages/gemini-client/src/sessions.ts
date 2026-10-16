@@ -194,16 +194,34 @@ function queryText(query: z.infer<typeof QuerySchema> | undefined): string | und
 /** Context the add-in sends, in case a part ever arrives without its MIME type. */
 const CONTEXT_PART = /^(?:<doc_state\b|Working-document read\b|Working context so far\b)/;
 
+/** Marks the pane's own instructions (brand name, writing rules) inside a query. */
+export const PANE_INSTRUCTIONS_OPEN = '<pane_instructions>';
+export const PANE_INSTRUCTIONS_CLOSE = '</pane_instructions>';
+const PANE_BLOCK = /^\s*<pane_instructions>[\s\S]*?<\/pane_instructions>\s*/;
+/** The unmarked name line sent before 2026-10-16 ("Your name is CNGPT. …"), then a blank line. */
+const LEGACY_NAME_LINE = /^\s*Your name is [^\n]*(?:\n[^\n]+)*\n\n/;
+/**
+ * The same line sent as its own part (with attached context, e.g. every Outlook turn): no blank
+ * line follows it (CIMB UAT 2026-10-16: shown above the user's question).
+ */
+const LEGACY_NAME_PART =
+  /^\s*Your name is [^\n]+? only; never call yourself Gemini or Gemini Enterprise\.\s*$/;
+
+/** A query text without the pane's instruction block (or the older unmarked name line). */
+export function withoutPaneInstructions(text: string): string {
+  return text.replace(PANE_BLOCK, '').replace(LEGACY_NAME_LINE, '').replace(LEGACY_NAME_PART, '');
+}
+
 /**
  * The user's own words. The add-in sends context (the `<doc_state>` snapshot, attached reads) as
  * parts with a MIME type and the typed question as a bare text part.
  */
 function userText(query: z.infer<typeof QuerySchema> | undefined): string | undefined {
   if (!query) return undefined;
-  if (!query.parts?.length) return query.text?.trim() || undefined;
+  if (!query.parts?.length) return withoutPaneInstructions(query.text ?? '').trim() || undefined;
   const own = query.parts
     .filter((part) => !part.mimeType)
-    .map((part) => part.text?.trim())
+    .map((part) => withoutPaneInstructions(part.text ?? '').trim())
     .filter((text): text is string => Boolean(text) && !CONTEXT_PART.test(text!));
   return own.length ? own.join('\n') : undefined;
 }

@@ -395,7 +395,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: '/insert-text',
     title: 'Word plain-text insertion',
-    useWhen: 'insert grounded plain text at the current selection or after an exact anchor',
+    useWhen:
+      'insert grounded text at the current selection (the cursor: no match=; the snapshot names the cursor paragraph) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text',
     hostApis: ['Word.Range.insertText', 'Word.Selection.insertText'],
     requirementSets: [{ name: 'WordApi', minVersion: '1.1' }],
     contextKinds: ['selection', 'paragraph', 'document'],
@@ -405,7 +406,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Preview the inserted text and position.',
       'Emit one /insert-text command only when insertion, not tracked rewrite, is intended.',
     ],
-    examples: ['/insert-text match="Appendix" position=after text="Reviewed by Legal."'],
+    examples: [
+      '/insert-text match="Appendix" position=after text="Reviewed by Legal."',
+      '/insert-text text="AI COE" bold=true font=Arial size=16',
+    ],
     preview: ['anchor/selection', 'position', 'inserted text summary'],
     inverse: 'delete the inserted text range when the inserted range is captured',
     provenance: 'record anchor, inserted text hash, position, and changeId',
@@ -595,7 +599,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: '/insert-table',
     title: 'Word native table insertion',
-    useWhen: 'insert a small grounded table into a Word document',
+    useWhen:
+      'insert a small grounded table into a Word document: "at the cursor" (pada lokasi kursor) = no match= (it goes after the cursor\'s paragraph); match="exact text" only when the user names a place. Empty rows the user asks for are tab-only lines',
     hostApis: ['Word.Range.insertTable', 'Word.Table'],
     requirementSets: [{ name: 'WordApi', minVersion: '1.3' }],
     contextKinds: ['selection', 'paragraph', 'table'],
@@ -605,7 +610,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Keep the table small enough for preview.',
       'Emit one /insert-table with a tableGrid payload or use OOXML when native table is unavailable.',
     ],
-    examples: ['/insert-table match="Appendix" rows="Metric\\tValue\\nRevenue\\t100"'],
+    examples: [
+      '/insert-table rows="#\\tAktivitas\\tDeliverable\\n\\t\\t\\n\\t\\t"',
+      '/insert-table match="Appendix" rows="Metric\\tValue\\nRevenue\\t100"',
+    ],
     preview: ['anchor', 'row/column count', 'first rows'],
     inverse: 'delete the inserted table when a stable inserted range can be re-resolved',
     provenance: 'record anchor, table hash, row/column count, and changeId',
@@ -805,7 +813,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-shape',
     title: 'PowerPoint shape/textbox insertion',
     useWhen:
-      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside',
+      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. Text (a title, a label, a text box) is always shapeType=textBox with text= in the SAME command — never a rectangle, which PowerPoint fills with a solid theme colour that hides the text. A slide whose Title placeholder is empty gets its title there instead (shape <ref> "…"). Other shapeType values: line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it',
     hostApis: [
       'PowerPoint.ShapeCollection.addTextBox',
       'PowerPoint.ShapeCollection.addGeometricShape',
@@ -820,8 +828,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Emit one /add-shape command; never infer placement from prose alone.',
     ],
     examples: [
-      '/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60',
       '/add-shape slide=2 shapeType=textBox text="Key risk" left=72 top=300 width=400 height=50',
+      '/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60',
     ],
     preview: ['target slide', 'shape type', 'geometry', 'text/style fields'],
     inverse: 'delete the inserted shape by captured shape id',
@@ -838,7 +846,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-table-slide',
     title: 'PowerPoint native slide table',
     useWhen:
-      'add a native table (rows and columns) to a new slide (slide=new title="…", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text',
+      'add a native table (rows and columns) to a new slide (slide=new title="…", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text. A "3x3" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide\'s topic (number a No column 1..N); leave cells empty only when the user asks for empty rows. headerFill=#RRGGBB only when the user names a colour; otherwise the pane colours the header row in the brand colour',
     hostApis: ['PowerPoint.ShapeCollection.addTable'],
     requirementSets: [{ name: 'PowerPointApi', minVersion: '1.8' }],
     contextKinds: ['slide', 'table'],
@@ -851,6 +859,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     examples: [
       '/add-table-slide slide=new title="Key metrics" rows="Metric\\tValue\\nARR\\t$12M" left=72 top=110 width=560 height=200',
       '/add-table-slide slide=new at=2 title="Key metrics" rows="Metric\\tValue\\nARR\\t$12M"',
+      '/add-table-slide slide=4 rows="No\\tDimensi\\tDeskripsi\\n1\\tRegulasi\\tPatuh OJK\\n2\\tData\\tLokasi data\\n3\\tBiaya\\tTCO 3 tahun" left=72 top=110 width=560 height=200',
     ],
     preview: ['target slide', 'row/column count', 'geometry', 'first rows'],
     inverse: 'delete the inserted table shape by captured shape id',
@@ -941,7 +950,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: '/add-attachment',
     title: 'Outlook draft attachment',
-    useWhen: 'attach a generated or approved file to a draft without sending mail',
+    useWhen:
+      'attach a file to a draft without sending mail. A file the user describes ("a Word file titled X containing Y") is name="X.docx" text="Y": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned',
     hostApis: [
       'Office.MessageCompose.addFileAttachmentAsync',
       'Office.MessageCompose.addItemAttachmentAsync',
@@ -951,10 +961,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     discovery: ['attachments', 'properties <draft-ref>', 'context upload-preferred'],
     sequence: [
       'Confirm the active item is a draft/compose surface.',
-      'Use only a host-returned file or allowlisted URL/base64 artifact.',
+      'Describe a new file with name= and text= (.docx or .txt); use base64= only for a host-returned file.',
       'Emit one /add-attachment command.',
     ],
-    examples: ['/add-attachment name="brief.xlsx" base64=<base64>'],
+    examples: ['/add-attachment name="hello arjuna.docx" text="test script 1"'],
     preview: ['draft target', 'file name', 'size/hash', 'attachment type'],
     inverse: 'remove the created attachment by attachment id when available',
     provenance: 'record attachment name, size/hash, draft id when available, and changeId',

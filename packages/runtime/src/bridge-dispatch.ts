@@ -41,9 +41,10 @@ const SURFACE_NAMES: Record<Surface, string> = {
  * throw (outcome unknown); bridges refuse those cases themselves before writing (e.g. a protected
  * Excel sheet).
  */
-const HOST_REFUSALS: Readonly<Record<string, HostRefusalReason>> = {
-  InvalidOperationInCellEditMode: 'edit_mode',
-};
+// Empty on purpose: a handler may sync more than once, so even "the whole request was rejected"
+// can follow a landed write (security review 2026-10-16). Bridges detect refusals in their own
+// read-only pre-checks (Excel: edit mode, protected sheet) where a non-write is certain.
+const HOST_REFUSALS: Readonly<Record<string, HostRefusalReason>> = {};
 
 /**
  * Execution authority comes from these host handlers, never descriptive capability metadata.

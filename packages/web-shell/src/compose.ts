@@ -1,4 +1,5 @@
 import type { ContextKind, ReleaseProfileName, UnitDescriptor } from '@ge/contracts';
+import { rulesFor, type PromptRule } from './brand.js';
 import { asSessionId, filterManifestForReleaseProfile, releaseProfile } from '@ge/contracts';
 import type {
   AssistantPath,
@@ -52,6 +53,12 @@ export interface ShellConfig {
   releaseProfile?: ReleaseProfileName;
   /** Branded assistant name the model calls itself; unset keeps the engine's default persona. */
   assistantName?: string;
+  /** Brand writing rules sent with the name on every turn; only the open app's are kept. */
+  assistantRules?: readonly PromptRule[];
+  /** The brand's email opening for Outlook drafts (e.g. "Halo", not "Yth."). */
+  draftGreeting?: { readonly replace: readonly string[]; readonly with: string };
+  /** The brand's main colour: the header row of a PowerPoint table the model adds without one. */
+  accentColor?: string;
 }
 
 /**
@@ -143,6 +150,9 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
       identity: identity.username,
       ...(config.modelId ? { modelId: config.modelId } : {}),
       ...(config.assistantName ? { assistantName: config.assistantName } : {}),
+      ...(rulesFor(config.assistantRules, bridge.surface).length
+        ? { assistantRules: rulesFor(config.assistantRules, bridge.surface) }
+        : {}),
       ...(config.skills?.length ? { skills: config.skills } : {}),
       ...(config.skillMentions?.length ? { skillMentions: config.skillMentions } : {}),
       ...(config.plannerSkills?.length ? { plannerSkills: config.plannerSkills } : {}),
@@ -212,6 +222,8 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
 
   const session = new AssistSession(bridge, client, {
     unit,
+    ...(config.draftGreeting ? { draftGreeting: config.draftGreeting } : {}),
+    ...(config.accentColor ? { tableHeaderFill: config.accentColor } : {}),
     recoveryOwner: identity.oid ?? identity.username,
     evidence: new EvidencePipeline({
       search: new SearchClient(

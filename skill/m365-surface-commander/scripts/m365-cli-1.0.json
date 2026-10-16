@@ -796,7 +796,7 @@
         "Never invent artifact IDs or use arbitrary files, URLs or SQL extensions.",
         "Do not use this command for recovery or undo.",
         "Only capture, query, reconcile, filter, and inspect can bind artifacts. Variables resolve only in artifact reference fields, never in arbitrary text.",
-        "finish when=verified must end a closed cmd block. It never bypasses approval and cannot claim verification for unsupported effects."
+        "finish when=verified must end a closed cmd block. It never bypasses approval; it succeeds only when every effect landed, and a readback must match wherever the host returns one."
       ],
       "failureModes": [
         "Stale sources require capture and recomputation.",
@@ -887,7 +887,7 @@
     "chart": {
       "command": "chart",
       "useWhen": "you need an Excel chart; chart only the label column and its value column(s), listing separate areas for non-adjacent columns (C1:C11,G1:G11), never a whole multi-column table",
-      "syntax": "chart <column|bar|line|pie|scatter|area> <range> [title=\"...\"] [series=rows|columns]",
+      "syntax": "chart <column|bar|line|pie|scatter|area> <range> [title=\"...\"] [series=rows|columns] [x=<col> by=<col> value=<col>]",
       "discovery": [
         "read <source-range>",
         "read adjacent label/header columns when the selection is unlabeled",
@@ -896,6 +896,7 @@
       "sequence": [
         "Read the live source range before choosing a chart.",
         "Classify the question: trend, ranking, part-to-whole, correlation, or schedule/text summary.",
+        "For long data (one row per group per period, e.g. Branch + Month + Complaints) and a trend or comparison per group, use x=<period column> by=<group column> value=<number column> on the whole data range: the pane builds a live summary table next to the data and charts it, in one approval. Never type the totals yourself.",
         "For schedules, calendars, sparse ranges, and text grids, first create a small summary table with grid/spill, then chart that summary range.",
         "Choose the chart type by rubric: bar for ranked categories or long labels; column for short categories; line for ordered dates/times; scatter for numeric X/Y; pie only for <=6 non-negative parts of one meaningful total; area only for cumulative trends.",
         "Preview chart type, range, title, and series orientation, then wait for approval."
@@ -903,6 +904,7 @@
       "examples": [
         "chart bar Sheet2!C1:C11,Sheet2!G1:G11 title=\"Total by product\"",
         "chart column Report!A1:B11 title=\"Top regions\"",
+        "chart line 'Branch Performance'!A1:H25 x=Month by=Branch value=Complaints title=\"Complaints per branch\"",
         "chart bar 'Daily schedule'!K6:L18 title=\"Weekly Hours by Activity\" series=columns"
       ],
       "doNot": [
@@ -1264,8 +1266,8 @@
     },
     "insert-text": {
       "command": "/insert-text",
-      "useWhen": "the user asks to insert a small amount of plain text in Word without using tracked changes",
-      "syntax": "/insert-text text=\"...\" [match=\"exact anchor\"] [contextHint=\"...\"]",
+      "useWhen": "the user asks to insert a small amount of text in Word without using tracked changes, at the cursor (\"pada lokasi kursor\") or after an anchor, optionally formatted (bold, font, size) in the same command",
+      "syntax": "/insert-text text=\"...\" [match=\"exact anchor\"] [contextHint=\"...\"] [bold=true] [italic=true] [underline=true] [font=<name>] [size=<pt>] [color=#RRGGBB]",
       "discovery": [
         "search <exact anchor text>",
         "inspect <word:paragraph:N>",
@@ -1273,11 +1275,13 @@
       ],
       "sequence": [
         "Read or search the exact insertion anchor, unless the user explicitly wants the current selection.",
-        "Use match/contextHint when anchoring after existing text; omit them only for current-selection insertion.",
+        "Use match/contextHint when anchoring after existing text; omit them for \"at the cursor\" / current-selection insertion.",
+        "Put the requested formatting on the same command (bold=true font=Arial size=16); never a second style command for it.",
         "Emit one /insert-text command and wait for preview, approval, and result."
       ],
       "examples": [
-        "/insert-text text=\" Effective July 1.\" match=\"This agreement begins\""
+        "/insert-text text=\" Effective July 1.\" match=\"This agreement begins\"",
+        "/insert-text text=\"AI COE\" bold=true font=Arial size=16"
       ],
       "doNot": [
         "Do not use for rewrites; use suggest or /replace-selection.",
@@ -1708,8 +1712,8 @@
     },
     "set": {
       "command": "set",
-      "useWhen": "you need to write one Excel cell",
-      "syntax": "set <A1> <value|=formula>",
+      "useWhen": "you need to write one Excel cell, or fill a whole range with one formula",
+      "syntax": "set <A1|A1:A50> <value|=formula>",
       "discovery": [
         "outline or list",
         "read/search/inspect/properties the target"
@@ -1720,11 +1724,13 @@
         "Wait for preview, approval, and result before done."
       ],
       "examples": [
-        "set <A1> <value|=formula>"
+        "set Sales!F2 =C2-D2",
+        "set Sales!F2:F57 =C2-D2"
       ],
       "doNot": [
         "Do not write before reading.",
-        "Do not use unavailable verbs."
+        "Do not use unavailable verbs.",
+        "Do not write a formula cell by cell: set the whole range once; references shift per row like Excel fill-down."
       ],
       "failureModes": [
         "Unsupported capability or stale target returns a corrective failure; regenerate."
@@ -2964,7 +2970,7 @@
       "priority": "p0",
       "command": "/add-attachment",
       "title": "Outlook draft attachment",
-      "useWhen": "attach a generated or approved file to a draft without sending mail",
+      "useWhen": "attach a file to a draft without sending mail. A file the user describes (\"a Word file titled X containing Y\") is name=\"X.docx\" text=\"Y\": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned",
       "hostApis": [
         "Office.MessageCompose.addFileAttachmentAsync",
         "Office.MessageCompose.addItemAttachmentAsync"
@@ -2987,11 +2993,11 @@
       ],
       "sequence": [
         "Confirm the active item is a draft/compose surface.",
-        "Use only a host-returned file or allowlisted URL/base64 artifact.",
+        "Describe a new file with name= and text= (.docx or .txt); use base64= only for a host-returned file.",
         "Emit one /add-attachment command."
       ],
       "examples": [
-        "/add-attachment name=\"brief.xlsx\" base64=<base64>"
+        "/add-attachment name=\"hello arjuna.docx\" text=\"test script 1\""
       ],
       "preview": [
         "draft target",
@@ -3367,7 +3373,7 @@
       "priority": "p0",
       "command": "/add-shape",
       "title": "PowerPoint shape/textbox insertion",
-      "useWhen": "add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside",
+      "useWhen": "add a text box, a coloured shape or a line to an addressed slide with explicit geometry. Text (a title, a label, a text box) is always shapeType=textBox with text= in the SAME command — never a rectangle, which PowerPoint fills with a solid theme colour that hides the text. A slide whose Title placeholder is empty gets its title there instead (shape <ref> \"…\"). Other shapeType values: line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it",
       "hostApis": [
         "PowerPoint.ShapeCollection.addTextBox",
         "PowerPoint.ShapeCollection.addGeometricShape",
@@ -3394,8 +3400,8 @@
         "Emit one /add-shape command; never infer placement from prose alone."
       ],
       "examples": [
-        "/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60",
-        "/add-shape slide=2 shapeType=textBox text=\"Key risk\" left=72 top=300 width=400 height=50"
+        "/add-shape slide=2 shapeType=textBox text=\"Key risk\" left=72 top=300 width=400 height=50",
+        "/add-shape slide=2 shapeType=rectangle fill=#0F6CBD left=560 top=20 width=140 height=60"
       ],
       "preview": [
         "target slide",
@@ -3422,7 +3428,7 @@
       "priority": "p0",
       "command": "/add-table-slide",
       "title": "PowerPoint native slide table",
-      "useWhen": "add a native table (rows and columns) to a new slide (slide=new title=\"…\", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text",
+      "useWhen": "add a native table (rows and columns) to a new slide (slide=new title=\"…\", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text. A \"3x3\" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide's topic (number a No column 1..N); leave cells empty only when the user asks for empty rows. headerFill=#RRGGBB only when the user names a colour; otherwise the pane colours the header row in the brand colour",
       "hostApis": [
         "PowerPoint.ShapeCollection.addTable"
       ],
@@ -3448,7 +3454,8 @@
       ],
       "examples": [
         "/add-table-slide slide=new title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\" left=72 top=110 width=560 height=200",
-        "/add-table-slide slide=new at=2 title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\""
+        "/add-table-slide slide=new at=2 title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\"",
+        "/add-table-slide slide=4 rows=\"No\\tDimensi\\tDeskripsi\\n1\\tRegulasi\\tPatuh OJK\\n2\\tData\\tLokasi data\\n3\\tBiaya\\tTCO 3 tahun\" left=72 top=110 width=560 height=200"
       ],
       "preview": [
         "target slide",
@@ -4406,7 +4413,7 @@
       "priority": "p0",
       "command": "/insert-table",
       "title": "Word native table insertion",
-      "useWhen": "insert a small grounded table into a Word document",
+      "useWhen": "insert a small grounded table into a Word document: \"at the cursor\" (pada lokasi kursor) = no match= (it goes after the cursor's paragraph); match=\"exact text\" only when the user names a place. Empty rows the user asks for are tab-only lines",
       "hostApis": [
         "Word.Range.insertTable",
         "Word.Table"
@@ -4433,6 +4440,7 @@
         "Emit one /insert-table with a tableGrid payload or use OOXML when native table is unavailable."
       ],
       "examples": [
+        "/insert-table rows=\"#\\tAktivitas\\tDeliverable\\n\\t\\t\\n\\t\\t\"",
         "/insert-table match=\"Appendix\" rows=\"Metric\\tValue\\nRevenue\\t100\""
       ],
       "preview": [
@@ -4459,7 +4467,7 @@
       "priority": "p0",
       "command": "/insert-text",
       "title": "Word plain-text insertion",
-      "useWhen": "insert grounded plain text at the current selection or after an exact anchor",
+      "useWhen": "insert grounded text at the current selection (the cursor: no match=; the snapshot names the cursor paragraph) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text",
       "hostApis": [
         "Word.Range.insertText",
         "Word.Selection.insertText"
@@ -4487,7 +4495,8 @@
         "Emit one /insert-text command only when insertion, not tracked rewrite, is intended."
       ],
       "examples": [
-        "/insert-text match=\"Appendix\" position=after text=\"Reviewed by Legal.\""
+        "/insert-text match=\"Appendix\" position=after text=\"Reviewed by Legal.\"",
+        "/insert-text text=\"AI COE\" bold=true font=Arial size=16"
       ],
       "preview": [
         "anchor/selection",

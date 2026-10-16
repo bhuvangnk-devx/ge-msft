@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { AssistRequest, ResolvedContext } from '@ge/contracts';
 import { SessionContext, contextValueToQueryPart } from './session-context.js';
-import { buildStreamAssistRequest, identityText } from './stream-assist.js';
+import {
+  LANGUAGE_RULE,
+  buildStreamAssistRequest,
+  identityText,
+  paneInstructions,
+} from './stream-assist.js';
 
 function textCtx(id: string, text: string): ResolvedContext {
   return {
@@ -79,17 +84,49 @@ describe('buildStreamAssistRequest with live context', () => {
       }
     ).parts;
     expect(parts).toEqual([
-      { text: identityText('CNGPT') },
+      { text: paneInstructions('CNGPT')! },
       { text: 'SLA is 99.5%' },
       { text: 'Summarize the risk' },
     ]);
     const text = (buildStreamAssistRequest(req, named).query as { text: string }).text;
-    expect(text.startsWith(identityText('CNGPT'))).toBe(true);
-    expect(identityText('CNGPT')).toContain('never call yourself Gemini');
+    expect(text.startsWith(`${paneInstructions('CNGPT')}\n\n`)).toBe(true);
+    expect(identityText('CNGPT')).toContain('never Gemini');
+    expect(identityText('CNGPT')).toContain('Do not introduce yourself');
   });
 
   it('sends no identity line without a branded name', () => {
     const text = (buildStreamAssistRequest(req, cfg).query as { text: string }).text;
     expect(text).not.toContain('Your name is');
+  });
+
+  it('sends the brand writing rules right after the name, in the same instruction block', () => {
+    const rule = 'Open Bahasa emails with "Halo", never "Yth."';
+    const branded = { ...cfg, assistantName: 'CNGPT', assistantRules: [rule] };
+    const text = (buildStreamAssistRequest(req, branded).query as { text: string }).text;
+    expect(
+      text.startsWith(
+        `<pane_instructions>\n${identityText('CNGPT')}\n${rule}\n${LANGUAGE_RULE}\n</pane_instructions>\n\n`,
+      ),
+    ).toBe(true);
+    expect(paneInstructions(undefined, [])).toBeUndefined();
+  });
+
+  it('sends a rule limited to command turns only when the assistant writes (not on chat or planner)', () => {
+    const rule = 'Open Bahasa emails with "Halo".';
+    const branded = {
+      ...cfg,
+      assistantName: 'CNGPT',
+      assistantRules: [{ text: rule, routes: ['command' as const] }],
+    };
+    const queryOf = (route: 'default' | 'planner' | 'command'): string =>
+      (
+        buildStreamAssistRequest(req, branded, undefined, undefined, route).query as {
+          text: string;
+        }
+      ).text;
+    expect(queryOf('command')).toContain(rule);
+    expect(queryOf('default')).not.toContain(rule);
+    expect(queryOf('planner')).not.toContain(rule);
+    expect(queryOf('default')).toContain(identityText('CNGPT'));
   });
 });

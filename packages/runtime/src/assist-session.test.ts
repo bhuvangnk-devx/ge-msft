@@ -1707,6 +1707,50 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     await expect(run).rejects.toThrow(/may already have applied/);
   });
 
+  it('a declined write next to one that landed still warns that changes may have applied', async () => {
+    const bridge = new ComposeBridge();
+    const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\nset A2 2\n```']);
+    const hooks = new RuntimeHooks();
+    installRuntimeExtensions([completedEffectsExtension], {
+      hooks,
+      triggers: new TriggerRegistry(),
+    });
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, {
+      unit,
+      hooks,
+      context: { docState: false },
+    });
+    let approvals = 0;
+    const run = collectLoop(
+      session.runCommands('write two cells', { approvePlan: () => ++approvals === 1 }),
+    );
+
+    await expect(run).rejects.toThrow(/may already have applied/);
+    expect(bridge.applied).toHaveLength(1);
+    expect(session.executions.list().at(-1)?.status).not.toBe('cancelled');
+  });
+
+  it('a scheme-like selector does not land on an object titled with its tail', async () => {
+    class TitledBridge extends ComposeBridge {
+      resolved = 0;
+      override listContext(): Promise<ContextRef[]> {
+        return Promise.resolve([{ id: 'xl:tbl-1', kind: 'table', surface: 'excel', title: 'C' }]);
+      }
+      override resolveContext(): Promise<ResolvedContext[]> {
+        this.resolved += 1;
+        return Promise.resolve([]);
+      }
+    }
+    const bridge = new TitledBridge();
+    const { fetch } = scriptedFetch(['```cmd\ninspect A:C\n```', '```cmd\ndone\n```']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    await collectLoop(session.runCommands('look at A:C', { approvePlan: () => true }));
+
+    expect(bridge.resolved).toBe(0);
+  });
+
   it('refuses to resend a write whose earlier identical attempt has an unknown outcome', async () => {
     class UncertainBridge extends ComposeBridge {
       calls = 0;
@@ -2212,5 +2256,29 @@ describe('AssistSession.plan — the planner pre-stage (§F)', () => {
     const { plan, needsClarification } = await session.plan('rewrite the section');
     expect(needsClarification).toBe(true);
     expect(plan?.clarify).toEqual(['which section — §4 or §5?']);
+  });
+
+  it('reports a failed planner call as a failure, apart from a reply with no plan block', async () => {
+    const bridge = new FakeBridge();
+    const denied = vi.fn(async () => new Response('denied', { status: 401 }));
+    const failing = new AssistSession(
+      bridge,
+      new StreamAssistClient(tokens, cfg, denied as never),
+      {
+        unit,
+      },
+    );
+    const failed = await failing.plan('hii');
+    expect(failed.plan).toBeNull();
+    expect(failed.failure).toMatchObject({ code: 'http_401' });
+
+    const prose = new AssistSession(
+      bridge,
+      new StreamAssistClient(tokens, cfg, fetchText('Hello! How can I help?') as never),
+      { unit },
+    );
+    const noBlock = await prose.plan('hii');
+    expect(noBlock.plan).toBeNull();
+    expect(noBlock.failure).toBeUndefined();
   });
 });

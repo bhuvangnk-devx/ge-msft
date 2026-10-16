@@ -14,6 +14,7 @@ export {
   DOC_STATE_REF_ID,
   READ_REF_PREFIX,
 } from './assist-session.js';
+export { replaceDraftOpening, withDraftGreeting, type DraftGreeting } from './draft-greeting.js';
 export {
   compileCommand,
   isCompileError,

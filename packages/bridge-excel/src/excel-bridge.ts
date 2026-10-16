@@ -1365,7 +1365,25 @@ async function protectedSheetRefusal(
   sheet.protection.load('protected');
   range.load('address');
   if (unlockedCellsAllowed) range.format.protection.load('locked');
-  await ctx.sync();
+  try {
+    await ctx.sync();
+  } catch (error) {
+    // Still only reads here: a cell being edited refuses every call, so this is a certain
+    // non-write the user can fix (press Enter or Esc). After a write is queued the same error is
+    // never mapped: it may follow a landed write (security review 2026-10-16).
+    if ((error as { code?: unknown } | null)?.code !== 'InvalidOperationInCellEditMode')
+      throw error;
+    return {
+      ok: false,
+      changeId: req.changeId,
+      kind: req.kind,
+      error: {
+        code: 'host_refused',
+        reason: 'edit_mode',
+        message: 'A cell is being edited in Excel.',
+      },
+    };
+  }
   if (!sheet.protection.protected) return undefined;
   // `locked` is null when the range mixes locked and unlocked cells: treat that as locked.
   if (unlockedCellsAllowed && range.format.protection.locked === false) return undefined;

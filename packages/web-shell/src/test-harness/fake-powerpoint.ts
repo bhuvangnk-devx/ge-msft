@@ -86,6 +86,8 @@ export interface ShapeSeed {
   font?: ShapeFontSeed;
   /** Cell text grid of a 'Table' shape (`table.values`). */
   table?: string[][];
+  /** Header-row fill from `TableAddOptions.specificCellProperties` (row 0), as the host was given. */
+  tableHeaderFill?: string;
 }
 
 /** A slide: a stable id + its shapes (title shape first, by layout convention). */
@@ -372,6 +374,7 @@ interface FakeAddOptions {
   top?: number;
   width?: number;
   height?: number;
+  specificCellProperties?: Array<Array<{ fill?: { color?: string } }>>;
 }
 
 class FakeShapeCollection {
@@ -421,7 +424,14 @@ class FakeShapeCollection {
     const table = Array.from({ length: rowCount }, () =>
       Array.from({ length: columnCount }, () => ''),
     );
-    return this.append({ text: '', type: 'Table', table, ...geometry(options) });
+    const headerFill = options?.specificCellProperties?.[0]?.[0]?.fill?.color;
+    return this.append({
+      text: '',
+      type: 'Table',
+      table,
+      ...geometry(options),
+      ...(headerFill ? { tableHeaderFill: headerFill } : {}),
+    });
   }
   private append(shape: ShapeSeed): FakeShape {
     shape.id = mintShapeId(this.slide);

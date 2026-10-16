@@ -188,7 +188,13 @@ export interface AssistLike {
   plan(
     task: string,
     opts?: { signal?: AbortSignal; grounding?: ResolvedGrounding },
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }>;
+  ): Promise<{
+    plan: CommandPlan | null;
+    errors: string[];
+    needsClarification: boolean;
+    /** Set when the planner call itself failed or was blocked; nothing is handed on then. */
+    failure?: { message: string; code?: string; blocked?: boolean };
+  }>;
   ingest(event: HostEvent): Promise<void>;
   readonly sessionId?: string;
 }
@@ -1181,9 +1187,10 @@ export class PanelController {
       pendingPlanClarification: undefined,
     });
     let continuation: 'commands' | 'ask' | undefined;
+    let failed: { message: string; blocked?: boolean } | undefined;
     try {
       controller.signal.throwIfAborted();
-      const { plan, needsClarification } = await this.session.plan(t, {
+      const { plan, needsClarification, failure } = await this.session.plan(t, {
         signal: controller.signal,
         ...(grounding ? { grounding } : {}),
       });
@@ -1192,6 +1199,17 @@ export class PanelController {
         !plan ? 'no plan' : needsClarification ? 'clarify' : `intent:${plan.intent}`,
       );
       if (controller.signal.aborted || this.inflight !== controller) return;
+      if (failure) {
+        // The planner call failed or was blocked: say so here. Running the request as a document
+        // command would only fail (or be blocked) a second time.
+        failed = failure;
+        this.logError(
+          'panel',
+          failure.message,
+          failure.blocked ? { code: 'policy_block' } : failure.code ? { code: failure.code } : {},
+        );
+        return;
+      }
       if (!plan) {
         // No parseable plan → run the executor directly (it stages its own effect-level gate).
         continuation = 'commands';
@@ -1224,9 +1242,6 @@ export class PanelController {
           ? { ...plan, intent: edit }
           : plan;
       if (deriveOutput(staged.intent) === 'chat') {
-        this.set({
-          messages: this.state.messages.filter((message) => message.id !== userMsg.id),
-        });
         // The user picked a write verb (`/visualize …`): a "chat" verdict must not downgrade it to
         // the read-only route, where the model can only describe a chart it cannot make.
         continuation = explicitlyActuating(t) ? 'commands' : 'ask';
@@ -1241,8 +1256,20 @@ export class PanelController {
     } finally {
       if (controller.signal.aborted) {
         this.patchMessage(planning.id, () => ({ streaming: false, cancelled: true }));
+      } else if (failed) {
+        const { message, blocked } = failed;
+        this.patchMessage(planning.id, () => ({
+          streaming: false,
+          activity: undefined,
+          error: message,
+          ...(blocked ? { blocked: true } : {}),
+        }));
       } else {
-        this.set({ messages: this.state.messages.filter((m) => m.id !== planning.id) });
+        // A handoff (to the executor or to chat) shows the question again itself; keep it once.
+        const handedOff = continuation ? userMsg.id : undefined;
+        this.set({
+          messages: this.state.messages.filter((m) => m.id !== planning.id && m.id !== handedOff),
+        });
       }
       if (this.finishExecution(controller, {}, { drain: false }) && !controller.signal.aborted) {
         // Planner handoffs remain explicit; a staged plan/clarification waits for its own user action.
@@ -1513,6 +1540,13 @@ export class PanelController {
         return;
       }
       case 'done':
+        // The model answered in prose instead of acting: its last reply is the whole answer (the
+        // first reply already streamed into the bubble, so replace rather than append).
+        if ('answerOnly' in ev && ev.answerOnly) {
+          this.patchMessage(replyId, () => ({ text: ev.answer, activity: undefined }));
+          this.addStep('done', 'Answered');
+          return;
+        }
         // A read-only question ends with `done "<answer>"`: show the answer, not just a step.
         if ('message' in ev && ev.message) {
           const message = ev.message.replace(/\\n/g, '\n');

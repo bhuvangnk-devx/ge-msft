@@ -198,6 +198,8 @@ export function releaseConfig(profile, env = process.env) {
         '22222222-2222-4222-8222-222222222222',
       webDomain: devEnv.GE_DEV_WEB_DOMAIN ?? webUrl.hostname,
       webOrigin,
+      // Optional per-developer add-in name, so side-by-side dev installs are distinguishable.
+      displayName: devEnv.GE_DEV_APP_NAME || undefined,
       developerName: devEnv.GE_DEV_DEVELOPER_NAME ?? `${BRAND.name} Dev`,
       websiteUrl: devEnv.GE_DEV_WEBSITE_URL ?? `${webOrigin}/`,
       privacyUrl: devEnv.GE_DEV_PRIVACY_URL ?? `${webOrigin}/privacy`,

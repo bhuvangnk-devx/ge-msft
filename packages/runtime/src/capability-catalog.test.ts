@@ -197,6 +197,44 @@ describe('command discovery', () => {
     expect(renderCommandBootstrap(current)).toContain('Program control: finish when=verified');
     const help = renderCommandHelp(current, 'finish');
     expect(help).toContain('Syntax: finish when=verified');
-    expect(help).toContain('Unknown, unsupported or mismatched readback cannot satisfy');
+    expect(help).toContain('An uncertain, failed or mismatched write cannot satisfy');
+  });
+
+  it('tells the PowerPoint model plainly that icons cannot be inserted (CIMB UAT #15)', () => {
+    const ppt: CapabilityManifest = {
+      surface: 'powerpoint',
+      contextKinds: ['slide'],
+      reads: ['read'],
+      actuations: [],
+    };
+    expect(renderCommandBootstrap(ppt)).toContain('never draw a shape as a stand-in');
+    const withTables: CapabilityManifest = {
+      ...ppt,
+      actuations: [
+        { kind: 'add-table-slide', surface: 'powerpoint', title: 'Table', reversible: true },
+      ],
+    };
+    expect(renderCommandBootstrap(withTables)).toContain('a header row plus N data rows');
+    const withSlides: CapabilityManifest = {
+      ...ppt,
+      actuations: [
+        { kind: 'insert-slide', surface: 'powerpoint', title: 'Slide', reversible: true },
+      ],
+    };
+    expect(renderCommandBootstrap(withSlides)).toContain('means N NEW slides');
+  });
+
+  it('tells the Excel model to fill a column in one set, never cell by cell (CIMB UAT #7)', () => {
+    const excel: CapabilityManifest = {
+      surface: 'excel',
+      contextKinds: ['range'],
+      reads: ['read'],
+      actuations: [
+        { kind: 'write-cells', surface: 'excel', title: 'Write cells', reversible: true },
+      ],
+    };
+    const prompt = renderCommandBootstrap(excel);
+    expect(prompt).toContain('one formula down a column as set Sheet!I2:I57');
+    expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(COMMAND_BOOTSTRAP_MAX_BYTES);
   });
 });

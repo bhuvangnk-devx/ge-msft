@@ -1,6 +1,6 @@
-import type { ContextRef } from '@ge/contracts';
+import type { ActuationRequest, ContextRef } from '@ge/contracts';
 import { isSet } from './capabilities-runtime.js';
-import { chooseAnchorIndex } from './actuate-plan.js';
+import { chooseAnchorIndex, wordEdits } from './actuate-plan.js';
 import type { WordSearchHit } from './capture.js';
 
 /**
@@ -183,6 +183,9 @@ export interface WordHost {
   /** The current selection's text (empty string when nothing is selected). */
   readSelectionText(): Promise<string>;
 
+  /** The text of the paragraph the selection (or the bare cursor) is in; undefined if unknown. */
+  readCursorParagraph?(): Promise<string | undefined>;
+
   /** The whole body text (for the document context preview). */
   readBodyText(): Promise<string>;
 
@@ -244,6 +247,7 @@ export interface WordHost {
     opts: { readonly matchCase: boolean },
     text: string,
     choose: ChooseHit,
+    font?: TextFont,
   ): Promise<InsertOutcome>;
 
   /**
@@ -403,6 +407,19 @@ export class OfficeWordHost implements WordHost {
       await ctx.sync();
       return (await reviewedText(ctx, sel)) ?? sel.text;
     });
+  }
+
+  async readCursorParagraph(): Promise<string | undefined> {
+    try {
+      return await Word.run(async (ctx) => {
+        const paragraph = ctx.document.getSelection().paragraphs.getFirstOrNullObject();
+        paragraph.load('text,isNullObject');
+        await ctx.sync();
+        return paragraph.isNullObject ? undefined : paragraph.text;
+      });
+    } catch {
+      return undefined;
+    }
   }
 
   async readBodyText(): Promise<string> {
@@ -619,7 +636,7 @@ export class OfficeWordHost implements WordHost {
       const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
 
-      range.insertText(text, Word.InsertLocation.replace);
+      await replaceTracked(ctx, range, range.text, text);
       await ctx.sync();
       return { status: 'applied', location: 'tracked-change' };
     });
@@ -635,7 +652,7 @@ export class OfficeWordHost implements WordHost {
       await ctx.sync();
       if (!sel.text.trim() || !matches(sel.text)) return { status: 'drift' };
       ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
-      sel.insertText(text, Word.InsertLocation.replace);
+      await replaceTracked(ctx, sel, sel.text, text);
       await ctx.sync();
       return { status: 'applied', location: 'tracked-change' };
     });
@@ -704,12 +721,13 @@ export class OfficeWordHost implements WordHost {
     opts: { readonly matchCase: boolean },
     text: string,
     choose: ChooseHit,
+    font?: TextFont,
   ): Promise<InsertOutcome> {
     return this.edit(async (ctx) => {
       if (query === undefined) {
         // No anchor → insert at the current selection (replace its content with the new text).
         const sel = ctx.document.getSelection();
-        sel.insertText(text, Word.InsertLocation.replace);
+        applyFont(sel.insertText(text, Word.InsertLocation.replace), font);
         await ctx.sync();
         return { status: 'applied', location: 'selection', insertedText: text };
       }
@@ -723,7 +741,7 @@ export class OfficeWordHost implements WordHost {
       const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       // Insert AFTER the anchored range (a direct edit appends to the matched content).
-      range.insertText(text, Word.InsertLocation.after);
+      applyFont(range.insertText(text, Word.InsertLocation.after), font);
       await ctx.sync();
       return { status: 'applied', location: 'insert-text', insertedText: text };
     });
@@ -1253,4 +1271,64 @@ async function followingText(
     });
   }
   return texts.map((t) => t.join('\n'));
+}
+
+/** The font of an `insert-text` (`bold=true font=Arial size=16`). */
+export type TextFont = NonNullable<ActuationRequest['params']['textFont']>;
+
+/** Apply the requested font to the range `insertText` returned; unset fields keep the document's. */
+function applyFont(range: Word.Range, font: TextFont | undefined): void {
+  if (!font) return;
+  if (font.bold !== undefined) range.font.bold = font.bold;
+  if (font.italic !== undefined) range.font.italic = font.italic;
+  if (font.underline !== undefined) range.font.underline = font.underline ? 'Single' : 'None';
+  if (font.name !== undefined) range.font.name = font.name;
+  if (font.size !== undefined) range.font.size = font.size;
+  if (font.color !== undefined) range.font.color = font.color;
+}
+
+/**
+ * Write `text` over `range` (tracked changes on) as word-level edits when that marks fewer words,
+ * so a grammar fix shows only the corrected words; otherwise replace the whole range as before.
+ * The word ranges must line up with the text that was read, or the whole range is replaced.
+ */
+async function replaceTracked(
+  ctx: Word.RequestContext,
+  range: Word.Range,
+  oldText: string,
+  text: string,
+): Promise<void> {
+  // Only plain single-spaced text: a run across a tab, line break or paragraph mark would be
+  // rejoined with one space.
+  const plain = !/[\t\n\r\u000b\u00a0]| {2}/.test(oldText);
+  const edits = plain && isSet('WordApi', '1.3') ? wordEdits(oldText, text) : undefined;
+  if (edits?.length) {
+    let words: Word.RangeCollection;
+    try {
+      words = range.getTextRanges([' '], true);
+      words.load('items/text');
+      await ctx.sync();
+    } catch {
+      // The split is a read: nothing was written, so the whole-range replace is still safe. Track
+      // changes again: the failed batch may have dropped the mode set before it.
+      ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+      range.insertText(text, Word.InsertLocation.replace);
+      return;
+    }
+    const expected = oldText.split(/\s+/).filter(Boolean);
+    const aligned =
+      words.items.length === expected.length &&
+      words.items.every((word, i) => word.text.trim() === expected[i]);
+    if (aligned) {
+      // Back to front, so an earlier edit never shifts a later word range.
+      for (const edit of [...edits].reverse()) {
+        const first = words.items[edit.start]!;
+        const target =
+          edit.end - edit.start === 1 ? first : first.expandTo(words.items[edit.end - 1]!);
+        target.insertText(edit.text, Word.InsertLocation.replace);
+      }
+      return;
+    }
+  }
+  range.insertText(text, Word.InsertLocation.replace);
 }

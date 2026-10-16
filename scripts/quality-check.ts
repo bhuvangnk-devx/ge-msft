@@ -2,9 +2,9 @@
 /**
  * Quality gate: nothing reaches the client's Cloud Run unless it passes this.
  *
- *   bun run quality:check                    daily sample: QUALITY_SAMPLE=4 scenarios per capability
+ *   bun run quality:check                    sample: QUALITY_SAMPLE=3 random scenarios per capability
  *   bun run quality:check --full             every scenario (about a whole day's Gemini pool)
- *   bun run quality:check --update-baseline  accept the current results as the new baseline
+ *   bun run quality:check --full --update-baseline  accept a full run's results as the new baseline
  *   bun run quality:check --skip-live        static checks only (never valid for a deploy)
  *
  * 1. Static: typecheck, lint, unit tests (a failing test gets one retry: known timing flake),
@@ -12,9 +12,11 @@
  * 2. Live: scenarios/*.json against real Gemini Enterprise, QUALITY_SHARDS processes per app.
  *    Gemini Enterprise Standard allows 160 assistant queries a day per licence, pooled with CIMB's
  *    users (about 2,400 a day; resets at midnight PT = 14:00 WIB). A scenario costs about 3.2, so the
- *    full set (~700) spends the day's pool. The daily sample (~175 scenarios, ~570 queries) rotates
- *    which scenarios run, so every one is covered every few days. The first quota 429 stops the
- *    run; the rest are reported as not run, never as failures.
+ *    full set spends most of the day's pool. The default sample takes QUALITY_SAMPLE scenarios at
+ *    random from EVERY capability (3 → ~112 scenarios, ~360 queries; 4 → ~146, ~470), so every
+ *    capability is tested each run and different scenarios come up over time. The picked ids are
+ *    in the report (rerun them with GE_SCENARIO_IDS). The first quota 429 stops the run; the rest
+ *    are reported as not run, never as failures.
  * 3. Compare each capability with scenarios/quality-baseline.json. The gate fails when a
  *    capability passes fewer scenarios than its baseline allows, or the overall rate is under 95%.
  *
@@ -60,27 +62,30 @@ function capabilityOf(r: { id: string; surface: string }, fileOf: Map<string, st
   return m ? `${r.surface}:${m[1]}` : `${r.surface}:${fileOf.get(r.id) ?? 'other'}`;
 }
 
-/** Scenarios per capability in the daily sample (QUALITY_SAMPLE); `--full` runs them all. */
-const SAMPLE = Math.max(1, Math.trunc(Number(process.env.QUALITY_SAMPLE ?? 4)) || 4);
+/** Scenarios per capability in the sample (QUALITY_SAMPLE, default 3); `--full` runs them all. */
+const SAMPLE = Math.max(1, Math.trunc(Number(process.env.QUALITY_SAMPLE ?? 3)) || 3);
 
 /**
- * The day's sample: SAMPLE consecutive scenarios per capability, starting further along each day
- * (wrapping), so consecutive days cover different scenarios.
+ * The run's sample: SAMPLE scenarios picked at random from each capability (all of a capability
+ * that has fewer), so every capability is covered and the picks vary from run to run.
  */
-function dailySample(
+function randomSample(
   all: Array<{ id: string; surface: string }>,
   fileOf: Map<string, string>,
 ): string[] {
-  const day = Math.floor(Date.now() / 86_400_000);
   const groups = new Map<string, string[]>();
   for (const s of all) {
     const key = capabilityOf(s, fileOf);
     groups.set(key, [...(groups.get(key) ?? []), s.id]);
   }
   return [...groups.values()].flatMap((ids) => {
-    if (ids.length <= SAMPLE) return ids;
-    const start = (day * SAMPLE) % ids.length;
-    return Array.from({ length: SAMPLE }, (_, i) => ids[(start + i) % ids.length]!);
+    const pool = [...ids];
+    // Fisher–Yates, then keep the first SAMPLE.
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+    return pool.slice(0, SAMPLE);
   });
 }
 
@@ -160,11 +165,11 @@ async function main(): Promise<void> {
     }
   }
   const full = args.has('--full');
-  const sample = full ? undefined : dailySample(all, fileOf);
+  const sample = full ? undefined : randomSample(all, fileOf);
   console.log(
     full
       ? `\nfull run: ${all.length} scenarios (about ${Math.round(all.length * 3.2)} Gemini queries)`
-      : `\ndaily sample: ${sample!.length} of ${all.length} scenarios (about ${Math.round(sample!.length * 3.2)} Gemini queries)`,
+      : `\nsample: ${sample!.length} of ${all.length} scenarios, ${SAMPLE} per capability (about ${Math.round(sample!.length * 3.2)} Gemini queries)`,
   );
 
   const runDir = join(RESULTS, `quality-${new Date().toISOString().replace(/[:.]/g, '-')}`);
@@ -246,12 +251,17 @@ async function main(): Promise<void> {
         regressions: regressions.map((r) => r.capability),
         table,
         runDir,
+        // The picked scenarios, to rerun exactly: GE_SCENARIO_IDS=<ids> bun run scenarios
+        ...(sample ? { sample } : {}),
       },
       null,
       2,
     ),
   );
-  if (args.has('--update-baseline')) {
+  // A sample counts only part of each capability: it must never become the baseline.
+  if (args.has('--update-baseline') && sample) {
+    console.log('baseline NOT updated: --update-baseline needs --full');
+  } else if (args.has('--update-baseline')) {
     writeFileSync(
       BASELINE,
       JSON.stringify(Object.fromEntries(table.map((r) => [r.capability, r.passed])), null, 2) + '\n',

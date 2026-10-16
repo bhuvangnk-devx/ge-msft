@@ -19,15 +19,18 @@ import {
   type AnalysisProgram,
 } from './analysis-program.js';
 import { CommandContextSession } from './command-context-session.js';
+import { groupedChartPlan, parseArea } from './grouped-chart.js';
 import {
   approvalClassOf,
   commandIntentText,
   CONFIRMED_PLAN_CLOSE,
   CONFIRMED_PLAN_OPEN,
+  fillRange,
   intentsForManifest,
   isReversibleKind,
   isAnalysisBindingKind,
   planDescribesChange,
+  registryEntryForKindAndSurface,
   VERBS_BY_SURFACE,
 } from '@ge/contracts';
 import type {
@@ -118,6 +121,7 @@ import {
 import { byteLength, truncateToBytes } from './docfs/bytes.js';
 import { RuntimeHooks, HookBlockedError, snapshot } from './hooks.js';
 import { ExecutionLedger, type RunOutcome, type TaskMode } from './execution-ledger.js';
+import { withDraftGreeting, type DraftGreeting } from './draft-greeting.js';
 
 /**
  * Bounded-history compaction policy for the resident `SessionContext` (ADR-0003, element 5).
@@ -172,7 +176,10 @@ type StreamOptionsWithGrounding = NonNullable<Parameters<StreamAssistClient['str
 
 /** Default turn bound for the command loop (ADR-0004 §3). */
 const DEFAULT_MAX_TURNS = 12;
-/** Consecutive failing turns allowed after the first before a command task stops as incomplete. */
+/**
+ * Consecutive failing turns allowed after the first before a command task stops as incomplete,
+ * counted separately for read-only turns and for turns whose write or `done` was withheld.
+ */
 const MAX_REPAIR_TURNS = 2;
 /** Times one program that changes nothing may be sent before the task stops for the user. */
 const MAX_SAME_PROGRAM = 3;
@@ -320,8 +327,21 @@ export type CommandLoopEvent =
       /** Inline effects from this program that already landed and must not be re-emitted. */
       alreadyApplied: string[];
     }
-  /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
-  | { type: 'done'; turn: number; answer: string; message?: string }
+  /**
+   * The model emitted `done`; the loop stops. `answer` is the final accumulated text. `incomplete`
+   * marks the closing answer of a run that changed nothing and did not complete: it explains, it
+   * never confirms success (the task's outcome guard reports the failure after it). `answerOnly`:
+   * the model replied in prose twice and no command ran, so `answer` is that last reply, shown as
+   * the answer in place of everything streamed before it.
+   */
+  | {
+      type: 'done';
+      turn: number;
+      answer: string;
+      message?: string;
+      incomplete?: true;
+      answerOnly?: true;
+    }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string }
   /** The loop stopped because only the user can unblock it (host refusal, unsupported write). */
@@ -472,6 +492,10 @@ export interface AssistSessionOptions {
   commandDisclosure?: 'compact' | 'full';
   /** Internal command/planner exchanges default to isolated v1alpha requests; chat keeps its session. */
   commandSessionMode?: 'sessionless' | 'conversation';
+  /** A brand's email opening: Outlook drafts that start with one of `replace` start with `with`. */
+  draftGreeting?: DraftGreeting;
+  /** #RRGGBB for the header row of a PowerPoint table added without `headerFill=` (the brand colour). */
+  tableHeaderFill?: string;
   /** Deterministic live state is the sessionless default; transcript replays all prior observations. */
   commandContextMode?: 'projection' | 'transcript';
   /** Maximum UTF-8 query bytes for a complete sessionless command capsule (default 64 KiB). */
@@ -573,6 +597,22 @@ function isWorkspaceCommand(command: ParsedCommand): command is WorkspaceCommand
   return WORKSPACE_COMMAND_VERBS.has(command.verb as WorkspaceVerb);
 }
 
+/** Why a planner call produced no answer at all (not a model reply without a plan block). */
+export interface PlannerFailure {
+  message: string;
+  code?: string;
+  /** The call was blocked by policy (Model Armor). */
+  blocked?: boolean;
+}
+
+/** The planner pre-stage result; `failure` is set when the call itself failed or was blocked. */
+export interface PlanResult {
+  plan: CommandPlan | null;
+  errors: string[];
+  needsClarification: boolean;
+  failure?: PlannerFailure;
+}
+
 export class AssistSession {
   readonly hooks: RuntimeHooks;
   readonly executions = new ExecutionLedger();
@@ -587,6 +627,8 @@ export class AssistSession {
   private task?: RunOutcome & { signal?: AbortSignal };
   /** Per task: the writes that already landed, so an identical re-issue is refused (see effectKey). */
   private readonly appliedWrites = new WeakMap<object, Set<string>>();
+  /** Unsupported write kinds the model already tried in a task (a second try stops it). */
+  private readonly unsupportedSeen = new WeakMap<object, Set<string>>();
   /** Writes whose outcome the host could not confirm, per task: an identical resend could duplicate. */
   private readonly uncertainWrites = new WeakMap<object, Set<string>>();
   /** Per task: the model turn each effect was recorded in, parallel to `effects`. */
@@ -689,6 +731,7 @@ export class AssistSession {
             other.ok &&
             (other.kind === result.kind ||
               (WRONG_TARGET_CODES.has(result.error?.code ?? '') &&
+                (this.capabilitySubstitutes.get(result.kind)?.has(other.kind) ?? true) &&
                 (turns[j] ?? 0) > (turns[i] ?? 0) &&
                 completion !== undefined &&
                 ['verified', 'unverified'].includes(assessActuationResult(other)))),
@@ -696,19 +739,32 @@ export class AssistSession {
       // A content-policy block (Model Armor; modelStream marks the task blocked) stays the outcome the
       // user sees, so its own message is not replaced by the generic "did not complete" one. Unless
       // a write's outcome is uncertain: then "incomplete" keeps the "may already have applied" warning.
+      const unsettled = task.effects.filter(
+        (result, i) =>
+          !['verified', 'unverified'].includes(assessActuationResult(result)) &&
+          !retried(result, i),
+      );
+      // Writes the user declined at review are their choice, not a failure: when nothing else landed
+      // the task ends cancelled rather than incomplete (live 2026-10-14: Cancel showed "Some changes
+      // may already have applied"). A decline next to a landed write stays incomplete, so the guard
+      // still reports the partial change.
+      const declinedOnly =
+        unsettled.length > 0 &&
+        unsettled.every((result) => assessActuationResult(result) === 'rejected') &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified'].includes(assessActuationResult(result)),
+        );
       task.status =
         task.status === 'blocked' &&
         !task.effects.some((result) => assessActuationResult(result) === 'uncertain')
           ? 'blocked'
-          : task.effects.some(
-                (result, i) =>
-                  !['verified', 'unverified'].includes(assessActuationResult(result)) &&
-                  !retried(result, i),
-              )
+          : unsettled.length > 0 && !declinedOnly
             ? 'incomplete'
-            : task.status === 'running'
-              ? 'completed'
-              : task.status;
+            : task.status !== 'running'
+              ? task.status
+              : declinedOnly
+                ? 'cancelled'
+                : 'completed';
       // Waiting on the user is not a failure when nothing changed: every effect is the refusal or
       // a dependent of it. Anything landed, uncertain or failed otherwise keeps "incomplete" and its
       // "may already have applied" warning, so asking again cannot repeat a landed write.
@@ -738,6 +794,19 @@ export class AssistSession {
         )
       )
         task.status = 'needs-user';
+      // A command run that changed nothing still delivers the model's closing answer, so its
+      // explanation of why a write could not run here reaches the user; the guard then reports the
+      // incomplete outcome as before (live 2026-10-14: "No changes were applied." with no reason).
+      // Never when a write landed or is uncertain: that answer is only shown once verified.
+      if (
+        completion !== undefined &&
+        mode === 'command' &&
+        task.status === 'incomplete' &&
+        !task.effects.some((result) =>
+          ['verified', 'unverified', 'uncertain'].includes(assessActuationResult(result)),
+        )
+      )
+        yield { ...completion, incomplete: true as const } as typeof completion;
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;
@@ -891,6 +960,11 @@ export class AssistSession {
    * a kind NOT in this set before the effect reaches the gate.
    */
   private capabilityKinds: ReadonlySet<ActuationRequest['kind']> = new Set();
+  /** Per advertised write, the writes its manifest says can stand in for it (`substitutes`). */
+  private capabilitySubstitutes: ReadonlyMap<
+    ActuationRequest['kind'],
+    ReadonlySet<ActuationRequest['kind']>
+  > = new Map();
 
   constructor(
     private readonly bridge: DocBridge,
@@ -1238,10 +1312,11 @@ export class AssistSession {
     };
     let delivered = false;
     try {
-      for await (const event of this.modelStream(
-        req,
-        this.streamOptions({ grounding: opts.grounding, signal: opts.signal }),
-      )) {
+      for await (const event of this.modelStream(req, {
+        ...this.streamOptions({ grounding: opts.grounding, signal: opts.signal }),
+        // A chat question is the user's own words, so a skipped one may be asked again, framed.
+        retrySkipped: true,
+      })) {
         if (event.type === 'done') delivered = true;
         if (event.type === 'citation') this.citations.push(event.source);
         if (event.type === 'provenance') {
@@ -1462,6 +1537,7 @@ export class AssistSession {
     const capabilities = await this.effectiveCapabilities();
     // Capture the advertised actuation kinds for the ADR-0005 Phase-2 effect type-check.
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
 
     // Fresh ADR-0005 binding env per task: `$vars` persist across turns WITHIN this loop, but a
     // later independent runCommands() call must not read a binding it never computed.
@@ -1478,7 +1554,9 @@ export class AssistSession {
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
     let pendingNoFenceReprompt = false;
-    let failingTurns = 0;
+    let ranProgram = false;
+    let failingReadTurns = 0;
+    let failingWriteTurns = 0;
     const repeatedPrograms = new Map<string, number>();
     let lastTurn = 0;
 
@@ -1527,7 +1605,17 @@ export class AssistSession {
           return;
         }
         yield { type: 'no-fence', turn, rawSnippet: redactedSnippet(turnText) };
-        if (pendingNoFenceReprompt) break;
+        if (pendingNoFenceReprompt) {
+          // Prose twice, even after the re-prompt, and no command ran: the request was answered,
+          // not acted on ("hi", "thanks", a question the planner sent here). End as an answer; the
+          // pane says nothing changed if the text claims a change. Not when the user confirmed a
+          // plan that changes the document: that run stays incomplete, never a "completed" no-op.
+          if (!ranProgram && !this.task?.effects.length && !this.changeAwaited && turnText.trim()) {
+            yield { type: 'done', turn, answer: turnText, answerOnly: true };
+            return;
+          }
+          break;
+        }
         pendingNoFenceReprompt = true;
         const correction = noFenceReprompt(turnHadCodeExecution);
         this.commandContext.record({ program: turnText, correction });
@@ -1535,9 +1623,10 @@ export class AssistSession {
         continue;
       }
       pendingNoFenceReprompt = false;
+      ranProgram = true;
 
       const effectsBefore = this.task?.effects.length ?? 0;
-      const { results, done, stopped, message, failed } = yield* this.executeProgramTurn(
+      const { results, done, stopped, message, failed, repair } = yield* this.executeProgramTurn(
         entries,
         turn,
         capabilities,
@@ -1565,10 +1654,20 @@ export class AssistSession {
           return;
         }
       }
-      // Consecutive turns whose program had a failed line, whether or not it staged a write: a model
-      // that keeps repeating one mistake stops here instead of spending every remaining turn.
-      failingTurns = failed ? failingTurns + 1 : 0;
-      if (failingTurns > MAX_REPAIR_TURNS) {
+      // Consecutive turns whose program had a failed line: a model that keeps repeating one mistake
+      // stops here instead of spending every remaining turn. Failed reads and withheld writes keep
+      // separate counts, so reads that missed cannot use up the corrections a rejected write gets
+      // (live 2026-10-14: two failed `inspect` turns ended the task on the first rejected write,
+      // before the model saw why it was rejected).
+      if (!failed) {
+        failingReadTurns = 0;
+        failingWriteTurns = 0;
+      } else if (repair) {
+        failingWriteTurns++;
+      } else {
+        failingReadTurns++;
+      }
+      if (failingReadTurns > MAX_REPAIR_TURNS || failingWriteTurns > MAX_REPAIR_TURNS) {
         if (this.task) this.task.status = 'incomplete';
         yield {
           type: 'error',
@@ -1724,6 +1823,7 @@ export class AssistSession {
 
     const capabilities = await this.effectiveCapabilities();
     this.capabilityKinds = new Set(capabilities.actuations.map((a) => a.kind));
+    this.capabilitySubstitutes = substitutesOf(capabilities);
     this.composeEnv.clear();
     this.resetCommandState();
     this.shareCountThisTask = 0;
@@ -1808,10 +1908,29 @@ export class AssistSession {
       if (plan.done) break;
     }
 
-    // A write this surface does not offer cannot be repaired by the model; retrying only
-    // approximates it. Stop before anything is staged and tell the user (unless an inline effect
-    // already landed this turn: the repair path below reports it).
-    if (plan.unsupported && plan.landedInline.length === 0) {
+    // A write this surface does not offer: the first time is a correction (the request may still be
+    // doable with an offered command — live 2026-10-14: `/save-draft`, then `mail` worked). The same
+    // unsupported write again cannot be repaired; retrying only approximates it. Stop before anything
+    // is staged and tell the user (unless an inline effect already landed this turn).
+    const seenUnsupported = this.task
+      ? (this.unsupportedSeen.get(this.task) ?? new Set<string>())
+      : undefined;
+    // A known feature this product has not shipped (registry status other than implemented: pivot,
+    // sort, image…) stops at once — there is nothing to correct. An unknown command (`/save-draft`)
+    // may be a slip on a doable request: one correction first. No hand-kept list: the registry
+    // status decides, so a feature that ships stops being refused.
+    const knownMissing =
+      plan.unsupported !== undefined &&
+      (registryEntryForKindAndSurface(plan.unsupported as ActuationKind, this.bridge.surface)
+        ?.status ?? 'implemented') !== 'implemented';
+    const repeatedUnsupported =
+      plan.unsupported !== undefined &&
+      (knownMissing || seenUnsupported?.has(plan.unsupported) === true);
+    if (plan.unsupported && this.task && seenUnsupported) {
+      seenUnsupported.add(plan.unsupported);
+      this.unsupportedSeen.set(this.task, seenUnsupported);
+    }
+    if (plan.unsupported && repeatedUnsupported && plan.landedInline.length === 0) {
       yield {
         type: 'needs-user',
         turn,
@@ -1942,21 +2061,26 @@ export class AssistSession {
           result.error != null,
       );
       const effects = this.task?.effects ?? [];
+      // Same rule as the end of the task: a write the host cannot read back (format, chart)
+      // counts when it landed cleanly; an uncertain, failed or mismatched one never does
+      // (CIMB UAT 2026-10-16: "did not finish" next to the landed change).
       const verified =
         this.shareCountThisTask === 0 &&
-        effects.every((result) => assessActuationResult(result) === 'verified');
+        effects.every((result) =>
+          ['verified', 'unverified'].includes(assessActuationResult(result)),
+        );
       if (!errors && verified && this.task?.status === 'running') plan.done = true;
       else {
         plan.results.push({
           error:
-            'Verified completion requires successful operations and verified readback for every effect. Review the receipts; do not replay a landed write.',
+            'Verified completion requires successful operations, and a matching readback wherever the host returns one. Review the receipts; do not replay a landed write.',
         });
         if (this.task) this.task.status = 'incomplete';
         yield {
           type: 'error',
           code: 'verification_incomplete',
           message:
-            'Some operations could not be verified. Review the receipts; a landed write must not be replayed.',
+            'Some operations failed or could not be confirmed. Review the receipts; a landed write must not be replayed.',
         };
       }
     }
@@ -2045,6 +2169,29 @@ export class AssistSession {
     }
     if (plan.finishVerified) {
       plan.results.push({ error: 'No operation may follow finish when=verified.' });
+      return;
+    }
+    // `chart line Sheet!A1:H25 x=Month by=Branch value=Complaints`: the summary table is built from
+    // the cells read here, then staged with the chart under the same approval.
+    if ('verb' in entry && entry.verb === 'chart' && entry.props.by !== undefined) {
+      const expanded = await this.groupedChartCommands(entry);
+      if ('error' in expanded) {
+        plan.results.push({ error: expanded.error });
+        yield { type: 'command', turn, command: entry, compiled: { error: expanded.error } };
+        return;
+      }
+      for (const sub of expanded.commands) {
+        for await (const ev of this.processEntry(
+          sub,
+          plan,
+          capabilities,
+          depth + 1,
+          opts,
+          turnProvenance,
+        ))
+          yield ev;
+        if (plan.done) return;
+      }
       return;
     }
     if (isProgramAnalysisBinding(entry)) {
@@ -2380,8 +2527,20 @@ export class AssistSession {
       return;
     }
 
-    const resolved = await this.resolveEffect(command);
-    if ('unsupported' in resolved) plan.unsupported ??= resolved.unsupported;
+    const effect = await this.resolveEffect(command);
+    // A brand's email opening ("Halo", not "Yth.") is applied here, before the dry-run and the
+    // approval card, so the user reviews exactly the text that reaches the draft.
+    const resolved =
+      'error' in effect
+        ? effect
+        : {
+            ...effect,
+            request: withTableHeaderFill(
+              withDraftGreeting(effect.request, this.options.draftGreeting),
+              this.options.tableHeaderFill,
+            ),
+          };
+    if ('unsupported' in effect) plan.unsupported ??= effect.unsupported;
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).
@@ -2453,6 +2612,57 @@ export class AssistSession {
       compiled: { kind: 'write', request: resolved.request },
     };
     plan.planSlots.push({ index: slotIndex, effect: resolved });
+  }
+
+  /** The summary `grid` + `chart` for a grouped chart, placed in the first empty block to the right. */
+  private async groupedChartCommands(
+    entry: Extract<ParsedCommand, { verb: 'chart' }>,
+  ): Promise<{ commands: ParsedCommand[] } | { error: string }> {
+    const capture = this.bridge.captureCells?.bind(this.bridge);
+    if (!capture) return { error: 'chart by= needs to read the sheet, which this host cannot do.' };
+    const area = parseArea(entry.range);
+    if (
+      area &&
+      (area.lastRow - area.firstRow + 1) * (area.lastColumn - area.firstColumn + 1) > 50_000
+    )
+      return { error: `chart ${entry.range}: the range is too large to summarise; narrow it.` };
+    let values: Array<Array<string | number | boolean | null>>;
+    try {
+      values = (await capture(entry.range)).values;
+    } catch {
+      return { error: `chart ${entry.range}: could not read the source range; read it and retry.` };
+    }
+    const { x, by, value, ...rest } = entry.props;
+    for (let attempt = 0, offset = 0; attempt < 6; attempt++) {
+      const plan = groupedChartPlan(entry.range, values, { x, by, value }, offset);
+      if ('error' in plan) return plan;
+      let taken = true;
+      try {
+        // A formula that shows "" is not empty: check formulas as well as values.
+        const snap = await capture(plan.range);
+        const filled = (cell: unknown): boolean =>
+          cell !== null && cell !== undefined && cell !== '';
+        taken =
+          snap.values.some((row) => row.some(filled)) ||
+          (snap.formulas ?? []).some((row) => row.some(filled));
+      } catch {
+        taken = true;
+      }
+      if (!taken)
+        return {
+          commands: [
+            { verb: 'grid', range: plan.range, cells: plan.cells },
+            {
+              verb: 'chart',
+              chartType: entry.chartType,
+              range: plan.range,
+              props: { ...rest, series: 'columns' },
+            },
+          ],
+        };
+      offset += (plan.cells[0]?.length ?? 1) + 1;
+    }
+    return { error: `chart ${entry.range}: no empty space to the right for the summary table.` };
   }
 
   /** Whether a reply or new-message window was opened, or is staged, in this task. */
@@ -2768,7 +2978,7 @@ export class AssistSession {
   async plan(
     task: string,
     opts: { signal?: AbortSignal; grounding?: ResolvedGrounding } = {},
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
+  ): Promise<PlanResult> {
     let result!: Awaited<ReturnType<AssistSession['planCore']>>;
     const plan = () => this.planCore(task, opts);
     for await (const value of this.withTask('planner', task, opts.signal, async function* () {
@@ -2781,7 +2991,7 @@ export class AssistSession {
   private async planCore(
     task: string,
     opts: { signal?: AbortSignal; grounding?: ResolvedGrounding },
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
+  ): Promise<PlanResult> {
     const capabilities = await this.effectiveCapabilities();
     const offered = new Set(intentsForManifest(capabilities));
     const protocol = renderPlanPrompt(
@@ -2797,6 +3007,7 @@ export class AssistSession {
     this.currentTurnProvenance = undefined; // a planner turn must not leave provenance for a later write
     let text = '';
     const failures: string[] = [];
+    let failure: PlannerFailure | undefined;
     for await (const event of this.streamTurn(
       parts.join('\n\n'),
       opts.signal,
@@ -2804,11 +3015,17 @@ export class AssistSession {
       'planner',
     )) {
       if (event.type === 'token') text += event.text;
-      if (event.type === 'error') failures.push(event.message);
-      if (event.type === 'policy' && event.verdict === 'block')
-        failures.push('The planner request was blocked by policy.');
+      if (event.type === 'error') {
+        failures.push(event.message);
+        failure ??= { message: event.message, ...(event.code ? { code: event.code } : {}) };
+      }
+      if (event.type === 'policy' && event.verdict === 'block') {
+        const message = 'The planner request was blocked by policy.';
+        failures.push(message);
+        failure ??= { message, blocked: true };
+      }
     }
-    if (failures.length) return { plan: null, errors: failures, needsClarification: false };
+    if (failure) return { plan: null, errors: failures, needsClarification: false, failure };
     return parsePlanBlock(text);
   }
 
@@ -3448,9 +3665,13 @@ export class AssistSession {
         }
         case 'context-kind': {
           const refs = await this.contextRefs(intent.kind);
-          const filtered = intent.selector
+          const exact = intent.selector
             ? refs.filter((ref) => matchesContextSelector(ref, intent.selector!))
             : refs;
+          const filtered =
+            exact.length > 0 || !intent.selector
+              ? exact
+              : refs.filter((ref) => matchesContextLocator(ref, intent.selector!));
           return {
             label: [contextKindVerb(intent.kind), intent.selector].filter(Boolean).join(' '),
             result: contextRefsToData(filtered, this.bridge),
@@ -3459,9 +3680,7 @@ export class AssistSession {
         case 'neighbors': {
           const refs = await this.contextRefs();
           const target =
-            intent.selector !== undefined
-              ? refs.findIndex((ref) => matchesContextSelector(ref, intent.selector!))
-              : -1;
+            intent.selector !== undefined ? findContextRefIndex(refs, intent.selector) : -1;
           const windowed =
             target >= 0
               ? refs.slice(Math.max(0, target - 4), Math.min(refs.length, target + 5))
@@ -3526,7 +3745,7 @@ export class AssistSession {
     const trimmed = selector.trim();
     if (!trimmed) return undefined;
     const refs = await this.toolOperation('context:list', {}, () => this.bridge.listContext());
-    const found = refs.find((ref) => matchesContextSelector(ref, trimmed));
+    const found = refs[findContextRefIndex(refs, trimmed)];
     if (found) return { ref: found, found: true };
     const synthetic = syntheticContextRef(this.bridge.surface, trimmed);
     return synthetic ? { ref: synthetic, found: false } : undefined;
@@ -3795,8 +4014,17 @@ function contextRefProperties(ref: ContextRef, bridge: DocBridge): unknown {
   };
 }
 
+/** Models also write the selector as a prop (`inspect ref="mail:…"`, live 2026-10-14). */
+function selectorNeedle(selector: string): string {
+  return selector
+    .trim()
+    .replace(/^(?:ref|id)\s*=\s*/i, '')
+    .replace(/^(["'])(.*)\1$/, '$2')
+    .trim();
+}
+
 export function matchesContextSelector(ref: ContextRef, selector: string): boolean {
-  const needle = selector.trim();
+  const needle = selectorNeedle(selector);
   if (!needle) return false;
   // Models write `inspect selection` / `inspect [selection]` for the live selection ref.
   if (ref.kind === 'selection' && /^\[?\s*selection\s*\]?$/i.test(needle)) return true;
@@ -3823,6 +4051,24 @@ function sameAddress(text: string): string {
   const quoted = /^'((?:[^']|'')*)'!(.*)$/.exec(s);
   const address = quoted ? `${quoted[1]!.replace(/''/g, "'")}!${quoted[2]}` : s;
   return address.replace(/\$/g, '').toLowerCase();
+}
+
+/**
+ * A read snapshot labels its blocks with a scheme-prefixed locator (Outlook: `mail:<item id>`) that
+ * the model copies, while the context ref carries the bare id. Only ids are compared, never titles
+ * or text, so a prefix-like selector (`A:C`, `Re:Budget`) cannot land on a same-named object.
+ */
+function matchesContextLocator(ref: ContextRef, selector: string): boolean {
+  const needle = selectorNeedle(selector);
+  const unprefixed = needle.replace(/^[a-z][a-z-]*:/i, '');
+  if (!unprefixed || unprefixed === needle) return false;
+  return unprefixed === ref.id || unprefixed === hostRefSelector(ref);
+}
+
+/** Index of the ref a selector names: an exact match on any ref wins over a locator match. */
+function findContextRefIndex(refs: readonly ContextRef[], selector: string): number {
+  const exact = refs.findIndex((ref) => matchesContextSelector(ref, selector));
+  return exact >= 0 ? exact : refs.findIndex((ref) => matchesContextLocator(ref, selector));
 }
 
 function hostRefSelector(ref: ContextRef): string | undefined {
@@ -3990,7 +4236,14 @@ function renderCommandLine(
       // The expression form is written with an assignment `=` (`set B2 = ($t | sum X)`); a literal
       // is verbatim (`set F2 =SUM(A1,A2)` / `set B16 Total`).
       const value = command.valueExpr ? `= ${renderExprArg(command.valueExpr)}` : command.value;
-      return `set ${command.cell} ${value}`;
+      // A range fill shows its size, and an empty value says it clears (the reviewer sees what lands).
+      const grid = command.valueExpr ? undefined : safeFill(command.cell, command.value);
+      const size = grid ? grid.length * (grid[0]?.length ?? 0) : 1;
+      if (value === '')
+        return `set ${command.cell} "" (clears ${size} cell${size === 1 ? '' : 's'})`;
+      return grid
+        ? `set ${command.cell} ${value} (fills ${size} cells)`
+        : `set ${command.cell} ${value}`;
     }
     case 'grid':
       return `grid ${command.range} (${command.cells.length}x${command.cells[0]?.length ?? 0})`;
@@ -4066,6 +4319,14 @@ function renderCommandLine(
     }
   }
   return command.verb;
+}
+
+function safeFill(cell: string, value: string): string[][] | undefined {
+  try {
+    return fillRange(cell, value);
+  } catch {
+    return undefined;
+  }
 }
 
 /** True when the effect's value/text/bullets came from a composed expression (not a literal). */
@@ -4376,6 +4637,21 @@ const ONE_DRAFT_PER_TASK: ReadonlySet<ActuationRequest['kind']> = new Set([
   'create-mail',
 ]);
 
+/**
+ * The writes each advertised write declares can deliver what it asked for when the host refuses
+ * it as aimed at the wrong target. Only declared kinds are restricted; the rest keep the generic
+ * rule (live 2026-10-14: "change the subject" answered with an unrelated reply counted as done).
+ */
+function substitutesOf(
+  manifest: CapabilityManifest,
+): ReadonlyMap<ActuationRequest['kind'], ReadonlySet<ActuationRequest['kind']>> {
+  return new Map(
+    manifest.actuations.flatMap((a) =>
+      a.substitutes !== undefined ? [[a.kind, new Set(a.substitutes)] as const] : [],
+    ),
+  );
+}
+
 /** Outlook writes that edit the draft the pane is open on, never a window opened by the task. */
 const EDITS_THE_OPEN_DRAFT: ReadonlySet<ActuationRequest['kind']> = new Set([
   'set-recipients',
@@ -4411,8 +4687,38 @@ function answerOnlyIntent(task: string): string | undefined {
 }
 
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
+/** A PowerPoint table's header row takes the brand colour unless the model chose one. */
+function withTableHeaderFill(
+  request: ActuationRequest,
+  fill: string | undefined,
+): ActuationRequest {
+  const grid = request.params.tableGrid;
+  if (!fill || request.kind !== 'add-table-slide' || !grid?.hasHeaders || grid.headerFill)
+    return request;
+  return { ...request, params: { ...request.params, tableGrid: { ...grid, headerFill: fill } } };
+}
+
 function effectKey(request: ActuationRequest): string {
-  return JSON.stringify({ kind: request.kind, surface: request.surface, params: request.params });
+  const range = request.params.target?.range;
+  // One spelling per range: the recorded write drops the sheet quotes, the model may or may not
+  // write them (CIMB UAT 2026-10-16: the same fill was approved and applied three times).
+  const params =
+    typeof range === 'string'
+      ? { ...request.params, target: { ...request.params.target, range: rangeKey(range) } }
+      : request.params;
+  return JSON.stringify({ kind: request.kind, surface: request.surface, params });
+}
+
+/** `'Branch Performance'!$I$2:i25` and `Branch Performance!I2:I25` compare equal. */
+function rangeKey(range: string): string {
+  const bang = range.lastIndexOf('!');
+  const sheet = bang < 0 ? '' : range.slice(0, bang);
+  const unquoted = /^'(.*)'$/.exec(sheet)?.[1]?.replaceAll("''", "'") ?? sheet;
+  const cells = range
+    .slice(bang + 1)
+    .replaceAll('$', '')
+    .toUpperCase();
+  return bang < 0 ? cells : `${unquoted}!${cells}`;
 }
 
 /** Command text for a held-back write, so the model can resend it verbatim. */
@@ -4425,8 +4731,10 @@ function commandText(command: ParsedCommand): string {
       .join(' ');
     return `format ${c.range} ${props}`;
   }
-  if (c.verb === 'set' && typeof c.cell === 'string')
-    return `set ${c.cell} ${String(c.value ?? '')}`;
+  if (c.verb === 'set' && typeof c.cell === 'string') {
+    const value = String(c.value ?? '');
+    return `set ${c.cell} ${value === '' ? '""' : /"/.test(value) ? JSON.stringify(value) : value}`;
+  }
   const target = ['range', 'cell', 'selector', 'slide', 'title'].find(
     (key) => typeof c[key] === 'string',
   );

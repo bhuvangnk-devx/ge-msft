@@ -583,12 +583,15 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'set': {
       const split = splitFirstArg(rest);
       if (!split) {
-        return { error: 'set needs a cell and a value — usage: set <A1> <value|=formula>' };
+        return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
       const cell = split.arg;
-      const value = unquoteSetValue(split.tail.trim());
+      const raw = split.tail.trim();
+      const value = unquoteSetValue(raw);
+      // `set I2 ""` clears the cell (the model writes it for a first month with no previous one).
+      if (raw === '""' && cell !== '') return { verb: 'set', cell, value: '' };
       if (cell === '' || value === '') {
-        return { error: 'set needs a cell and a value — usage: set <A1> <value|=formula>' };
+        return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
       // ADR-0005 Phase 2: the value may be an effect-arg EXPRESSION (`$var` or `( <pipeline> )`)
       // evaluated against the env at dry-run; otherwise it is a LITERAL (commas/spaces/`=SUM(A1,
@@ -1072,12 +1075,17 @@ function splitFirstArg(rest: string): { arg: string; tail: string } | undefined 
 /**
  * A token that starts with an Excel single-quoted sheet name (`'Branch Performance'!A1:B9`, `''`
  * escapes a quote). Later areas may quote their sheet too (`'A B'!A1,'A B'!C1`), so the token runs
- * on through further quoted segments instead of stopping at the space inside the second name.
+ * on through further quoted segments instead of stopping at the space inside the second name
+ * (CIMB UAT 2026-10-16: every chart on 'Branch Performance' failed to build).
  */
 const QUOTED_SHEET_TOKEN = `'(?:[^']|'')*'(?:[^\\s']+|'(?:[^']|'')*')*`;
 
 /** `set A1 "hello world"` is a scalar cell value, not a request to include quote characters. */
 function unquoteSetValue(value: string): string {
+  // A double-quoted value honours `\"` and `\\` (CIMB UAT 2026-10-16: the model wrote
+  // `set I3 "=IF(A3=A2,(F3-F2)/F2,\"\")"` and the backslashes reached the formula).
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"'))
+    return value.slice(1, -1).replace(/\\(["\\])/g, '$1');
   return stripWrappingQuotes(value);
 }
 
@@ -1090,14 +1098,16 @@ function unquoteSetValue(value: string): string {
 function tokenizeArgs(rest: string): { positional: string[]; props: Record<string, string> } {
   const positional: string[] = [];
   const props: Record<string, string> = {};
-  // Double-quoted values honour `\"` and `\\` escapes, so a quoted value can carry quotes — an
-  // OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was otherwise cut at the first one.
+  // Double-quoted values honour `\"`, `\\` and `\n` escapes (as {@link scanQuoted}), so a quoted
+  // value can carry quotes — an OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was
+  // otherwise cut at the first one — and line breaks.
   const re = new RegExp(
     `(\\w[\\w-]*)="((?:[^"\\\\]|\\\\.)*)"|(\\w[\\w-]*)=(${QUOTED_SHEET_TOKEN}|\\S+)|` +
       `"((?:[^"\\\\]|\\\\.)*)"|(${QUOTED_SHEET_TOKEN})|(\\S+)`,
     'g',
   );
-  const unescape = (s: string): string => s.replace(/\\(["\\])/g, '$1');
+  const unescape = (s: string): string =>
+    s.replace(/\\(["\\n])/g, (_, c: string) => (c === 'n' ? '\n' : c));
   let m: RegExpExecArray | null;
   while ((m = re.exec(rest)) !== null) {
     if (m[1] !== undefined) props[m[1]] = unescape(m[2]!);
@@ -1123,7 +1133,7 @@ function parseTable(rest: string): ParsedCommand | CommandParseError {
 /** ADR-0007 `chart <type> <range> [title="…"] [series=rows|columns]` — a chart over a source range. */
 function parseChart(rest: string): ParsedCommand | CommandParseError {
   const usage =
-    'chart needs a type and a range — usage: chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns]';
+    'chart needs a type and a range — usage: chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns] [x=<col> by=<col> value=<col>]';
   const { positional, props } = tokenizeArgs(rest);
   const chartType = positional[0];
   const range = positional[1];
@@ -1993,8 +2003,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'set':
       return {
         verb: 'set',
-        usage: 'set <A1> <value|=formula>',
-        hint: 'write one cell, e.g. set Sales!F2 =C2-D2',
+        usage: 'set <A1|A1:A50> <value|=formula>',
+        hint: 'write one cell, or fill a range with one formula (references shift per row, like Excel fill-down), e.g. set Sales!F2:F57 =C2-D2',
       };
     case 'grid':
       return {
@@ -2071,8 +2081,9 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'chart':
       return {
         verb: 'chart',
-        usage: 'chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns]',
-        hint: 'add a chart over a range, e.g. chart column Report!A1:B11 title="Top regions"',
+        usage:
+          'chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns] [x=<col> by=<col> value=<col>]',
+        hint: 'add a chart over a range, e.g. chart column Report!A1:B11 title="Top regions"; one line per group from long data: chart line Data!A1:H25 x=Month by=Branch value=Complaints',
       };
     case 'cf':
       return {

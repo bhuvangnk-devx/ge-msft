@@ -6,7 +6,12 @@ import type {
   SseEvent,
 } from '@ge/contracts';
 import { asSessionId } from '@ge/contracts';
-import { GeminiClientConfig, streamAssistUrl, type GeminiSkillRoute } from './config.js';
+import {
+  GeminiClientConfig,
+  streamAssistUrl,
+  type GeminiSkillRoute,
+  rulesForRoute,
+} from './config.js';
 import {
   DeStreamAssistResponseSchema,
   type DeCitationSource,
@@ -32,6 +37,8 @@ import {
   ConversationClient,
   type ConversationListResult,
   type ConversationSession,
+  PANE_INSTRUCTIONS_CLOSE,
+  PANE_INSTRUCTIONS_OPEN,
 } from './sessions.js';
 
 /** Supplies a valid Google access token (see WifTokenClient). */
@@ -43,6 +50,12 @@ export interface TokenSource {
 export interface StreamOptions {
   /** Resume an existing conversation; otherwise the engine starts a fresh one. */
   session?: string;
+  /**
+   * Ask once more, framed as a request, when the engine skips the message as not answer-seeking.
+   * Only for a chat question whose query is the user's own words: planner and command queries carry
+   * the protocol and document context, which must not be reframed.
+   */
+  retrySkipped?: boolean;
   /**
    * Opt into Discovery Engine v1alpha sessionless execution: no session is created or resumed.
    * Existing session ids and uploaded session context files are incompatible. Default: false.
@@ -125,6 +138,46 @@ function timeoutEvent(ms: number): SseEvent {
  * consume (tokens → citations → provenance → done). The engine owns grounding,
  * Model Armor, and agent routing; this client owns transport + mapping only.
  */
+/** Set by one streamAssist attempt when the engine skipped the message and wrote nothing. */
+interface AttemptOutcome {
+  skipped?: {
+    /** Only a not-answer-seeking skip is asked again; an unknown or new reason is not. */
+    retryable: boolean;
+    /** The chat session the skipped call opened, if any. */
+    session?: string;
+  };
+}
+
+const SKIPPED_ERROR: SseEvent = {
+  type: 'error',
+  code: 'assist_skipped',
+  message: 'The assistant did not answer this message. Try asking it as a question.',
+};
+
+/**
+ * Pass an attempt's events through, holding citations back until its first text: a skipped attempt
+ * has no text, and its citations must not join the answer that replaces it.
+ */
+async function* withoutSkippedCitations(
+  events: AsyncGenerator<SseEvent>,
+  outcome: AttemptOutcome,
+): AsyncGenerator<SseEvent> {
+  let held: SseEvent[] | undefined = [];
+  for await (const event of events) {
+    // The first text, or the attempt's own end, shows it was answered: release what was held.
+    if (held && (event.type === 'token' || event.type === 'provenance' || event.type === 'done')) {
+      yield* held;
+      held = undefined;
+    }
+    if (held && event.type === 'citation') held.push(event);
+    else yield event;
+  }
+  if (held && !outcome.skipped) yield* held;
+}
+
+/** Prepended to a skipped message when it is asked again, as the CN-GPT web app does. */
+export const SKIP_RETRY_FRAME = 'Answer this briefly: ';
+
 export class StreamAssistClient {
   constructor(
     private readonly tokens: TokenSource,
@@ -192,6 +245,34 @@ export class StreamAssistClient {
   }
 
   async *stream(req: AssistRequest, opts: StreamOptions = {}): AsyncGenerator<SseEvent> {
+    // streamAssist can skip a message it judges not answer-seeking ("hi", "thanks", "ok"): no text,
+    // no error. A chat question is asked once more, framed as a request, the way the CN-GPT web app
+    // does. Any other skip, or a second one, is reported instead of ending in silence.
+    const first: AttemptOutcome = {};
+    yield* withoutSkippedCitations(this.attempt(req, opts, first), first);
+    if (!first.skipped) return;
+    const question = req.query?.trim();
+    if (!first.skipped.retryable || !opts.retrySkipped || !question || opts.signal?.aborted) {
+      yield SKIPPED_ERROR;
+      return;
+    }
+    const again: AttemptOutcome = {};
+    const retry = { ...req, query: `${SKIP_RETRY_FRAME}${question}` };
+    // The skipped call may have opened the chat session: keep the retry in it, not a second one.
+    const session = first.skipped.session ?? opts.session;
+    yield* withoutSkippedCitations(
+      this.attempt(retry, { ...opts, ...(session ? { session } : {}) }, again),
+      again,
+    );
+    if (again.skipped) yield SKIPPED_ERROR;
+  }
+
+  /** One streamAssist call: POST, then read the answer. A skipped answer sets `outcome.skipped`. */
+  private async *attempt(
+    req: AssistRequest,
+    opts: StreamOptions,
+    outcome: AttemptOutcome,
+  ): AsyncGenerator<SseEvent> {
     // Snapshot the mode before awaiting the POST; callers cannot change provenance semantics
     // by mutating their options while a response is in flight.
     const isSessionLess = opts.isSessionLess === true;
@@ -232,10 +313,17 @@ export class StreamAssistClient {
       } finally {
         clearTimeout(postTimer);
       }
-      yield* this.readStream(res, opts, isSessionLess, idleMs, () => {
-        timedOut = true;
-        turn.abort();
-      });
+      yield* this.readStream(
+        res,
+        opts,
+        isSessionLess,
+        idleMs,
+        () => {
+          timedOut = true;
+          turn.abort();
+        },
+        outcome,
+      );
     } finally {
       opts.signal?.removeEventListener('abort', forwardAbort);
     }
@@ -247,6 +335,7 @@ export class StreamAssistClient {
     isSessionLess: boolean,
     idleMs: number,
     onIdle: () => void,
+    outcome: AttemptOutcome = {},
   ): AsyncGenerator<SseEvent> {
     if (!res.ok || !res.body) {
       const detail = await safeText(res);
@@ -265,6 +354,7 @@ export class StreamAssistClient {
     const relatedQuestions: string[] = [];
     const emittedSupports = new Set<string>();
     let policyBlocked = false;
+    let skippedReasons: string[] | undefined;
 
     const body = idleMs > 0 ? withIdleTimeout(res.body, idleMs, onIdle) : res.body;
     try {
@@ -284,11 +374,18 @@ export class StreamAssistClient {
         // and the offending text may ride along in this or a later frame's replies,
         // so we must not stream, cite, ground, or hash any of it through.
         const policy = data.answer?.customerPolicyEnforcementResult;
-        if (!policyBlocked && policy?.verdict?.toUpperCase() === 'BLOCK') {
+        const skipped =
+          data.answer?.state === 'SKIPPED' ? (data.answer.assistSkippedReasons ?? []) : undefined;
+        // A skip for a customer policy covers the query OR the answer, so it blocks even after text
+        // has streamed: nothing from this turn may be used, cited, hashed or run.
+        const policySkip = skipped?.includes('CUSTOMER_POLICY_VIOLATION') === true;
+        if (!policyBlocked && (policy?.verdict?.toUpperCase() === 'BLOCK' || policySkip)) {
           policyBlocked = true;
           yield { type: 'policy', verdict: 'block', reason: policyReason() };
         }
         if (policyBlocked) continue;
+
+        if (skipped) skippedReasons = [...(skippedReasons ?? []), ...skipped];
 
         if (data.answer?.state === 'FAILED') {
           yield {
@@ -373,6 +470,16 @@ export class StreamAssistClient {
         return;
       }
       throw error;
+    }
+
+    // A skipped answer with no text goes back to stream(), which decides whether to ask again.
+    // Nothing was answered, so no provenance record and no `done` yet.
+    if (!policyBlocked && skippedReasons && !accumulated.trim()) {
+      outcome.skipped = {
+        retryable: skippedReasons.includes('NON_ASSIST_SEEKING_QUERY_IGNORED'),
+        ...(session ? { session } : {}),
+      };
+      return;
     }
 
     // A blocked turn produced no usable answer; do not emit related questions or a
@@ -614,7 +721,12 @@ export function buildStreamAssistRequest(
   const skillSet = skillsForRoute(cfg, skillRoute);
   const mentionText = skillMentionText(skillSet.mentions);
   const out: Record<string, unknown> = {
-    query: buildQuery(req, attached, mentionText, cfg.assistantName),
+    query: buildQuery(
+      req,
+      attached,
+      mentionText,
+      paneInstructions(cfg.assistantName, rulesForRoute(cfg.assistantRules, skillRoute)),
+    ),
   };
   if (isSessionLess) out.isSessionLess = true;
   else if (session) out.session = session;
@@ -655,9 +767,8 @@ function buildQuery(
   req: AssistRequest,
   attached: QueryPart[],
   mentionText?: string,
-  assistantName?: string,
+  identity?: string,
 ): Record<string, unknown> {
-  const identity = assistantName ? identityText(assistantName) : undefined;
   if (attached.length === 0) {
     const text = composeQuery(req, mentionText);
     return { text: identity ? `${identity}\n\n${text}` : text };
@@ -668,11 +779,27 @@ function buildQuery(
   return { parts };
 }
 
+/** The brand's name line and writing rules, as one block of pane instructions; none when unset. */
+export function paneInstructions(
+  assistantName?: string,
+  rules: readonly string[] = [],
+): string | undefined {
+  const lines = [...(assistantName ? [identityText(assistantName)] : []), ...rules];
+  // With pane instructions in front, answers drifted into Bahasa for English questions and English
+  // emails (live 2026-10-15/16): the reply language is the user's, stated every time.
+  return lines.length
+    ? `${PANE_INSTRUCTIONS_OPEN}\n${[...lines, LANGUAGE_RULE].join('\n')}\n${PANE_INSTRUCTIONS_CLOSE}`
+    : undefined;
+}
+
+/** Sent with every block of pane instructions. */
+export const LANGUAGE_RULE = "Always reply in the language of the user's message.";
+
 /** The pane's instruction (not user or document content) naming the branded assistant. */
 export function identityText(assistantName: string): string {
   return (
-    `Your name is ${assistantName}. If you refer to yourself, call yourself ${assistantName} only; ` +
-    `never call yourself Gemini or Gemini Enterprise.`
+    `Your name is ${assistantName}. Do not introduce yourself or say your name unless the user ` +
+    `asks who you are. If you refer to yourself, use ${assistantName}, never Gemini or Gemini Enterprise.`
   );
 }
 

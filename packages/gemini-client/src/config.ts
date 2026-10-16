@@ -50,6 +50,11 @@ export interface GeminiClientConfig {
    * this, never the engine's default "Gemini Enterprise". Unset → the engine's default persona.
    */
   assistantName?: string;
+  /**
+   * Brand writing rules sent with the name on every turn (e.g. how emails open in Bahasa). They are
+   * the pane's own instructions from build-time brand config, never user or document content.
+   */
+  assistantRules?: readonly AssistantRule[];
 }
 
 export interface GeminiSkillMention {
@@ -58,6 +63,21 @@ export interface GeminiSkillMention {
 }
 
 export type GeminiSkillRoute = 'default' | 'planner' | 'command';
+
+/** A brand writing rule: on every turn, or only on the named routes (e.g. `command` turns). */
+export type AssistantRule =
+  | string
+  | { readonly text: string; readonly routes: readonly GeminiSkillRoute[] };
+
+/** The rules that apply on a turn of `route`, as plain text. */
+export function rulesForRoute(
+  rules: readonly AssistantRule[] | undefined,
+  route: GeminiSkillRoute,
+): string[] {
+  return (rules ?? []).flatMap((rule) =>
+    typeof rule === 'string' ? [rule] : rule.routes.includes(route) ? [rule.text] : [],
+  );
+}
 
 export interface GeminiWidgetConfig {
   configId: string;

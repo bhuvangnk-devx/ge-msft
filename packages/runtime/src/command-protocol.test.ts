@@ -7,6 +7,7 @@ import type {
   DocStateSnapshot,
   ResolvedContext,
   SseEvent,
+  Surface,
 } from '@ge/contracts';
 import { ActuationRequestSchema, parseCommandLine } from '@ge/contracts';
 import type { StreamAssistClient, StreamOptions } from '@ge/gemini-client';
@@ -41,6 +42,54 @@ describe('compileCommand', () => {
       },
     });
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
+  it('compiles `set` over a range → one write that fills the formula down (CIMB UAT #7)', () => {
+    const parsed = parseCommandLine(
+      `set 'Branch Performance'!I2:I57 "=IF(A2=A1,(F2-F1)/F1,\\"\\")"`,
+    );
+    if ('error' in parsed) throw new Error(parsed.error);
+    const c = compileCommand(parsed, { surface: 'excel', mintChangeId: mint });
+    if (!('request' in c)) throw new Error('not a write');
+    const cells = c.request.params.cells!;
+    expect(c.request.params.target).toEqual({ range: "'Branch Performance'!I2:I57" });
+    expect(cells).toHaveLength(56);
+    expect(cells[0]).toEqual(['=IF(A2=A1,(F2-F1)/F1,"")']);
+    expect(cells[55]).toEqual(['=IF(A57=A56,(F57-F56)/F56,"")']);
+    expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
+  it('a fill that would move a reference off the sheet is a correction, not a crash', () => {
+    const parsed = parseCommandLine('set A1:B2 =XFD1');
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'excel', mintChangeId: mint })).toEqual({
+      error: expect.stringContaining('off the worksheet'),
+    });
+  });
+
+  it('turns the \n escape into a line break in quoted text, keeping \\n literal (live 2026-10-14)', () => {
+    // Commands are one line, so the model writes line breaks as `\n`; Outlook showed them literally.
+    const compiled = (line: string, surface: Surface) => {
+      const parsed = parseCommandLine(line);
+      if ('error' in parsed) throw new Error(parsed.error);
+      const c = compileCommand(parsed, { surface, mintChangeId: mint });
+      return 'request' in c ? c.request.params : c;
+    };
+    expect(compiled('mail "Halo Irpan,\\n\\nSalam,\\nAdele"', 'outlook')).toEqual({
+      mail: { body: 'Halo Irpan,\n\nSalam,\nAdele' },
+    });
+    expect(compiled('post "Update:\\n- done"', 'teams')).toMatchObject({
+      text: 'Update:\n- done',
+    });
+    // An escaped backslash stays a backslash: a path or LaTeX survives in written text.
+    expect(compiled('comment "Budget" "Saved in C:\\\\new folder"', 'word')).toMatchObject({
+      target: { matchText: 'Budget' },
+      text: 'Saved in C:\\new folder',
+    });
+    // Props decode the same way, so nested fields built from them get real line breaks too.
+    expect(compiled('/set-body text="Hi,\\nThanks"', 'outlook')).toMatchObject({
+      mail: { body: 'Hi,\nThanks' },
+    });
   });
 
   it('compiles `suggest` → a tracked-change with target.matchText', () => {
@@ -253,6 +302,83 @@ describe('compileCommand', () => {
       { surface: 'word', mintChangeId: () => asChangeId('cid') },
     );
     expect(c).toMatchObject({ request: { kind: 'insert-ooxml', params: { ooxml: '<w:p/>' } } });
+  });
+
+  it('keeps the empty rows asked for under a /insert-table header (CIMB UAT 2026-10-16)', () => {
+    const c = compileCommand(
+      {
+        verb: 'invoke',
+        kind: 'insert-table',
+        props: {
+          rows: '#\\tAktivitas\\tDeliverable\\tPenanggung Jawab\\n\\t\\t\\t\\n\\t\\t\\t\\n\\t\\t\\t',
+        },
+        args: [],
+      } as never,
+      { surface: 'word', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({
+      request: {
+        params: {
+          tableGrid: {
+            rows: [
+              ['#', 'Aktivitas', 'Deliverable', 'Penanggung Jawab'],
+              ['', '', '', ''],
+              ['', '', '', ''],
+              ['', '', '', ''],
+            ],
+          },
+        },
+      },
+    });
+  });
+
+  it('takes headerFill= for /add-table-slide (CIMB UAT #16)', () => {
+    const c = compileCommand(
+      {
+        verb: 'invoke',
+        kind: 'add-table-slide',
+        props: { slide: '4', rows: 'No\\tDimensi\\n1\\tRegulasi', headerFill: '#C8102E' },
+        args: [],
+      } as never,
+      { surface: 'powerpoint', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({ request: { params: { tableGrid: { headerFill: '#C8102E' } } } });
+  });
+
+  it('takes bold/font/size for /insert-text (CIMB UAT #20)', () => {
+    const parsed = parseCommandLine('/insert-text text="AI COE" bold=true font=Arial size=16');
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'word', mintChangeId: mint })).toMatchObject({
+      request: {
+        kind: 'insert-text',
+        params: { text: 'AI COE', textFont: { bold: true, name: 'Arial', size: 16 } },
+      },
+    });
+  });
+
+  it('builds a real .docx for a text attachment named .docx; refuses .xlsx from text (CIMB UAT #22)', () => {
+    const docx = compileCommand(
+      parseCommandLine('/add-attachment name="hello arjuna.docx" text="test script 1"') as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    if (!('request' in docx)) throw new Error('not a write');
+    const bytes = Uint8Array.from(atob(docx.request.params.attachment!.base64!), (c) =>
+      c.charCodeAt(0),
+    );
+    expect([...bytes.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]); // a zip, not 13 bytes of text
+    const txt = compileCommand(
+      parseCommandLine('/add-attachment name="notes.txt" text="test script 1"') as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    expect(txt).toMatchObject({
+      request: { params: { attachment: { base64: btoa('test script 1') } } },
+    });
+    expect(
+      compileCommand(parseCommandLine('/add-attachment name="data.xlsx" text="a,b"') as never, {
+        surface: 'outlook',
+        mintChangeId: mint,
+      }),
+    ).toEqual({ error: expect.stringContaining('cannot build a .xlsx file') });
   });
 
   it('takes positional text for /replace-selection when text= is missing', () => {
@@ -1158,7 +1284,7 @@ describe('compileCommand', () => {
 describe('renderGrammarPrompt', () => {
   it('advertises set for Excel and not suggest', () => {
     const prompt = renderGrammarPrompt(excelManifest);
-    expect(prompt).toContain('set <A1> <value|=formula>');
+    expect(prompt).toContain('set <A1|A1:A50> <value|=formula>');
     expect(prompt).toContain('grid <range> = "a\\tb\\nc\\td"');
     expect(prompt).toContain('read <A1|NamedRange>');
     expect(prompt).toContain('context [incremental|inline-preferred');

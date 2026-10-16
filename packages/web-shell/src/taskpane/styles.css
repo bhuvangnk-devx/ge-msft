@@ -2905,6 +2905,8 @@ button.cite:hover {
   background: var(--surface-2, rgba(0, 0, 0, 0.05));
   border-radius: 3px;
   padding: 0 4px;
+  /* a long model-written value wraps inside the card instead of widening the pane */
+  overflow-wrap: anywhere;
 }
 .command-plan-ground {
   font-size: var(--fz-sm);

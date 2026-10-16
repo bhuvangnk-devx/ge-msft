@@ -172,6 +172,12 @@ export const ActuationSchema = z.object({
   description: z.string().optional(),
   reversible: z.boolean(), // false ⇒ the UI must warn before invoking
   appliesTo: z.array(ContextKindSchema).optional(), // context kinds this can target
+  /**
+   * The writes that can deliver what this one asks for when the host refuses it as aimed at the
+   * wrong target (an Outlook draft edit on a received message, answered by a new message).
+   * Omitted: any later write of another kind may count as the recovery. Empty: none can.
+   */
+  substitutes: z.array(ActuationKindSchema).optional(),
 });
 export type Actuation = z.infer<typeof ActuationSchema>;
 
@@ -388,6 +394,11 @@ export const ActuationParamsSchema = z.object({
     .object({
       rows: z.array(z.array(z.string())),
       hasHeaders: z.boolean().default(false),
+      /** PowerPoint: the header row's fill (#RRGGBB), with white bold text — the deck's colour. */
+      headerFill: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/, 'headerFill must be #RRGGBB')
+        .optional(),
       left: z.number().optional(),
       top: z.number().optional(),
       width: z.number().optional(),
@@ -488,6 +499,20 @@ export const ActuationParamsSchema = z.object({
       top: z.number().optional(),
       width: z.number().optional(),
       height: z.number().optional(),
+    })
+    .optional(),
+  /** insert-text (Word): the font of the inserted text (`bold=true font=Arial size=16`). */
+  textFont: z
+    .object({
+      bold: z.boolean().optional(),
+      italic: z.boolean().optional(),
+      underline: z.boolean().optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional(),
+      size: z.number().min(1).max(400).optional(),
+      name: z.string().max(64).optional(),
     })
     .optional(),
   /** format-shape (PowerPoint): in-place shape formatting (snapshot-prior inverse). */

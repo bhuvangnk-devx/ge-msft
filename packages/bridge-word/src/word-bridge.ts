@@ -184,9 +184,22 @@ export class WordBridge implements DocBridge {
     this.docStateVersion += 1;
     // The live selection rides along (as Excel's does), so "rewrite my selection" targets what the
     // user actually selected instead of a sentence the model picks from the whole document.
+    // Nothing selected: still say where the cursor is, so "at the cursor" needs no guessed anchor
+    // (CIMB UAT 2026-10-16: a table "at the cursor" went after a paragraph the model picked).
+    const cursor = selText.trim() ? undefined : await this.host.readCursorParagraph?.();
     const selection = selText.trim()
       ? ({ kind: 'selection', title: 'Selection', preview: selText } satisfies DocStateSelection)
-      : undefined;
+      : cursor !== undefined
+        ? ({
+            kind: 'selection',
+            title: 'Cursor (nothing selected)',
+            // Document text as quoted data only; the "at the cursor = no match=" rule is in the
+            // command cards, never next to document content.
+            preview: cursor.trim()
+              ? `cursor paragraph: ${JSON.stringify(cursor.trim().slice(0, 200))}`
+              : 'cursor paragraph: (empty)',
+          } satisfies DocStateSelection)
+        : undefined;
     return buildDocStateSnapshot({
       surface: 'word',
       version: this.docStateVersion,
@@ -388,6 +401,7 @@ export class WordBridge implements DocBridge {
       { matchCase: false },
       plan.text,
       (hitTexts) => chooseAnchorIndex([...hitTexts], plan.contextHint),
+      plan.font,
     );
     if (outcome.status === 'drift') {
       return {

@@ -111,6 +111,9 @@ def _scan_quoted(rest: str):
     return val, rest.strip()[m.end():].strip()
 
 
+_QUOTED_SHEET = r"'(?:[^']|'')*'(?:[^\s']+|'(?:[^']|'')*')*"
+
+
 def _split_first_arg(rest: str):
     """Split the first argument while preserving single-quoted sheet names.
 
@@ -144,10 +147,9 @@ def _parse_grid_body(body: str):
 # value"` (with spaces) intact — mirrors the TS `tokenizeArgs` used by table/chart/cf. A
 # `key="quoted"` / `key=bare` match yields a prop; anything else is positional (a range, a chart
 # type, a bare CF mode like `databar`).
-# Double-quoted values honour \" and \\ escapes (mirrors tokenizeArgs in command-grammar.ts).
+# Double-quoted values honour \", \\ and \n escapes (mirrors tokenizeArgs in command-grammar.ts).
 # A token starting with a single-quoted sheet name runs on through later quoted areas
 # ('A B'!A1,'A B'!C1); mirrors QUOTED_SHEET_TOKEN in command-grammar.ts.
-_QUOTED_SHEET = r"'(?:[^']|'')*'(?:[^\s']+|'(?:[^']|'')*')*"
 _TOKENIZE = re.compile(
     r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(' + _QUOTED_SHEET + r'|\S+)|"((?:[^"\\]|\\.)*)"|('
     + _QUOTED_SHEET
@@ -156,7 +158,9 @@ _TOKENIZE = re.compile(
 
 
 def _unescape(value: str) -> str:
-    return re.sub(r'\\(["\\])', r'\1', value)
+    # One escape-aware pass, mirroring scanQuoted/tokenizeArgs in command-grammar.ts: \" and \\
+    # are literal; \n is a line break (a command is one line), so \\n stays backslash + n.
+    return re.sub(r'\\(["\\n])', lambda m: "\n" if m.group(1) == "n" else m.group(1), value)
 
 
 def _tokenize_args(rest: str):
@@ -616,10 +620,10 @@ def parse_line(line: str):
     if verb == "set":
         sp = re.search(r"\s", rest)
         if not sp:
-            return {"error": "set needs a cell and a value — usage: set <A1> <value|=formula>"}
+            return {"error": "set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>"}
         cell, value = rest[: sp.start()], rest[sp.start():].strip()
         if not cell or not value:
-            return {"error": "set needs a cell and a value — usage: set <A1> <value|=formula>"}
+            return {"error": "set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>"}
         return {"verb": "set", "cell": cell, "value": value}
 
     if verb == "grid":
@@ -763,7 +767,8 @@ def parse_line(line: str):
     # ADR-0007 `chart <type> <range> [title="…"] [series=rows|columns]` — a chart over a range.
     if verb == "chart":
         usage = ("chart needs a type and a range — usage: chart "
-                 "<column|bar|line|pie|scatter|area> <range> [title=\"…\"] [series=rows|columns]")
+                 "<column|bar|line|pie|scatter|area> <range> [title=\"…\"] [series=rows|columns] "
+                 "[x=<col> by=<col> value=<col>]")
         positional, props = _tokenize_args(rest)
         if len(positional) < 2:
             return {"error": usage}

@@ -186,24 +186,11 @@ describe('bridge dispatch boundary', () => {
 describe('host refusals', () => {
   const hostError = (code: string) => Object.assign(new Error(`office: ${code}`), { code });
 
-  it('returns cell edit mode (whole request rejected) as a refusal', async () => {
-    const dispatcher = createBridgeDispatch('excel', {
-      'write-cells': () => Promise.reject(hostError('InvalidOperationInCellEditMode')),
-    });
-    expect(await dispatcher.dispatch({}, request())).toEqual({
-      ok: false,
-      changeId: 'dispatch-1',
-      kind: 'write-cells',
-      error: {
-        code: 'host_refused',
-        reason: 'edit_mode',
-        message: 'Office refused the change (InvalidOperationInCellEditMode).',
-      },
-    });
-  });
-
   // A statement-level code can follow an earlier statement that landed: never a known non-write.
+  // Cell edit mode too: a handler may have synced a write before it (security review 2026-10-16);
+  // the Excel bridge refuses it in its read-only pre-check instead.
   it.each([
+    'InvalidOperationInCellEditMode',
     'AccessDenied',
     'MergedRangeConflict',
     'ItemNotFound',
