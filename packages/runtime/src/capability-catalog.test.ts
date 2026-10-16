@@ -200,6 +200,16 @@ describe('command discovery', () => {
     expect(help).toContain('An uncertain, failed or mismatched write cannot satisfy');
   });
 
+  it('tells the PowerPoint model plainly that icons cannot be inserted (CIMB UAT #15)', () => {
+    const ppt: CapabilityManifest = {
+      surface: 'powerpoint',
+      contextKinds: ['slide'],
+      reads: ['read'],
+      actuations: [],
+    };
+    expect(renderCommandBootstrap(ppt)).toContain('never draw a shape as a stand-in');
+  });
+
   it('tells the Excel model to fill a column in one set, never cell by cell (CIMB UAT #7)', () => {
     const excel: CapabilityManifest = {
       surface: 'excel',

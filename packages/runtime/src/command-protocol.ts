@@ -1181,6 +1181,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(
       'Fill a column with one formula in ONE write: set Sheet!I2:I57 =IF(A2=A1,(F2-F1)/F1,"") — references shift per row like Excel fill-down. Never one set per cell. set Sheet!I2 "" clears a cell.',
     );
+  // CIMB UAT 2026-10-16: an icon request drew a blue circle and called it done.
+  if (manifest.surface === 'powerpoint')
+    lines.push(
+      'There is no image, picture or icon insertion on PowerPoint here. When asked for one, never draw a shape as a stand-in: answer with done "…", in the language the user wrote in, that icons and pictures cannot be added yet (Insert → Icons in PowerPoint does it), and offer a short text label instead.',
+    );
   // CIMB UAT 2026-10-16: "trend per branch" on one-row-per-branch-per-month data charted raw columns.
   if (allowed.has('chart') && manifest.surface === 'excel')
     lines.push(
