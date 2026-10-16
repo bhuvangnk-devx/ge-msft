@@ -61,7 +61,7 @@ This file is generated from `packages/contracts/src/capability-registry.ts`. Reg
 | word | implemented | `/insert-hyperlink` | `insert-hyperlink` | Word screened hyperlink | WordApi 1.4 | add or update a hyperlink on exact Word text after URL safety screening |
 | word | implemented | `/insert-ooxml` | `insert-ooxml` | Word screened OOXML insertion | WordApi 1.1 | insert a screened rich Word fragment where plain text is insufficient |
 | word | implemented | `/insert-table` | `insert-table` | Word native table insertion | WordApi 1.3 | insert a small grounded table into a Word document |
-| word | implemented | `/insert-text` | `insert-text` | Word plain-text insertion | WordApi 1.1 | insert grounded plain text at the current selection or after an exact anchor |
+| word | implemented | `/insert-text` | `insert-text` | Word plain-text insertion | WordApi 1.1 | insert grounded text at the current selection (the cursor) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text |
 | word | implemented | `/replace-selection` | `replace-selection` | Word selection replacement | WordApi 1.1 | replace the current Word selection after previewing prior and new text |
 | word | implemented | `suggest` | `tracked-change` | Word tracked rewrite | WordApi 1.1 | replace exact existing text as a reviewable tracked change |
 

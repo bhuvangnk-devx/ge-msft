@@ -501,6 +501,20 @@ export const ActuationParamsSchema = z.object({
       height: z.number().optional(),
     })
     .optional(),
+  /** insert-text (Word): the font of the inserted text (`bold=true font=Arial size=16`). */
+  textFont: z
+    .object({
+      bold: z.boolean().optional(),
+      italic: z.boolean().optional(),
+      underline: z.boolean().optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional(),
+      size: z.number().min(1).max(400).optional(),
+      name: z.string().max(64).optional(),
+    })
+    .optional(),
   /** format-shape (PowerPoint): in-place shape formatting (snapshot-prior inverse). */
   shapeFormat: z
     .object({

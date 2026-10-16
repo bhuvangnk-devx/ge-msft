@@ -1,4 +1,4 @@
-import type { ContextRef } from '@ge/contracts';
+import type { ActuationRequest, ContextRef } from '@ge/contracts';
 import { isSet } from './capabilities-runtime.js';
 import { chooseAnchorIndex } from './actuate-plan.js';
 import type { WordSearchHit } from './capture.js';
@@ -244,6 +244,7 @@ export interface WordHost {
     opts: { readonly matchCase: boolean },
     text: string,
     choose: ChooseHit,
+    font?: TextFont,
   ): Promise<InsertOutcome>;
 
   /**
@@ -673,12 +674,13 @@ export class OfficeWordHost implements WordHost {
     opts: { readonly matchCase: boolean },
     text: string,
     choose: ChooseHit,
+    font?: TextFont,
   ): Promise<InsertOutcome> {
     return Word.run(async (ctx) => {
       if (query === undefined) {
         // No anchor → insert at the current selection (replace its content with the new text).
         const sel = ctx.document.getSelection();
-        sel.insertText(text, Word.InsertLocation.replace);
+        applyFont(sel.insertText(text, Word.InsertLocation.replace), font);
         await ctx.sync();
         return { status: 'applied', location: 'selection', insertedText: text };
       }
@@ -690,7 +692,7 @@ export class OfficeWordHost implements WordHost {
       const range = idx >= 0 ? results.items[idx] : undefined;
       if (!range) return { status: 'drift' };
       // Insert AFTER the anchored range (a direct edit appends to the matched content).
-      range.insertText(text, Word.InsertLocation.after);
+      applyFont(range.insertText(text, Word.InsertLocation.after), font);
       await ctx.sync();
       return { status: 'applied', location: 'insert-text', insertedText: text };
     });
@@ -1195,4 +1197,18 @@ async function followingText(
     });
   }
   return texts.map((t) => t.join('\n'));
+}
+
+/** The font of an `insert-text` (`bold=true font=Arial size=16`). */
+export type TextFont = NonNullable<ActuationRequest['params']['textFont']>;
+
+/** Apply the requested font to the range `insertText` returned; unset fields keep the document's. */
+function applyFont(range: Word.Range, font: TextFont | undefined): void {
+  if (!font) return;
+  if (font.bold !== undefined) range.font.bold = font.bold;
+  if (font.italic !== undefined) range.font.italic = font.italic;
+  if (font.underline !== undefined) range.font.underline = font.underline ? 'Single' : 'None';
+  if (font.name !== undefined) range.font.name = font.name;
+  if (font.size !== undefined) range.font.size = font.size;
+  if (font.color !== undefined) range.font.color = font.color;
 }

@@ -345,6 +345,17 @@ describe('compileCommand', () => {
     expect(c).toMatchObject({ request: { params: { tableGrid: { headerFill: '#C8102E' } } } });
   });
 
+  it('takes bold/font/size for /insert-text (CIMB UAT #20)', () => {
+    const parsed = parseCommandLine('/insert-text text="AI COE" bold=true font=Arial size=16');
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'word', mintChangeId: mint })).toMatchObject({
+      request: {
+        kind: 'insert-text',
+        params: { text: 'AI COE', textFont: { bold: true, name: 'Arial', size: 16 } },
+      },
+    });
+  });
+
   it('takes positional text for /replace-selection when text= is missing', () => {
     const c = compileCommand(
       { verb: 'invoke', kind: 'replace-selection', props: {}, args: ['Short new text.'] } as never,

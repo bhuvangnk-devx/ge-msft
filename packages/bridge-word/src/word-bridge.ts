@@ -388,6 +388,7 @@ export class WordBridge implements DocBridge {
       { matchCase: false },
       plan.text,
       (hitTexts) => chooseAnchorIndex([...hitTexts], plan.contextHint),
+      plan.font,
     );
     if (outcome.status === 'drift') {
       return {

@@ -56,8 +56,8 @@ export interface WordSeed {
   comments: WordCommentSeed[];
   /** Recorded: the last `changeTrackingMode` the bridge set (asserts tracked changes were turned on). */
   changeTrackingMode?: string;
-  /** Recorded tracked-change inserts: `{ anchor, text }` per applied replace. */
-  inserts: Array<{ anchor: string; text: string }>;
+  /** Recorded tracked-change inserts: `{ anchor, text }` per applied replace (+ any font set on it). */
+  inserts: WordInsertRecord[];
   /** Recorded comments added via `insertComment`: `{ anchor, text }`. */
   addedComments: Array<{ anchor: string; text: string }>;
   /** Recorded native tables inserted via `insertTable` (cell values per row). */
@@ -73,6 +73,31 @@ function bodyText(seed: WordSeed): string {
 
 const INSERT_LOCATION = { replace: 'Replace', start: 'Start', end: 'End' } as const;
 const CHANGE_TRACKING_MODE = { trackAll: 'TrackAll', off: 'Off' } as const;
+
+/** One `insertText` call, and the font the bridge then set on the returned range. */
+export interface WordInsertRecord {
+  anchor: string;
+  text: string;
+  font?: Record<string, unknown>;
+}
+
+interface FakeInsertedRange {
+  font: Record<string, unknown>;
+}
+
+/** The range `insertText` returns: font writes are recorded on the insert. */
+function insertedRange(entry: WordInsertRecord): FakeInsertedRange {
+  const font = new Proxy<Record<string, unknown>>(
+    {},
+    {
+      set(_target, key, value): boolean {
+        entry.font = { ...entry.font, [String(key)]: value };
+        return true;
+      },
+    },
+  );
+  return { font };
+}
 
 class FakeParagraphProxy {
   isNullObject = false;
@@ -158,9 +183,11 @@ class FakeSearchResult {
     this.seed.tables = [...(this.seed.tables ?? []), values];
   }
   /** The tracked-change WRITE: replace the first occurrence of the anchor in the body. */
-  insertText(text: string, _location: string): void {
-    this.seed.inserts.push({ anchor: this.text, text });
+  insertText(text: string, _location: string): FakeInsertedRange {
+    const entry: WordInsertRecord = { anchor: this.text, text };
+    this.seed.inserts.push(entry);
     replaceFirst(this.seed, this.text, text);
+    return insertedRange(entry);
   }
   /** Comments-as-citations WRITE. */
   insertComment(text: string): void {
@@ -302,10 +329,12 @@ class FakeSelection {
       : undefined;
   }
   /** Overwrite the selected text (the only location the bridge uses on a selection is replace). */
-  insertText(text: string, _location: string): void {
-    this.seed.inserts.push({ anchor: this.seed.selectionText, text });
+  insertText(text: string, _location: string): FakeInsertedRange {
+    const entry: WordInsertRecord = { anchor: this.seed.selectionText, text };
+    this.seed.inserts.push(entry);
     replaceFirst(this.seed, this.seed.selectionText, text);
     this.seed.selectionText = text;
+    return insertedRange(entry);
   }
   insertOoxml(ooxml: string, location: string): void {
     this.insertText(ooxmlText(ooxml).join('\n'), location);
@@ -406,7 +435,7 @@ export interface WordSnapshot {
   bodyText: string;
   paragraphs: ReadonlyArray<WordParagraphSeed>;
   comments: ReadonlyArray<WordCommentSeed>;
-  inserts: ReadonlyArray<{ anchor: string; text: string }>;
+  inserts: ReadonlyArray<WordInsertRecord>;
   addedComments: ReadonlyArray<{ anchor: string; text: string }>;
   changeTrackingMode?: string;
 }

@@ -400,6 +400,12 @@ function paramsFromInvoke(
         ...numberProp(props, 'top'),
       };
       break;
+    case 'insert-text': {
+      // CIMB UAT 2026-10-16: "AI COE" in bold Arial 16 came out as Aptos 12.
+      const font = wordFontFromProps(props);
+      if (font) p.textFont = font;
+      break;
+    }
     case 'insert-table':
       p.tableGrid = {
         rows: rowsFromProp(props.rows ?? props.tsv ?? ''),
@@ -863,6 +869,26 @@ function dottedStyleProps(args: string[]): Record<string, string> {
     else if (f === 'color') out[g] = value;
   }
   return out;
+}
+
+/** `bold=true italic=true underline=true font=Arial size=16 color=#C8102E` (or the font* names). */
+function wordFontFromProps(
+  props: Record<string, string>,
+): ActuationRequest['params']['textFont'] | undefined {
+  const font: NonNullable<ActuationRequest['params']['textFont']> = {};
+  const bold = props.bold ?? props.fontBold;
+  const italic = props.italic ?? props.fontItalic;
+  const underline = props.underline ?? props.fontUnderline;
+  if (bold !== undefined) font.bold = boolFromProp(bold, false);
+  if (italic !== undefined) font.italic = boolFromProp(italic, false);
+  if (underline !== undefined) font.underline = boolFromProp(underline, false);
+  const name = props.font ?? props.fontName;
+  if (name) font.name = name;
+  const size = numberFromProp(props.size ?? props.fontSize);
+  if (size !== undefined) font.size = size;
+  const color = props.color ?? props.fontColor;
+  if (color) font.color = color;
+  return Object.keys(font).length > 0 ? font : undefined;
 }
 
 function shapeFontFromProps(props: Record<string, string>): ShapeFont | undefined {

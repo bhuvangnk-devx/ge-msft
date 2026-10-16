@@ -100,12 +100,14 @@ export interface InsertTextPlan {
   anchored: boolean;
   text: string;
   hasText: boolean;
+  font?: NonNullable<ActuationRequest['params']['textFont']>;
 }
 
 export function planInsertText(req: ActuationRequest): InsertTextPlan {
   const p = req.params;
   const text = p.text ?? '';
   return {
+    ...(p.textFont ? { font: p.textFont } : {}),
     ...(p.target?.matchText ? { matchText: p.target.matchText } : {}),
     ...(p.target?.contextHint ? { contextHint: p.target.contextHint } : {}),
     anchored: Boolean(p.target?.matchText),

@@ -422,8 +422,9 @@ export const COMMAND_HELP = {
   'insert-text': {
     command: '/insert-text',
     useWhen:
-      'the user asks to insert a small amount of plain text in Word without using tracked changes',
-    syntax: '/insert-text text="..." [match="exact anchor"] [contextHint="..."]',
+      'the user asks to insert a small amount of text in Word without using tracked changes, at the cursor ("pada lokasi kursor") or after an anchor, optionally formatted (bold, font, size) in the same command',
+    syntax:
+      '/insert-text text="..." [match="exact anchor"] [contextHint="..."] [bold=true] [italic=true] [underline=true] [font=<name>] [size=<pt>] [color=#RRGGBB]',
     discovery: [
       'search <exact anchor text>',
       'inspect <word:paragraph:N>',
@@ -431,10 +432,14 @@ export const COMMAND_HELP = {
     ],
     sequence: [
       'Read or search the exact insertion anchor, unless the user explicitly wants the current selection.',
-      'Use match/contextHint when anchoring after existing text; omit them only for current-selection insertion.',
+      'Use match/contextHint when anchoring after existing text; omit them for "at the cursor" / current-selection insertion.',
+      'Put the requested formatting on the same command (bold=true font=Arial size=16); never a second style command for it.',
       'Emit one /insert-text command and wait for preview, approval, and result.',
     ],
-    examples: ['/insert-text text=" Effective July 1." match="This agreement begins"'],
+    examples: [
+      '/insert-text text=" Effective July 1." match="This agreement begins"',
+      '/insert-text text="AI COE" bold=true font=Arial size=16',
+    ],
     doNot: [
       'Do not use for rewrites; use suggest or /replace-selection.',
       'Do not invent anchor text.',

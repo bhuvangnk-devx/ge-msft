@@ -155,4 +155,27 @@ describe('Word full-stack integration', () => {
     expect(snap.bodyText).toContain('The SLA is 99.5%.'); // unchanged
     expect(sim.office.customXmlParts.length).toBe(0); // no provenance for a rejected write
   });
+
+  it('/insert-text with bold, font and size sets them on the inserted text (CIMB UAT #20)', async () => {
+    sim = installFakeWord();
+    ui = mountStack({
+      surface: 'word',
+      client: scriptedClient([
+        '```cmd\n/insert-text text="AI COE" bold=true font=Arial size=16\n```',
+        '```cmd\ndone "Inserted."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('tulis AI COE bold, arial, 16');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    const insert = sim.snapshot().inserts.at(-1);
+    expect(insert?.text).toBe('AI COE');
+    expect(insert?.font).toEqual({ bold: true, name: 'Arial', size: 16 });
+  });
 });

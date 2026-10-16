@@ -395,7 +395,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: '/insert-text',
     title: 'Word plain-text insertion',
-    useWhen: 'insert grounded plain text at the current selection or after an exact anchor',
+    useWhen:
+      'insert grounded text at the current selection (the cursor) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text',
     hostApis: ['Word.Range.insertText', 'Word.Selection.insertText'],
     requirementSets: [{ name: 'WordApi', minVersion: '1.1' }],
     contextKinds: ['selection', 'paragraph', 'document'],
@@ -405,7 +406,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Preview the inserted text and position.',
       'Emit one /insert-text command only when insertion, not tracked rewrite, is intended.',
     ],
-    examples: ['/insert-text match="Appendix" position=after text="Reviewed by Legal."'],
+    examples: [
+      '/insert-text match="Appendix" position=after text="Reviewed by Legal."',
+      '/insert-text text="AI COE" bold=true font=Arial size=16',
+    ],
     preview: ['anchor/selection', 'position', 'inserted text summary'],
     inverse: 'delete the inserted text range when the inserted range is captured',
     provenance: 'record anchor, inserted text hash, position, and changeId',
