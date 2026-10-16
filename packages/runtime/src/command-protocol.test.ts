@@ -356,6 +356,31 @@ describe('compileCommand', () => {
     });
   });
 
+  it('builds a real .docx for a text attachment named .docx; refuses .xlsx from text (CIMB UAT #22)', () => {
+    const docx = compileCommand(
+      parseCommandLine('/add-attachment name="hello arjuna.docx" text="test script 1"') as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    if (!('request' in docx)) throw new Error('not a write');
+    const bytes = Uint8Array.from(atob(docx.request.params.attachment!.base64!), (c) =>
+      c.charCodeAt(0),
+    );
+    expect([...bytes.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]); // a zip, not 13 bytes of text
+    const txt = compileCommand(
+      parseCommandLine('/add-attachment name="notes.txt" text="test script 1"') as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    expect(txt).toMatchObject({
+      request: { params: { attachment: { base64: btoa('test script 1') } } },
+    });
+    expect(
+      compileCommand(parseCommandLine('/add-attachment name="data.xlsx" text="a,b"') as never, {
+        surface: 'outlook',
+        mintChangeId: mint,
+      }),
+    ).toEqual({ error: expect.stringContaining('cannot build a .xlsx file') });
+  });
+
   it('takes positional text for /replace-selection when text= is missing', () => {
     const c = compileCommand(
       { verb: 'invoke', kind: 'replace-selection', props: {}, args: ['Short new text.'] } as never,

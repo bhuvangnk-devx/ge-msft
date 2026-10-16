@@ -2970,7 +2970,7 @@
       "priority": "p0",
       "command": "/add-attachment",
       "title": "Outlook draft attachment",
-      "useWhen": "attach a generated or approved file to a draft without sending mail",
+      "useWhen": "attach a file to a draft without sending mail. A file the user describes (\"a Word file titled X containing Y\") is name=\"X.docx\" text=\"Y\": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned",
       "hostApis": [
         "Office.MessageCompose.addFileAttachmentAsync",
         "Office.MessageCompose.addItemAttachmentAsync"
@@ -2993,11 +2993,11 @@
       ],
       "sequence": [
         "Confirm the active item is a draft/compose surface.",
-        "Use only a host-returned file or allowlisted URL/base64 artifact.",
+        "Describe a new file with name= and text= (.docx or .txt); use base64= only for a host-returned file.",
         "Emit one /add-attachment command."
       ],
       "examples": [
-        "/add-attachment name=\"brief.xlsx\" base64=<base64>"
+        "/add-attachment name=\"hello arjuna.docx\" text=\"test script 1\""
       ],
       "preview": [
         "draft target",
@@ -4467,7 +4467,7 @@
       "priority": "p0",
       "command": "/insert-text",
       "title": "Word plain-text insertion",
-      "useWhen": "insert grounded text at the current selection (the cursor) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text",
+      "useWhen": "insert grounded text at the current selection (the cursor: no match=; the snapshot names the cursor paragraph) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text",
       "hostApis": [
         "Word.Range.insertText",
         "Word.Selection.insertText"

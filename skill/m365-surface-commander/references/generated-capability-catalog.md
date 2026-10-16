@@ -34,7 +34,7 @@ This file is generated from `packages/contracts/src/capability-registry.ts`. Reg
 | onenote | promotable | `/set-page-title` | `set-page-title` | OneNote page title | OneNoteApi 1.1 | rename the active OneNote page with a reversible title edit |
 | outlook | catalog-only | `/add-categories` | `add-categories` | Outlook category assignment | Mailbox 1.8 | apply existing mailbox categories to a message or draft |
 | outlook | catalog-only | `/compose-appointment` | `compose-appointment` | Outlook appointment compose | Mailbox 1.1 | open a meeting/appointment draft from grounded details without auto-sending invites |
-| outlook | implemented | `/add-attachment` | `add-attachment` | Outlook draft attachment | Mailbox 1.8 | attach a generated or approved file to a draft without sending mail |
+| outlook | implemented | `/add-attachment` | `add-attachment` | Outlook draft attachment | Mailbox 1.8 | attach a file to a draft without sending mail. A file the user describes ("a Word file titled X containing Y") is name="X.docx" text="Y": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned |
 | outlook | implemented | `compose` | `create-mail` | Outlook new draft | Mailbox 1.6 | open a new grounded draft without adding recipients or sending |
 | outlook | implemented | `mail` | `reply-mail` | Outlook reviewable reply draft | Mailbox 1.1 | stage a reply draft for the current message without sending it |
 | outlook | implemented | `/set-body` | `set-body` | Outlook draft body update | Mailbox 1.3 | replace the body of an open draft while leaving send control with the user |
@@ -61,7 +61,7 @@ This file is generated from `packages/contracts/src/capability-registry.ts`. Reg
 | word | implemented | `/insert-hyperlink` | `insert-hyperlink` | Word screened hyperlink | WordApi 1.4 | add or update a hyperlink on exact Word text after URL safety screening |
 | word | implemented | `/insert-ooxml` | `insert-ooxml` | Word screened OOXML insertion | WordApi 1.1 | insert a screened rich Word fragment where plain text is insufficient |
 | word | implemented | `/insert-table` | `insert-table` | Word native table insertion | WordApi 1.3 | insert a small grounded table into a Word document: "at the cursor" (pada lokasi kursor) = no match= (it goes after the cursor's paragraph); match="exact text" only when the user names a place. Empty rows the user asks for are tab-only lines |
-| word | implemented | `/insert-text` | `insert-text` | Word plain-text insertion | WordApi 1.1 | insert grounded text at the current selection (the cursor) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text |
+| word | implemented | `/insert-text` | `insert-text` | Word plain-text insertion | WordApi 1.1 | insert grounded text at the current selection (the cursor: no match=; the snapshot names the cursor paragraph) or after an exact anchor; bold=true italic=true underline=true font=<name> size=<pt> color=#RRGGBB format the inserted text |
 | word | implemented | `/replace-selection` | `replace-selection` | Word selection replacement | WordApi 1.1 | replace the current Word selection after previewing prior and new text |
 | word | implemented | `suggest` | `tracked-change` | Word tracked rewrite | WordApi 1.1 | replace exact existing text as a reviewable tracked change |
 

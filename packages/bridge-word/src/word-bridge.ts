@@ -193,9 +193,11 @@ export class WordBridge implements DocBridge {
         ? ({
             kind: 'selection',
             title: 'Cursor (nothing selected)',
+            // Document text as quoted data only; the "at the cursor = no match=" rule is in the
+            // command cards, never next to document content.
             preview: cursor.trim()
-              ? `The cursor is in the paragraph: "${cursor.trim().slice(0, 200)}". Insert "at the cursor" with no match=.`
-              : 'The cursor is in an empty paragraph. Insert "at the cursor" with no match=.',
+              ? `cursor paragraph: ${JSON.stringify(cursor.trim().slice(0, 200))}`
+              : 'cursor paragraph: (empty)',
           } satisfies DocStateSelection)
         : undefined;
     return buildDocStateSnapshot({

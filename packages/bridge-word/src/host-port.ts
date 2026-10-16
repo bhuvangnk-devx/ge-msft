@@ -1240,7 +1240,10 @@ async function replaceTracked(
   oldText: string,
   text: string,
 ): Promise<void> {
-  const edits = isSet('WordApi', '1.3') ? wordEdits(oldText, text) : undefined;
+  // Only plain single-spaced text: a run across a tab, line break or paragraph mark would be
+  // rejoined with one space.
+  const plain = !/[\t\n\r\u000b\u00a0]| {2}/.test(oldText);
+  const edits = plain && isSet('WordApi', '1.3') ? wordEdits(oldText, text) : undefined;
   if (edits?.length) {
     let words: Word.RangeCollection;
     try {
@@ -1248,7 +1251,9 @@ async function replaceTracked(
       words.load('items/text');
       await ctx.sync();
     } catch {
-      // The split is a read: nothing was written, so the whole-range replace is still safe.
+      // The split is a read: nothing was written, so the whole-range replace is still safe. Track
+      // changes again: the failed batch may have dropped the mode set before it.
+      ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
       range.insertText(text, Word.InsertLocation.replace);
       return;
     }

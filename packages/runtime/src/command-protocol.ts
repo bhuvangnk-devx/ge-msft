@@ -1,3 +1,4 @@
+import { textToDocx } from './docx.js';
 import {
   ActuationRequestSchema,
   COMMAND_HELP,
@@ -343,6 +344,10 @@ export function compileCommand(
         const shape = addShapeKind(cmd.props);
         if ('error' in shape) return shape;
       }
+      if (cmd.kind === 'add-attachment') {
+        const unbuildable = textAttachmentError(cmd.props);
+        if (unbuildable) return { error: unbuildable };
+      }
       return compileWrite(
         cmd.kind as ActuationKind,
         ctx,
@@ -523,7 +528,15 @@ function paramsFromInvoke(
       // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
       // produce base64 itself (it reliably writes the text, not the encoding).
       const text = props.text ?? props.content;
-      const base64 = props.base64 ?? (text !== undefined ? utf8ToBase64(text) : undefined);
+      // A .docx is built as a real Word file (CIMB UAT 2026-10-16: plain text named .docx would
+      // not open); any other name gets the text as is.
+      const base64 =
+        props.base64 ??
+        (text === undefined
+          ? undefined
+          : /\.docx$/i.test(props.name ?? '')
+            ? bytesToBase64(textToDocx(text))
+            : utf8ToBase64(text));
       p.attachment = {
         ...(props.name ? { name: props.name } : {}),
         ...(base64 ? { base64 } : {}),
@@ -1445,6 +1458,21 @@ export function normalizeCommentId(raw: string): string {
 }
 
 /** UTF-8 text → base64, without `Buffer` (this runs in the task pane). */
+/** An Office or PDF file cannot be made from plain text here (only .docx and text files can). */
+function textAttachmentError(props: Record<string, string>): string | undefined {
+  if (props.base64 !== undefined || (props.text ?? props.content) === undefined) return undefined;
+  const ext = /\.(xlsx|xlsm|xls|pptx|ppt|doc|pdf)$/i.exec(props.name ?? '')?.[1];
+  return ext
+    ? `/add-attachment cannot build a .${ext.toLowerCase()} file from text= — attach it as name="….docx" (a Word file) or name="….txt", or tell the user to attach the file themselves.`
+    : undefined;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 function utf8ToBase64(text: string): string {
   let binary = '';
   for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);

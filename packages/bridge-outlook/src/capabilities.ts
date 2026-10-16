@@ -40,7 +40,7 @@ export const OUTLOOK_CAPABILITIES: CapabilityManifest = {
       surface: 'outlook',
       title: 'Attach file to draft',
       description:
-        'Attach a base64 file, an https link, or a mail item to the open draft; nothing sends.',
+        'Attach a file to the open draft — name="X.docx" text="…" builds a Word file, .txt a text file — or an https link or mail item; nothing sends.',
       reversible: true,
       appliesTo: ['mail-item', 'attachment'],
       substitutes: [],
