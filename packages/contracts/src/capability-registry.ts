@@ -805,7 +805,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-shape',
     title: 'PowerPoint shape/textbox insertion',
     useWhen:
-      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside',
+      'add a text box, a coloured shape or a line to an addressed slide with explicit geometry. shapeType is textBox, line, or a geometry (rectangle, roundRectangle, ellipse, triangle, diamond, star5, rightArrow, …); fill=#RRGGBB colours it; text= is written inside. Not for filling a slide whose layout title/body placeholders are empty — use shape pp:shape:<n>:title and the body placeholder for that (a text box over empty placeholders is refused)',
     hostApis: [
       'PowerPoint.ShapeCollection.addTextBox',
       'PowerPoint.ShapeCollection.addGeometricShape',

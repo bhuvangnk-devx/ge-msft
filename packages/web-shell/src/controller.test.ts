@@ -587,6 +587,50 @@ describe('PanelController — result card', () => {
     expect(change!.undoable).toBeUndefined(); // no journal record: Office's own Undo instead
   });
 
+  it('names a shape-text change by its first line, not a bare "Slide text"', async () => {
+    const assist = new FakeAssist();
+    const request = {
+      changeId: asChangeId('w2'),
+      kind: 'set-shape-text' as const,
+      surface: 'powerpoint' as const,
+      params: {
+        target: { slideId: '257#1', shapeId: '3' },
+        text: '1. Latar belakang\\n2. Roadmap',
+      },
+    };
+    assist.commandScript = [
+      ev({
+        type: 'plan-preview',
+        turn: 1,
+        dag: [],
+        approvalClasses: [],
+        effects: [
+          {
+            request,
+            command: 'shape pp:shape:257#1:3 "1. Latar belakang\\n2. Roadmap"',
+            approvalClass: approvalClassOf('set-shape-text'),
+            reversible: isReversibleKind('set-shape-text'),
+          },
+        ],
+      }),
+      ev({
+        type: 'write-result',
+        turn: 1,
+        changeId: 'w2',
+        result: {
+          ok: true,
+          changeId: asChangeId('w2'),
+          kind: 'set-shape-text',
+          location: 'shape:257#1:3',
+        },
+      }),
+      ev({ type: 'done', turn: 2 }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add a table of contents');
+    expect(c.getState().messages.at(-1)!.changes![0]!.label).toBe('Slide text: 1. Latar belakang');
+  });
+
   it('undoes through the recovery journal and marks only what the journal undid', async () => {
     const assist = new FakeAssist();
     let state: 'applied' | 'undone' = 'applied';

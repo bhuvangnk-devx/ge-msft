@@ -376,7 +376,7 @@ export const COMMAND_HELP = {
   shape: {
     command: 'shape',
     useWhen:
-      'the user wants to change the text of one existing PowerPoint shape or text box, e.g. retitle a slide (pp:shape:<n>:title), not create a new slide',
+      'the user wants to change the text of one existing PowerPoint shape or text box, e.g. retitle a slide (pp:shape:<n>:title), not create a new slide; also to fill an existing slide whose layout title/body placeholders are empty (a blank "Title and Content" slide): write the title into pp:shape:<n>:title and the list into the body placeholder, one item per line',
     // <slide> = slide id, slide number or last; <shape> = shape id or title (no shape numbers).
     syntax: 'shape <pp:shape:slideId:shapeId> "new text"',
     discovery: [
@@ -395,9 +395,11 @@ export const COMMAND_HELP = {
     examples: [
       'shape pp:shape:1:title "FY26 Plan"',
       'shape pp:shape:s2:s2-shape-1 "Q4 outlook improved; hiring remains gated by margin."',
+      'shape pp:shape:2:3 "1. Latar belakang\\n2. Roadmap\\n3. Monitoring"',
     ],
     doNot: [
       'Do not use a bare shape id; name the slide too (pp:shape:<slide>:<shape>).',
+      'Do not add a text box over a slide whose title/body placeholders are empty; write into the placeholders (the bridge refuses the text box).',
       'Do not guess a shape number: pp:shape:1:1 means shape id 1, not the first shape.',
       'Do not rewrite the whole slide to change one text box.',
       'Do not mutate a chart/table/image as plain text.',
