@@ -67,15 +67,13 @@ describe('<App/> render smoke', () => {
     localStorage.clear();
   });
 
-  it('opens catalog routing in the same unclipped modal surface', () => {
-    const catalogClient = {
-      listCatalog: () => new Promise<never>(() => undefined),
-    } as unknown as NonNullable<AppProps['catalogClient']>;
-    render('word', { catalogClient });
-    const routingButton = container.querySelector<HTMLButtonElement>('[data-panel="settings"]');
-    act(() => routingButton?.click());
+  it('opens Settings with the answer options and no skills catalog', () => {
+    render('word');
+    act(() => container.querySelector<HTMLButtonElement>('[data-panel="settings"]')?.click());
     expect(container.querySelector('.tw-modal-title')?.textContent).toContain('Settings');
-    expect(container.querySelector('#ge-catalog-settings')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Response format"]')).not.toBeNull();
+    expect(container.querySelector('#ge-catalog-settings')).toBeNull();
+    expect(container.querySelector('#tw-panel-settings')?.textContent).not.toMatch(/skill/i);
   });
 
   it('renders the conversation thread with an assistant message and its citations', () => {
@@ -281,21 +279,13 @@ describe('<App/> render smoke', () => {
     expect(container.querySelector('.snd.cancel')).not.toBeNull();
   });
 
-  it('renders the skills surface with each skill signature, def confirmation and an invoke action', () => {
+  it('has no Skills item in the sidebar, even when skills are registered', () => {
     render();
-    const skillsButton = container.querySelector<HTMLButtonElement>('[data-panel="skills"]');
-    act(() => skillsButton?.click());
-    const skills = container.querySelector('.skills[aria-label="Skills"]');
-    expect(skills).not.toBeNull();
-    expect(skills?.querySelectorAll('.skill').length).toBe(FIXTURE_STATE.skills?.length);
-    // The first skill renders its signature, registration badge, verbatim def and an Invoke button.
-    expect(skills?.querySelector('.skill-sig')?.textContent).toContain('flag-vendor-risk');
-    expect(skills?.querySelector('.skill-badge')?.textContent).toContain('registered');
-    expect(skills?.querySelector('.skill-def')?.textContent).toContain('def flag-vendor-risk');
-    expect(skills?.querySelector('[aria-label="Invoke flag-vendor-risk"]')).not.toBeNull();
-    // Param fields are bindable inputs prefilled from the declared examples.
-    const param = skills?.querySelector<HTMLInputElement>('input.skill-param-input');
-    expect(param?.value).toBe('Northwind Cloud');
+    expect(FIXTURE_STATE.skills?.length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-panel="skills"]')).toBeNull();
+    expect(container.querySelector('#tw-panel-skills')).toBeNull();
+    const labels = [...container.querySelectorAll('.tw-rail .tw-label')].map((n) => n.textContent);
+    expect(labels).not.toContain('Skills');
   });
 
   it('opens the conversations sheet with the active session and continue controls', () => {

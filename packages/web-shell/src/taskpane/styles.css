@@ -39,11 +39,16 @@
   --blue-hover: #00408b;
   --blue-active: #00336f;
   --blue-ink: #00408b; /* AA for small text */
+  --on-accent: #ffffff; /* text on a filled accent (primary button, send) */
 
   /* stop / destroy only */
   --red: #bc000c;
   --red-active: #93000a;
   --red-tint: #ffdad6;
+
+  /* caution — a failed or interrupted request, never an error the user caused */
+  --warn-tint: #fff8eb;
+  --warn-border: #f5d9a8;
 
   /* lamps */
   --lamp-on: #0057b8;
@@ -81,6 +86,8 @@
   --fz-md: 12px;
   --fz-lg: 13px;
   --fz-xl: 14px;
+  /* a text glyph used as an icon (☆ ⋯ ×) — SVG icons size by width/height instead */
+  --fz-icon: 16px;
 }
 
 /* Per-surface attributes stay (behavioral hooks + tests); the accent no longer forks per host —
@@ -118,9 +125,11 @@ body {
   outline-offset: 2px;
 }
 /* :where() keeps this reset at element weight, so a button's own class can set its size */
+:where(.panel, .fatal) :is(button, input, select, textarea) {
+  font: inherit;
+}
 :where(.panel, .fatal) button {
   appearance: none;
-  font: inherit;
 }
 .visually-hidden {
   position: absolute;
@@ -169,6 +178,8 @@ body {
   display: flex;
   height: 100vh;
   background: var(--paper);
+  /* the pane's base text size: anything without its own size is body text, never the browser's 16px */
+  font-size: var(--fz-md);
 }
 
 /* ============ masthead ============ */
@@ -298,7 +309,8 @@ body {
 }
 .tw-rail-item {
   position: relative;
-  width: 52px;
+  /* the full rail width, so the longest label ("Settings") fits without an ellipsis */
+  width: 58px;
   min-height: 48px;
   display: flex;
   flex-direction: column;
@@ -321,6 +333,8 @@ body {
 }
 .tw-rail-item .tw-label {
   color: inherit;
+  /* room for descenders ("g" in Settings) under the clipping label box */
+  line-height: 14px;
 }
 .tw-rail-item .tw-badge {
   right: 4px;
@@ -496,8 +510,6 @@ body {
 }
 .tw-modal-body .surface-center,
 .tw-modal-body .unit,
-.tw-modal-body .catalog,
-.tw-modal-body .skills,
 .tw-modal-body .quick-actions.action-drawer {
   padding: 0;
   margin: 0;
@@ -508,8 +520,7 @@ body {
   padding-top: var(--s3);
   border-top: 0.5px solid var(--hairline);
 }
-.tw-modal-body .unit--embedded .context-popover,
-.tw-modal-body .skills--embedded .skills-popover {
+.tw-modal-body .unit--embedded .context-popover {
   position: static;
   inset: auto;
   display: flex;
@@ -538,14 +549,6 @@ body {
 .tw-modal-body .action-drawer-copy {
   align-items: flex-start;
   flex-wrap: wrap;
-}
-.tw-modal-body .catalog-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-.tw-modal-body .catalog-wide,
-.tw-modal-body .catalog-connectors,
-.tw-modal-body .catalog-apply {
-  grid-column: 1;
 }
 
 @media (max-height: 520px) {
@@ -723,8 +726,6 @@ body {
 /* ============ hairline section chrome (shared) ============ */
 .surface-center,
 .unit,
-.catalog,
-.skills,
 .suggestions,
 .quick-actions.action-drawer,
 .qa-param-form {
@@ -1286,266 +1287,6 @@ body {
 }
 .suggestion:disabled .s-title {
   color: var(--ink-3);
-}
-
-/* ============ session skills ============ */
-.skills[aria-disabled='true'] {
-  opacity: 0.6;
-}
-.skills-h {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-}
-.skills-mark {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 9999px;
-  background: var(--lamp-on);
-}
-.skills-title {
-  font-size: var(--fz-md);
-  font-weight: 600;
-  text-transform: lowercase;
-  letter-spacing: 0;
-}
-.skills-summary {
-  flex: 1;
-  font-family: var(--mono);
-  font-size: var(--fz-xs);
-  color: var(--ink-2);
-  text-transform: lowercase;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.skills-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.skills-popover {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% - 2px);
-  left: var(--s5);
-  right: var(--s5);
-  display: none;
-  flex-direction: column;
-  gap: var(--s3);
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--r);
-  max-height: 320px;
-  overflow: auto;
-}
-.skills[data-placement='above'] .skills-popover {
-  top: auto;
-  bottom: calc(100% - 2px);
-}
-.skills:hover .skills-popover,
-.skills:focus-within .skills-popover {
-  display: flex;
-}
-.skill {
-  display: grid;
-  gap: var(--s2);
-  padding-top: var(--s3);
-  border-top: 0.5px solid var(--hairline);
-}
-.skill:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-.skill-head {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  justify-content: space-between;
-}
-.skill-sig {
-  font-family: var(--mono);
-  font-size: var(--fz-md);
-  color: var(--ink);
-}
-.skill-badge {
-  font-family: var(--mono);
-  font-size: var(--fz-xs);
-  color: var(--blue-ink);
-  border: 0.5px solid var(--blue-ink);
-  border-radius: var(--r-chip);
-  padding: 1px 6px;
-  text-transform: lowercase;
-  white-space: nowrap;
-}
-.skill-desc {
-  margin: 0;
-  font-size: var(--fz-md);
-  color: var(--ink-2);
-  line-height: 17px;
-}
-.skill-def {
-  margin: 0;
-}
-.skill-params {
-  display: grid;
-  gap: var(--s2);
-}
-.skill-param {
-  display: grid;
-  grid-template-columns: 88px 1fr;
-  align-items: center;
-  gap: var(--s3);
-}
-.skill-param-name {
-  font-family: var(--mono);
-  font-size: var(--fz-sm);
-  color: var(--ink-2);
-}
-/* inputs are rules, not boxes: bottom hairline, blue only on focus */
-.skill-param-input {
-  border: none;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 0;
-  background: transparent;
-  padding: 4px 2px;
-  font-family: var(--sans);
-  font-size: var(--fz-lg);
-  color: var(--ink);
-  outline: none;
-}
-.skill-param-input:focus-visible {
-  outline: none;
-  border-bottom-color: var(--blue);
-}
-
-/* ============ catalog (settings) ============ */
-.catalog[aria-disabled='true'] {
-  opacity: 0.6;
-}
-.catalog-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s3);
-}
-.catalog-summary {
-  font-family: var(--mono);
-  font-size: var(--fz-sm);
-  color: var(--ink-2);
-  text-transform: lowercase;
-  margin-top: 2px;
-}
-.catalog-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-}
-.catalog-error {
-  margin-top: var(--s2);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: var(--fz-sm);
-  color: var(--red);
-  text-transform: lowercase;
-}
-.catalog-error::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: var(--lamp-err);
-}
-.catalog-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s3) var(--s4);
-  margin-top: var(--s3);
-  padding-top: var(--s3);
-  border-top: 0.5px solid var(--hairline);
-}
-.catalog-field {
-  display: grid;
-  gap: 4px;
-}
-.catalog-field span,
-.catalog-connectors legend {
-  font-size: var(--fz-sm);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: lowercase;
-  color: var(--ink-2);
-}
-.catalog-field select {
-  font-family: var(--sans);
-  font-size: var(--fz-md);
-  color: var(--ink);
-  background: var(--surface);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r-chip);
-  padding: 5px 6px;
-}
-.catalog-wide {
-  grid-column: 1 / -1;
-}
-.catalog-connectors {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: var(--s3) 0 0;
-  border: none;
-  border-top: 0.5px solid var(--hairline);
-  display: grid;
-  gap: var(--s2);
-}
-.catalog-check {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  font-size: var(--fz-md);
-  color: var(--ink);
-}
-.catalog-check input {
-  accent-color: var(--blue);
-}
-.catalog-pill {
-  font-family: var(--mono);
-  font-size: var(--fz-xs);
-  color: var(--blue-ink);
-  border: 0.5px solid var(--blue-ink);
-  border-radius: var(--r-chip);
-  padding: 0 5px;
-  text-transform: lowercase;
-}
-.catalog-empty {
-  font-size: var(--fz-sm);
-  color: var(--ink-3);
-}
-.catalog-apply {
-  grid-column: 1 / -1;
-  justify-self: start;
-  height: 32px;
-  padding: 0 16px;
-  border-radius: var(--r);
-  border: none;
-  background: var(--blue);
-  color: #ffffff;
-  font-size: var(--fz-lg);
-  font-weight: 500;
-  cursor: pointer;
-}
-.catalog-apply:hover:not(:disabled) {
-  background: var(--blue-hover);
-}
-.catalog-apply:active:not(:disabled) {
-  background: var(--blue-active);
-}
-.catalog-apply:disabled {
-  background: var(--press-2);
-  color: var(--ink-3);
-  cursor: not-allowed;
 }
 
 /* ============ quick-action drawer ============ */
@@ -2666,28 +2407,47 @@ button.cite:hover {
   gap: var(--s3);
   align-items: center;
 }
-/* buttons: one primary per view; everything else hairline or text */
+/* ============ buttons — the one button system (DESIGN.md § Buttons) ============
+ * Every button is `.btn` plus modifiers. A component class may set layout only (margin, order,
+ * width), never the look. Every variant keeps a 1px border (transparent when unseen), so buttons
+ * side by side always share one box height.
+ *   size:    .btn (32px)   .btn.sm (24px)
+ *   variant: secondary (default)   .pr primary   .quiet   .danger
+ *   shape:   .icon (square, glyph only — needs an aria-label) */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
   height: 32px;
-  padding: 0 16px;
+  padding: 0 var(--s5);
   border-radius: var(--r);
-  border: 0.5px solid var(--ink);
-  background: transparent;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
   color: var(--ink);
+  font-family: var(--sans);
   font-size: var(--fz-lg);
   font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
 }
 .btn:hover:not(:disabled) {
-  background: var(--press);
+  background: var(--hover);
 }
 .btn:active:not(:disabled) {
-  background: var(--press-2);
+  background: var(--press);
+}
+.btn.sm {
+  height: 24px;
+  padding: 0 var(--s3);
+  gap: var(--s1);
+  font-size: var(--fz-sm);
 }
 .btn.pr {
-  border: none;
+  border-color: transparent;
   background: var(--blue);
-  color: #ffffff;
+  color: var(--on-accent);
 }
 .btn.pr:hover:not(:disabled) {
   background: var(--blue-hover);
@@ -2695,11 +2455,71 @@ button.cite:hover {
 .btn.pr:active:not(:disabled) {
   background: var(--blue-active);
 }
+.btn.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+.btn.quiet:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+/* outlined, never filled: the CIMB primary is already red, so a filled danger would read as primary */
+.btn.danger {
+  border-color: var(--red);
+  background: var(--surface);
+  color: var(--red);
+}
+.btn.danger:hover:not(:disabled) {
+  background: var(--red-tint);
+}
+.btn.icon {
+  width: 32px;
+  padding: 0;
+}
+.btn.icon.sm {
+  width: 24px;
+}
+.btn .tw-glyph {
+  width: 16px;
+  height: 16px;
+}
+.btn.sm .tw-glyph {
+  width: 14px;
+  height: 14px;
+}
 .btn:disabled {
-  border: none;
+  border-color: transparent;
   background: var(--press-2);
   color: var(--ink-3);
   cursor: not-allowed;
+}
+
+/* ============ fields — the one form-field recipe (DESIGN.md § Fields) ============
+ * <label class="field"><span class="field-label">Format</span><select class="field-control">…
+ * The control is 32px tall, the same height as a .btn, so a field and a button line up. */
+.field {
+  display: grid;
+  gap: var(--s2);
+}
+.field-label {
+  font-size: var(--fz-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.field-control {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fz-md);
+}
+.field-control:disabled {
+  background: var(--hover);
+  color: var(--ink-3);
 }
 
 /* verbatim command = ink plate, mono, one line scrolls */
@@ -3664,7 +3484,6 @@ button.cite:hover {
 .thread-region,
 .gate-rail,
 .palette,
-.skills-popover,
 .tw-sheet {
   scrollbar-width: thin;
   scrollbar-color: var(--hairline) transparent;
@@ -3672,14 +3491,12 @@ button.cite:hover {
 .thread-region::-webkit-scrollbar,
 .gate-rail::-webkit-scrollbar,
 .palette::-webkit-scrollbar,
-.skills-popover::-webkit-scrollbar,
 .tw-sheet::-webkit-scrollbar {
   width: 6px;
 }
 .thread-region::-webkit-scrollbar-thumb,
 .gate-rail::-webkit-scrollbar-thumb,
 .palette::-webkit-scrollbar-thumb,
-.skills-popover::-webkit-scrollbar-thumb,
 .tw-sheet::-webkit-scrollbar-thumb {
   background: var(--hairline);
   border-radius: 3px;
@@ -3710,8 +3527,6 @@ button.cite:hover {
   .ph,
   .surface-center,
   .unit,
-  .catalog,
-  .skills,
   .suggestions,
   .quick-actions.action-drawer,
   .qa-param-form,
@@ -3727,7 +3542,6 @@ button.cite:hover {
     margin-inline: 10px;
   }
   .context-popover,
-  .skills-popover,
   .palette,
   .palette-hint {
     left: 10px;
@@ -3762,8 +3576,6 @@ button.cite:hover {
   .ph,
   .surface-center,
   .unit,
-  .catalog,
-  .skills,
   .suggestions,
   .quick-actions.action-drawer,
   .qa-param-form,
@@ -3783,7 +3595,6 @@ button.cite:hover {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .context-popover,
-  .skills-popover,
   .palette,
   .palette-hint {
     left: max(var(--s5), calc((100% - 720px) / 2));
@@ -3834,18 +3645,8 @@ button.cite:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-/* same size as the chips under an answer (Copy answer, …) */
-.result-card-actions button {
-  border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
-  padding: 3px 8px;
-  background: var(--surface);
-  color: var(--blue-ink);
-  font-size: var(--fz-sm);
-  cursor: pointer;
+  gap: var(--s2);
+  margin-top: var(--s3);
 }
 .result-card-hint {
   font-size: var(--fz-xs);
@@ -3856,9 +3657,9 @@ button.cite:hover {
 .error-card {
   margin-top: 8px;
   padding: 6px 10px;
-  border: 1px solid #f5d9a8;
-  border-radius: 8px;
-  background: #fff8eb;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--r);
+  background: var(--warn-tint);
   font-size: var(--fz-sm);
 }
 .error-card-title {
@@ -3868,29 +3669,9 @@ button.cite:hover {
   margin-top: 4px;
   color: var(--ink-2);
 }
-.error-card-retry {
-  margin-top: 6px;
-  border: 0;
-  border-radius: 12px;
-  padding: 3px 10px;
-  background: var(--primary, #c8102e);
-  color: #fff;
-  font-size: var(--fz-sm);
-  cursor: pointer;
+.error-card > .error-card-retry {
+  margin-top: var(--s3);
 }
 .resume-card {
-  margin: 10px var(--s5) 0;
-}
-.resume-card .result-card-actions button:not(.error-card-retry) {
-  border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
-  padding: 3px 8px;
-  background: var(--surface);
-  font-size: var(--fz-sm);
-  cursor: pointer;
-}
-.result-card-actions .error-card-retry {
-  border: 0;
-  background: var(--primary, #c8102e);
-  color: #fff;
+  margin: var(--s4) var(--s5) 0;
 }

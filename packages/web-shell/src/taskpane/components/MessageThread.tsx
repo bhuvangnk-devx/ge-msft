@@ -1132,12 +1132,17 @@ function ResultCard({
       {!allUndone && (
         <div className="result-card-actions">
           {shown && onShow ? (
-            <button type="button" disabled={disabled} onClick={() => onShow(shown.location!)}>
+            <button
+              type="button"
+              className="btn sm"
+              disabled={disabled}
+              onClick={() => onShow(shown.location!)}
+            >
               {t.showMe}
             </button>
           ) : null}
           {undoable.length > 0 && onUndo ? (
-            <button type="button" disabled={disabled} onClick={onUndo}>
+            <button type="button" className="btn sm" disabled={disabled} onClick={onUndo}>
               {changes.length > 1 ? t.undoAll : t.undo}
             </button>
           ) : (
@@ -1174,7 +1179,7 @@ function ErrorCard({
         <div className="error-card-body">{t.failedPartial(made)}</div>
       ) : null}
       {!blocked && onRetry ? (
-        <button type="button" className="error-card-retry" onClick={onRetry}>
+        <button type="button" className="btn sm pr error-card-retry" onClick={onRetry}>
           {t.tryAgain}
         </button>
       ) : null}
