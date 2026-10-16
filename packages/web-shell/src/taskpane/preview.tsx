@@ -4,7 +4,7 @@ import { intentsForManifest, type Surface, type ChangeId } from '@ge/contracts';
 import { POWERPOINT_CAPABILITIES } from '@ge/bridge-powerpoint';
 import type { PanelController, PanelState } from '../controller.js';
 import { makeDemoController } from './preview-interactive.js';
-import { App, type AppProps } from './components/App.js';
+import { App } from './components/App.js';
 import {
   FIXTURE_CHIPS,
   FIXTURE_MESSAGES,
@@ -13,7 +13,6 @@ import {
   FIXTURE_PLAN,
   FIXTURE_PENDING_WRITE,
   FIXTURE_PROPOSALS,
-  FIXTURE_SKILLS,
   FIXTURE_CONVERSATIONS,
   FIXTURE_ERROR,
   PREVIEW_SURFACES,
@@ -36,7 +35,6 @@ interface Toggles {
   chips: boolean;
   messages: boolean;
   suggestions: boolean;
-  skills: boolean;
   steps: boolean;
   plan: boolean;
   write: boolean;
@@ -49,7 +47,6 @@ const ALL_ON: Toggles = {
   chips: true,
   messages: true,
   suggestions: true,
-  skills: true,
   steps: true,
   plan: true,
   write: true,
@@ -62,7 +59,6 @@ const README_CAPTURE: Toggles = {
   chips: true,
   messages: true,
   suggestions: true,
-  skills: true,
   steps: true,
   plan: true,
   write: false,
@@ -94,7 +90,6 @@ function buildState(t: Toggles): PanelState {
     availableAgents: [],
     availableDataStores: [],
     conversations: FIXTURE_CONVERSATIONS,
-    ...(t.skills ? { skills: FIXTURE_SKILLS } : {}),
     ...(t.write ? { pendingWrite: FIXTURE_PENDING_WRITE } : {}),
     ...(t.plan ? { pendingPlan: FIXTURE_PLAN } : {}),
     busy: t.busy,
@@ -162,7 +157,6 @@ const TOGGLE_LABELS: ReadonlyArray<[keyof Toggles, string]> = [
   ['chips', 'Context'],
   ['messages', 'Thread'],
   ['suggestions', 'Suggestions'],
-  ['skills', 'Skills'],
   ['steps', 'Run steps'],
   ['plan', 'Plan'],
   ['write', 'Write'],
@@ -192,15 +186,6 @@ function Preview(): JSX.Element {
   );
   useEffect(() => () => controller.cancel(), [controller]);
 
-  // An empty engine catalog, so the ⋯ menu shows its Routing item in the harness.
-  const catalogClient = useMemo(
-    () =>
-      ({
-        listCatalog: async () => ({ skills: [], dataStores: [], connectors: [] }),
-      }) as unknown as NonNullable<AppProps['catalogClient']>,
-    [],
-  );
-
   const panel = (
     <div className="preview-stage">
       <div
@@ -210,7 +195,6 @@ function Preview(): JSX.Element {
       >
         <App
           diagnosticsScope="preview"
-          catalogClient={catalogClient}
           key={`${surface}-${interactive}`}
           controller={controller}
           surface={surface}
@@ -314,7 +298,6 @@ function Preview(): JSX.Element {
                 chips: false,
                 messages: true,
                 suggestions: false,
-                skills: false,
                 steps: false,
                 plan: false,
                 write: false,

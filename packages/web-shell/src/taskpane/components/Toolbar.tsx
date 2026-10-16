@@ -7,8 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Intent, QuickAction, Surface } from '@ge/contracts';
-import type { ConversationsState, Skill } from '../../controller.js';
-import { SkillsPanel } from './SkillsPanel.js';
+import type { ConversationsState } from '../../controller.js';
 import { ActionLibrary } from './ActionLibrary.js';
 import { ConversationHistoryPanel } from './ConversationHistoryPanel.js';
 import { brand } from '../../brand.js';
@@ -24,7 +23,6 @@ export interface ToolbarProps {
   hasGate: boolean;
   messageCount: number;
   proposalCount: number;
-  skills: Skill[];
   conversations: ConversationsState;
   /** Ids already shown as primary actions, excluded from the quick-action catalog (no dupes). */
   primaryActionIds: string[];
@@ -36,7 +34,6 @@ export interface ToolbarProps {
   children?: ReactNode;
   onRefreshConversations: () => void;
   onResumeConversation: (name: string) => void;
-  onInvokeSkill: (name: string, args: Record<string, string>) => void;
   onQuickAction: (action: QuickAction) => void;
   /** Start a new chat in place; the button is hidden when not provided. */
   onNewConversation?: () => void;
@@ -45,11 +42,10 @@ export interface ToolbarProps {
   onClearSavedDiagnostics?: () => void;
 }
 
-type Panel = 'actions' | 'skills' | 'sessions' | 'settings' | 'diagnostics';
+type Panel = 'actions' | 'sessions' | 'settings' | 'diagnostics';
 
 const PANEL_TITLE: Readonly<Record<Panel, string>> = {
   actions: 'Tools',
-  skills: 'Session skills',
   sessions: 'History',
   settings: 'Settings',
   diagnostics: 'Earlier diagnostics',
@@ -78,7 +74,7 @@ function writeRailOpen(open: boolean): void {
 }
 
 /**
- * The pane shell: a collapsible left sidebar (Chat / Tools / Skills / History / Settings) beside the
+ * The pane shell: a collapsible left sidebar (Chat / Tools / History / Settings) beside the
  * main column, which starts with a slim header (mark, name, new chat, ⋯). Each sidebar item opens one
  * panel over the main column holding the existing section component; Chat closes it. Closing: the
  * close button, Escape, or Chat.
@@ -88,7 +84,6 @@ export function Toolbar({
   allowedIntents,
   busy,
   hasGate,
-  skills,
   conversations,
   hasSettings,
   settingsPanel,
@@ -96,7 +91,6 @@ export function Toolbar({
   children,
   onRefreshConversations,
   onResumeConversation,
-  onInvokeSkill,
   onQuickAction,
   onNewConversation,
   savedDiagnostics = [],
@@ -187,7 +181,6 @@ export function Toolbar({
     return () => document.removeEventListener('keydown', shortcut);
   }, [choose]);
 
-  const hasSkills = skills.length > 0;
   const railItem = (
     name: Panel,
     icon: ToolbarIconName,
@@ -234,10 +227,9 @@ export function Toolbar({
             <span className="tw-label">Chat</span>
           </button>
           {railItem('actions', 'tools', 'Tools', 'Tools (Ctrl / ⌘ K)')}
-          {hasSkills && railItem('skills', 'skills', 'Skills', 'Session skills', skills.length)}
           {railItem('sessions', 'sessions', 'History', 'Conversation history')}
           <span className="tw-rail-spacer" />
-          {hasSettings && railItem('settings', 'settings', 'Settings', 'Catalog and routing')}
+          {hasSettings && railItem('settings', 'settings', 'Settings', 'Answer format and style')}
         </nav>
       )}
 
@@ -319,18 +311,6 @@ export function Toolbar({
               {tools}
             </div>
 
-            <div id="tw-panel-skills" className="tw-modal-pane" hidden={panel !== 'skills'}>
-              <SkillsPanel
-                embedded
-                skills={skills}
-                disabled={busy}
-                onInvoke={(name, args) => {
-                  onInvokeSkill(name, args);
-                  close();
-                }}
-              />
-            </div>
-
             <div id="tw-panel-sessions" className="tw-modal-pane" hidden={panel !== 'sessions'}>
               <ConversationHistoryPanel
                 conversations={conversations}
@@ -380,7 +360,6 @@ type ToolbarIconName =
   | 'new'
   | 'chat'
   | 'tools'
-  | 'skills'
   | 'sessions'
   | 'settings'
   | 'collapse'
@@ -418,12 +397,6 @@ function ToolbarIcon({ name }: { name: ToolbarIconName }): JSX.Element {
         <circle cx="5" cy="12" r="1" />
         <circle cx="12" cy="12" r="1" />
         <circle cx="19" cy="12" r="1" />
-      </>
-    ),
-    skills: (
-      <>
-        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z" />
-        <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z" />
       </>
     ),
     sessions: (
