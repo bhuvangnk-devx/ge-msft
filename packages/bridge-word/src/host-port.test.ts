@@ -111,6 +111,9 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
   }
 
   class FakeResult {
+    /** For a word from `getTextRanges`: its position and the range's words. */
+    index = 0;
+    all: string[] = [];
     constructor(public text: string) {}
     load(p?: string): this {
       rec.trace.push(`result.load:${p ?? ''}`);
@@ -147,6 +150,20 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     insertText(text: string, location: string): void {
       rec.trace.push('insertText');
       rec.inserts.push({ anchor: this.text, text, location });
+    }
+    /** WordApi 1.3: the words of the range (split on spaces, trimmed); each can expand to another. */
+    getTextRanges(_delimiters: string[], _trim: boolean): { items: FakeResult[]; load(): void } {
+      const words = this.text.split(/\s+/).filter(Boolean);
+      const items = words.map((word, i) => {
+        const r = new FakeResult(word);
+        r.index = i;
+        r.all = words;
+        return r;
+      });
+      return { items, load: () => undefined };
+    }
+    expandTo(other: FakeResult): FakeResult {
+      return new FakeResult(this.all.slice(this.index, other.index + 1).join(' '));
     }
     insertComment(text: string): void {
       rec.trace.push('insertComment');
@@ -544,6 +561,22 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
     expect(insert).toBeGreaterThan(firstSync);
     expect(lastSync).toBeGreaterThan(insert);
     expect(rec.syncCount).toBe(3);
+  });
+
+  it('marks only the changed words of a grammar fix (CIMB UAT #17)', async () => {
+    const hit =
+      'Seluruh pengembangan solusi AI wajib mengikuti regulasi yang berlaku, tidak terbatas pada POJK yang diperbarui';
+    const rec = setup({ searchHits: { Seluruh: [hit] } });
+    const out = await new OfficeWordHost().applyTrackedChange(
+      'Seluruh',
+      { matchCase: false },
+      hit.replace('tidak terbatas pada', 'termasuk'),
+      () => 0,
+    );
+    expect(out).toEqual({ status: 'applied', location: 'tracked-change' });
+    expect(rec.inserts).toEqual([
+      { anchor: 'tidak terbatas pada', text: 'termasuk', location: 'Replace' },
+    ]);
   });
 
   it('degrades to drift (no write, no second sync) when there are zero hits', async () => {

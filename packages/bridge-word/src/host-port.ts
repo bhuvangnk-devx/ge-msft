@@ -1,6 +1,6 @@
 import type { ActuationRequest, ContextRef } from '@ge/contracts';
 import { isSet } from './capabilities-runtime.js';
-import { chooseAnchorIndex } from './actuate-plan.js';
+import { chooseAnchorIndex, wordEdits } from './actuate-plan.js';
 import type { WordSearchHit } from './capture.js';
 
 /**
@@ -605,7 +605,7 @@ export class OfficeWordHost implements WordHost {
       const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
 
-      range.insertText(text, Word.InsertLocation.replace);
+      await replaceTracked(ctx, range, range.text, text);
       await ctx.sync();
       return { status: 'applied', location: 'tracked-change' };
     });
@@ -621,7 +621,7 @@ export class OfficeWordHost implements WordHost {
       await ctx.sync();
       if (!sel.text.trim() || !matches(sel.text)) return { status: 'drift' };
       ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
-      sel.insertText(text, Word.InsertLocation.replace);
+      await replaceTracked(ctx, sel, sel.text, text);
       await ctx.sync();
       return { status: 'applied', location: 'tracked-change' };
     });
@@ -1227,4 +1227,45 @@ function applyFont(range: Word.Range, font: TextFont | undefined): void {
   if (font.name !== undefined) range.font.name = font.name;
   if (font.size !== undefined) range.font.size = font.size;
   if (font.color !== undefined) range.font.color = font.color;
+}
+
+/**
+ * Write `text` over `range` (tracked changes on) as word-level edits when that marks fewer words,
+ * so a grammar fix shows only the corrected words; otherwise replace the whole range as before.
+ * The word ranges must line up with the text that was read, or the whole range is replaced.
+ */
+async function replaceTracked(
+  ctx: Word.RequestContext,
+  range: Word.Range,
+  oldText: string,
+  text: string,
+): Promise<void> {
+  const edits = isSet('WordApi', '1.3') ? wordEdits(oldText, text) : undefined;
+  if (edits?.length) {
+    let words: Word.RangeCollection;
+    try {
+      words = range.getTextRanges([' '], true);
+      words.load('items/text');
+      await ctx.sync();
+    } catch {
+      // The split is a read: nothing was written, so the whole-range replace is still safe.
+      range.insertText(text, Word.InsertLocation.replace);
+      return;
+    }
+    const expected = oldText.split(/\s+/).filter(Boolean);
+    const aligned =
+      words.items.length === expected.length &&
+      words.items.every((word, i) => word.text.trim() === expected[i]);
+    if (aligned) {
+      // Back to front, so an earlier edit never shifts a later word range.
+      for (const edit of [...edits].reverse()) {
+        const first = words.items[edit.start]!;
+        const target =
+          edit.end - edit.start === 1 ? first : first.expandTo(words.items[edit.end - 1]!);
+        target.insertText(edit.text, Word.InsertLocation.replace);
+      }
+      return;
+    }
+  }
+  range.insertText(text, Word.InsertLocation.replace);
 }

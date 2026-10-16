@@ -77,8 +77,9 @@ describe('Word full-stack integration', () => {
 
     // The tracked change resolved against the seeded paragraph and rewrote it in place.
     const snap = sim.snapshot();
+    // Only the changed word is replaced (tracked), not the whole sentence (CIMB UAT #17).
     expect(snap.inserts.length).toBe(1);
-    expect(snap.inserts[0]?.anchor).toBe('The SLA is 99.5%.');
+    expect(snap.inserts[0]).toMatchObject({ anchor: '99.5%.', text: '~99.5% (source needed).' });
     expect(snap.bodyText).toContain('The SLA is ~99.5% (source needed).');
     // Tracked changes were turned on before the edit.
     expect(snap.changeTrackingMode).toBe('TrackAll');

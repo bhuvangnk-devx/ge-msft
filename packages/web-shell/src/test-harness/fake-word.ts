@@ -124,6 +124,9 @@ class FakeParagraphProxy {
 
 class FakeSearchResult {
   text: string;
+  /** For a word from `getTextRanges`: its position and the hit's words. */
+  private index = 0;
+  private words: string[] = [];
   constructor(
     private readonly seed: WordSeed,
     matchText: string,
@@ -132,6 +135,23 @@ class FakeSearchResult {
   }
   load(_props?: string): this {
     return this;
+  }
+  /** WordApi 1.3: the hit's words (split on spaces, trimmed). A word's write replaces that span. */
+  getTextRanges(
+    _delimiters: string[],
+    _trim: boolean,
+  ): { items: FakeSearchResult[]; load(): void } {
+    const words = this.text.split(/\s+/).filter(Boolean);
+    const items = words.map((word, i) => {
+      const r = new FakeSearchResult(this.seed, word);
+      r.index = i;
+      r.words = words;
+      return r;
+    });
+    return { items, load: () => undefined };
+  }
+  expandTo(other: FakeSearchResult): FakeSearchResult {
+    return new FakeSearchResult(this.seed, this.words.slice(this.index, other.index + 1).join(' '));
   }
   /** WordApi 1.6 `Range.getTrackedChanges` — the simulated body holds no tracked deletions. */
   getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
