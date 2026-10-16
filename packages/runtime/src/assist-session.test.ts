@@ -1828,6 +1828,24 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(session.executions.list().at(-1)?.status).toBe('completed');
   });
 
+  it('a text box refused over empty placeholders is settled by a later write of another kind', async () => {
+    // Live 2026-10-16: /add-shape textBox → use_placeholders (nothing written), then `shape` into
+    // the placeholders applied — the slide was right but the card said "That didn't finish".
+    const bridge = new RejectFirstBridge({
+      error: { code: 'use_placeholders', message: 'write into the empty placeholders' },
+    });
+    const { fetch } = scriptedFetch([
+      '```cmd\nset A1 1\n```',
+      '```cmd\nchart bar A1:B5\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    await collectLoop(session.runCommands('write', { approvePlan: () => true }));
+    expect(session.executions.list().at(-1)?.status).toBe('completed');
+  });
+
   it('a document-changed conflict (target_conflict) is not excused by another kind', async () => {
     const bridge = new RejectFirstBridge({
       error: { code: 'target_conflict', message: 'the target changed' },
@@ -1919,11 +1937,48 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
       const { fetch } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
       const client = new StreamAssistClient(tokens, cfg, fetch);
       const session = new AssistSession(bridge, client, { unit });
-      const run = collectLoop(session.runCommands('write', { approvePlan: () => true }));
-      await vi.advanceTimersByTimeAsync(HOST_READ_TIMEOUT_MS * 3);
+      let settled = false;
+      const run = collectLoop(session.runCommands('write', { approvePlan: () => true })).finally(
+        () => {
+          settled = true;
+        },
+      );
+      // Step the clock until the task settles: one big advance can run before the stalled read
+      // starts on a loaded machine, and then its timer is never reached (flaked under full load).
+      for (let i = 0; i < 30 && !settled; i++)
+        await vi.advanceTimersByTimeAsync(HOST_READ_TIMEOUT_MS / 4);
       await run;
       expect(bridge.applied).toHaveLength(1);
       expect(session.executions.list().at(-1)?.status).toBe('completed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a `read <selector>` the host never answers gives up after the read timeout (live 2026-10-16)', async () => {
+    // Live: `read slide:2` waited ~24 min on a stalled PowerPoint for the web; only `context:*`
+    // reads were bounded.
+    vi.useFakeTimers();
+    try {
+      class StallingRangeBridge extends ComposeBridge {
+        override readRange(): Promise<never> {
+          return new Promise(() => {});
+        }
+      }
+      const bridge = new StallingRangeBridge();
+      const { fetch } = scriptedFetch(['```cmd\nread A1:B3\n```', '```cmd\ndone "n/a"\n```']);
+      const client = new StreamAssistClient(tokens, cfg, fetch);
+      const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+      let settled = false;
+      const run = collectLoop(session.runCommands('read the table')).finally(() => {
+        settled = true;
+      });
+      for (let i = 0; i < 20 && !settled; i++)
+        await vi.advanceTimersByTimeAsync(HOST_READ_TIMEOUT_MS / 4);
+      const events = await run;
+      const read = events.find((e) => e.type === 'read-result');
+      expect(JSON.stringify(read)).toContain('did not answer read A1:B3');
+      expect(events.some((e) => e.type === 'done' && 'turn' in e)).toBe(true);
     } finally {
       vi.useRealTimers();
     }

@@ -295,7 +295,7 @@ export class PowerPointBridge implements DocBridge {
   private async applySetShapeText(req: ActuationRequest): Promise<ActuationResult> {
     const slideId = req.params.target?.slideId;
     const shapeId = req.params.target?.shapeId;
-    const text = lineBreaks(req.params.text);
+    const text = paragraphs(req.params.text);
     if (!slideId || !shapeId) {
       return {
         ok: false,
@@ -359,7 +359,7 @@ export class PowerPointBridge implements DocBridge {
         await ctx.sync();
         const priorText = range.text ?? '';
         mutationQueued = true;
-        range.text = text;
+        writeParagraphs(range, text);
         await ctx.sync();
         return {
           ok: true,
@@ -531,6 +531,19 @@ export class PowerPointBridge implements DocBridge {
         if (unplaced) return slideNotFound(req, unplaced);
         const offSlide = offSlideMessage(size, op);
         if (offSlide) return slideNotFound(req, offSlide);
+        if (op.type === 'textBox') {
+          const overPlaceholders = await emptyPlaceholderMessage(ctx, target.slideId, op.slideId);
+          if (overPlaceholders) {
+            // Nothing written; a later `shape` write into the placeholders settles the task.
+            return {
+              ok: false,
+              changeId: req.changeId,
+              kind: req.kind,
+              degraded: true,
+              error: { code: 'use_placeholders', message: overPlaceholders },
+            };
+          }
+        }
         const slide = ctx.presentation.slides.getItem(target.slideId);
         const options: PowerPoint.ShapeAddOptions = {};
         if (op.left !== undefined) options.left = op.left;
@@ -1073,7 +1086,7 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
           'text="Draft" left=72 top=330 width=400 height=40',
       };
     }
-    return { ok: true, op: { ...base, type: 'textBox', text: lineBreaks(shape.text) ?? '' } };
+    return { ok: true, op: { ...base, type: 'textBox', text: paragraphs(shape.text) ?? '' } };
   }
   if (shape.shapeType === 'line') {
     return {
@@ -1094,7 +1107,7 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
       message: `add-shape geometry "${shape.geometryType ?? ''}" is not supported.`,
     };
   }
-  const text = lineBreaks(shape.text?.trim());
+  const text = paragraphs(shape.text?.trim());
   return { ok: true, op: { ...base, type: 'geometric', geometry, ...(text ? { text } : {}) } };
 }
 
@@ -1104,6 +1117,39 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
  */
 function lineBreaks<T extends string | undefined>(text: T): T {
   return (text?.replace(/(?:\\r)?\\n/g, '\n') ?? text) as T;
+}
+
+/**
+ * Text for a whole shape (shape text, text boxes, shapes with text): every line — a literal `\n`
+ * the model wrote or a real newline — becomes its own paragraph (`\r`). A `\n` is only a line
+ * break inside ONE paragraph, so a typed list rendered as a single run-on paragraph with no list
+ * formatting (UAT 2026-10-16, "daftar isi" on a slide). Line breaks inside a title or a single
+ * bullet stay {@link lineBreaks}.
+ */
+function paragraphs<T extends string | undefined>(text: T): T {
+  return (lineBreaks(text)?.replace(/\r?\n/g, PARAGRAPH_BREAK) ?? text) as T;
+}
+
+/**
+ * Lines that carry their own list markers ("1. Latar belakang", "a) …", "- …"): at least two, and
+ * every non-empty one starts with one. A body placeholder adds its bullet in front of each, giving
+ * "• 1. Latar belakang" (UAT 2026-10-16) — so for these the layout's bullet is hidden.
+ */
+function hasOwnListMarkers(lines: readonly string[]): boolean {
+  const filled = lines.filter((line) => line.trim() !== '');
+  return filled.length >= 2 && filled.every((line) => OWN_LIST_MARKER.test(line));
+}
+const OWN_LIST_MARKER = /^\s*(?:(?:\d{1,3}|[a-z]|[ivxlc]{1,6})[.)]|[•\-–*])\s/i;
+
+/**
+ * Write `text` into a shape's text range, one paragraph per line; when the lines number
+ * themselves, hide the bullet the placeholder would add (`bulletFormat`, PowerPointApi 1.4).
+ */
+function writeParagraphs(range: PowerPoint.TextRange, text: string): void {
+  range.text = text;
+  if (hasOwnListMarkers(text.split(PARAGRAPH_BREAK)) && isSet('PowerPointApi', '1.4')) {
+    range.paragraphFormat.bulletFormat.visible = false;
+  }
 }
 
 async function deckInsertOptions(
@@ -1397,8 +1443,10 @@ async function writeComposedSlide(
   const width = size.width - margin * 2;
   const freshShapes = (): PowerPoint.ShapeCollection =>
     ctx.presentation.slides.getItemAt(slideIndex).shapes;
+  const rangeOf = (shape: PowerPoint.Shape): PowerPoint.TextRange =>
+    freshShapes().getItemAt(shapes.indexOf(shape)).textFrame.textRange;
   const writeInto = (shape: PowerPoint.Shape, text: string): void => {
-    freshShapes().getItemAt(shapes.indexOf(shape)).textFrame.textRange.text = text;
+    rangeOf(shape).text = text;
   };
 
   if (title) {
@@ -1418,10 +1466,11 @@ async function writeComposedSlide(
   if (bullets.length > 0) {
     if (bodyShape) {
       // A body placeholder brings the layout's own bullet style — one paragraph per bullet.
-      writeInto(bodyShape, bullets.join(PARAGRAPH_BREAK));
+      writeParagraphs(rangeOf(bodyShape), bullets.join(PARAGRAPH_BREAK));
     } else {
+      const numbered = hasOwnListMarkers(bullets);
       const box = freshShapes().addTextBox(
-        bullets.map((bullet) => `• ${bullet}`).join(PARAGRAPH_BREAK),
+        bullets.map((bullet) => (numbered ? bullet : `• ${bullet}`)).join(PARAGRAPH_BREAK),
         {
           left: margin,
           top: Math.round(size.height * 0.28),
@@ -1708,7 +1757,9 @@ async function findLayoutId(
         ? kinds.has('Title') && !body && !kinds.has('Subtitle')
         : TITLE_PLACEHOLDERS.some((type) => kinds.has(type)) && body;
       const id = layouts.items[i]?.id;
-      return fit && id ? [{ id, type: String(layout.type), name: layouts.items[i]?.name ?? '' }] : [];
+      return fit && id
+        ? [{ id, type: String(layout.type), name: layouts.items[i]?.name ?? '' }]
+        : [];
     });
     const named = titleOnly ? /title\s*only|hanya\s*judul/i : /title.*content|judul.*(konten|isi)/i;
     const chosen =
@@ -1772,6 +1823,54 @@ async function resolveShapeTarget(
  * deck whose first shape was a decorative line, it wrote the title into the line. Shape text is
  * document content: quoted, single-line and clipped, like the read listing. Read-only.
  */
+/**
+ * A text box on a slide whose title/body placeholders are still empty lands ON TOP of them: the
+ * "Click to add title / text" prompts stay behind it and the slide reads as unstructured (UAT
+ * 2026-10-16, a "daftar isi" written as one text box over a blank Title and Content slide). Refuse
+ * it before anything is written and name the placeholders to write into instead. Read-only; needs
+ * placeholder types (PowerPointApi 1.8), else no check.
+ */
+async function emptyPlaceholderMessage(
+  ctx: PowerPoint.RequestContext,
+  slideId: string,
+  slideRef: string,
+): Promise<string | undefined> {
+  if (!isSet('PowerPointApi', '1.8')) return undefined;
+  const shapes = ctx.presentation.slides.getItem(slideId).shapes;
+  shapes.load('items/id,items/type');
+  await ctx.sync();
+  const placeholders = shapes.items
+    .filter((shape) => shape.type === 'Placeholder')
+    .map((shape) => {
+      const format = shape.placeholderFormat;
+      format.load('type');
+      const range = shape.textFrame.textRange;
+      range.load('text');
+      return { id: shape.id, format, range };
+    });
+  if (placeholders.length === 0) return undefined;
+  try {
+    await ctx.sync();
+  } catch {
+    return undefined; // A placeholder without text (picture, chart): no check rather than a block.
+  }
+  const empty = placeholders.filter(({ range }) => (range.text ?? '').trim() === '');
+  const title = empty.find(({ format }) => TITLE_PLACEHOLDERS.includes(format.type));
+  const body = empty.find(({ format }) => BODY_PLACEHOLDERS.includes(format.type));
+  if (!title && !body) return undefined;
+  const slide = slideRef.trim().replace(/^(?:pp:)?slide:/i, '');
+  const targets = [
+    ...(title ? [`the title: shape pp:shape:${slide}:title "…"`] : []),
+    ...(body
+      ? [`the body (one line per item): shape pp:shape:${slide}:${body.id} "line 1\\nline 2"`]
+      : []),
+  ];
+  return (
+    'This slide has empty layout placeholders; a text box would sit on top of them. Write into ' +
+    `them instead — ${targets.join('; ')}. Not applied.`
+  );
+}
+
 async function describeShapes(
   ctx: PowerPoint.RequestContext,
   shapes: PowerPoint.Shape[],

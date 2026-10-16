@@ -2719,13 +2719,28 @@ function resultChange(
 ): ResultChange {
   const location = result.location;
   const title = (request?.params as { slide?: { title?: string } } | undefined)?.slide?.title;
-  const where = location && /!/.test(location) ? ` ${location}` : title ? `: ${title}` : '';
+  // Shape text: its first line (≤48 chars), so "Teks slide" rows are told apart on screen and in
+  // the done list a resumed task gets. It is document text, like a slide title.
+  const shapeText =
+    result.kind === 'set-shape-text' ? firstLine(request?.params.text, 48) : undefined;
+  const named = title ?? shapeText;
+  const where = location && /!/.test(location) ? ` ${location}` : named ? `: ${named}` : '';
   return {
     changeId: result.changeId,
     kind: result.kind,
     label: `${kindLabel(result.kind, lang)}${where}`,
     ...(location ? { location } : {}),
   };
+}
+
+/** The first non-empty line of `text` (literal `\n` counts as a break), clipped to `max`. */
+function firstLine(text: string | undefined, max: number): string | undefined {
+  const line = text
+    ?.split(/\\n|\r?\n|\r/)
+    .map((part) => part.trim())
+    .find(Boolean);
+  if (!line) return undefined;
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
 /** A request to finish an interrupted or failed task without redoing what already landed. */

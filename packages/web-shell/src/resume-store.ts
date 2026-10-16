@@ -5,7 +5,8 @@
  * interrupted task.
  *
  * Stored: the request the user typed (capped), short labels of the changes that landed (these can
- * name a sheet or a slide title) and a hash of the document. No tokens. Per signed-in account (a hash,
+ * name a sheet, a slide title, or the first line of text written into a slide shape) and a hash of
+ * the document. No tokens. Per signed-in account (a hash,
  * as saved diagnostics), offered only in the same document, ignored after 24 hours.
  */
 export interface InProgress {

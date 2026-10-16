@@ -52,6 +52,8 @@ interface ShapeSeed {
   zOrderCalls?: string[];
   /** Simulated `Shape.top` in points. */
   top?: number;
+  /** Set when the bridge hides the paragraphs' bullets (`bulletFormat.visible = false`). */
+  bulletsVisible?: boolean;
   /** Font size of the text's first character (`textRange.getSubstring(i, 1).font.size`). */
   firstCharSize?: number;
 }
@@ -219,6 +221,20 @@ class FakeTextRange {
   }
   load(_p?: string): this {
     return this;
+  }
+  /** `paragraphFormat.bulletFormat.visible` (PowerPointApi 1.4), recorded on the seed. */
+  get paragraphFormat(): { bulletFormat: { visible: boolean } } {
+    const shape = this.shape;
+    return {
+      bulletFormat: {
+        get visible(): boolean {
+          return shape.bulletsVisible ?? true;
+        },
+        set visible(v: boolean) {
+          shape.bulletsVisible = v;
+        },
+      },
+    };
   }
   getSubstring(start: number, length: number): { font: { size: number | null; load(): void } } {
     // Like the host: a substring outside the text fails the next sync.
@@ -1832,6 +1848,17 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
       expect(d.addedShapes).toEqual([]);
     });
 
+    it('hides the layout bullet when the slide lines number themselves', async () => {
+      const d = layoutDeck();
+      installed = install(d);
+      await new PowerPointBridge().actuate(
+        insertSlide({
+          slide: { title: 'Daftar Isi', bullets: ['1. Latar belakang', '2. Roadmap'] },
+        }),
+      );
+      expect(d.slides[1]?.shapes[1]?.bulletsVisible).toBe(false);
+    });
+
     it('puts a title-only slide on the Title Only layout', async () => {
       const d = layoutDeck();
       installed = install(d);
@@ -2403,11 +2430,34 @@ describe('PowerPointBridge.actuate set-shape-text', () => {
     },
   );
 
-  it('turns a literal \\n in shape text into a real line break', async () => {
+  it('turns each line of shape text into its own paragraph (literal \\n or a real newline)', async () => {
+    // A \n is a line break inside one paragraph: a typed list showed as one run-on paragraph.
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    await new PowerPointBridge().actuate(setShapeText('s2', 's2-shape-1', 'Pat\\nSam\nLee'));
+    expect(d.slides[1]?.shapes[1]?.text).toBe('Pat\rSam\rLee');
+  });
+
+  it('writes a numbered list into a shape without the placeholder bullet (UAT daftar isi)', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    await new PowerPointBridge().actuate(
+      setShapeText(
+        's2',
+        's2-shape-1',
+        '1. Latar belakang\\n2. Governance principles\\n3. Monitoring',
+      ),
+    );
+    const shape = d.slides[1]?.shapes[1];
+    expect(shape?.text).toBe('1. Latar belakang\r2. Governance principles\r3. Monitoring');
+    expect(shape?.bulletsVisible).toBe(false);
+  });
+
+  it('keeps the bullets for plain lines', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);
     await new PowerPointBridge().actuate(setShapeText('s2', 's2-shape-1', 'Pat\\nSam'));
-    expect(d.slides[1]?.shapes[1]?.text).toBe('Pat\nSam');
+    expect(d.slides[1]?.shapes[1]?.bulletsVisible).toBeUndefined();
   });
 
   it('rewrites one addressed shape and records the inverse text', async () => {
@@ -2470,14 +2520,85 @@ function addShape(params: ActuationRequest['params'], id = 'add-shape-1'): Actua
 }
 
 describe('PowerPointBridge.actuate add-shape', () => {
+  describe('text box over empty layout placeholders (UAT 2026-10-16 daftar isi)', () => {
+    const blankContentSlide = (title = '', body = ''): DeckSeed =>
+      deck(
+        [
+          { id: 's1', shapes: [{ text: 'Agenda' }] },
+          {
+            id: 's2',
+            shapes: [
+              { text: title, type: 'Placeholder', placeholderType: 'Title' },
+              { text: body, type: 'Placeholder', placeholderType: 'Body' },
+            ],
+          },
+        ],
+        [1],
+      );
+    const toc = addShape({
+      target: { slideId: '2' },
+      shape: {
+        shapeType: 'textBox',
+        text: 'Table of Contents\\n1. Background',
+        left: 72,
+        top: 120,
+        width: 560,
+        height: 250,
+      },
+    });
+
+    it('refuses before writing and names the placeholders to fill', async () => {
+      const d = blankContentSlide();
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(toc);
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe('use_placeholders');
+      expect(res.error?.message).toContain('shape pp:shape:2:title');
+      expect(res.error?.message).toContain('shape pp:shape:2:s2-shape-1');
+      expect(d.slides[1]?.shapes).toHaveLength(2);
+    });
+
+    it('adds the text box once the placeholders hold text', async () => {
+      const d = blankContentSlide('Daftar Isi', '1. Latar belakang');
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(toc);
+      expect(res.ok).toBe(true);
+      expect(d.slides[1]?.shapes).toHaveLength(3);
+    });
+
+    it('adds the text box on a slide without placeholders', async () => {
+      const d = deck(
+        [
+          { id: 's1', shapes: [] },
+          { id: 's2', shapes: [{ text: 'Note' }] },
+        ],
+        [1],
+      );
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(toc);
+      expect(res.ok).toBe(true);
+    });
+  });
+
   it('reports unknown outcome when shape creation landed but its sync failed', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);
-    const sync = vi
-      .spyOn(FakeContext.prototype, 'sync')
-      // The read-only slide lookup succeeds; the sync that carries the write fails.
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValue(new Error('Office disconnected'));
+    // Every read-only sync succeeds; the first sync after the text box is queued fails.
+    let queued = false;
+    const realAdd = FakeShapeCollection.prototype.addTextBox;
+    const add = vi.spyOn(FakeShapeCollection.prototype, 'addTextBox').mockImplementation(function (
+      this: FakeShapeCollection,
+      ...args
+    ) {
+      queued = true;
+      return realAdd.apply(this, args);
+    });
+    const realSync = FakeContext.prototype.sync;
+    const sync = vi.spyOn(FakeContext.prototype, 'sync').mockImplementation(function (
+      this: FakeContext,
+    ) {
+      return queued ? Promise.reject(new Error('Office disconnected')) : realSync.call(this);
+    });
     try {
       const result = await new PowerPointBridge().actuate(
         addShape({
@@ -2500,6 +2621,7 @@ describe('PowerPointBridge.actuate add-shape', () => {
       expect(d.slides[0]?.shapes).toHaveLength(3);
     } finally {
       sync.mockRestore();
+      add.mockRestore();
     }
   });
 
