@@ -602,6 +602,7 @@ function paramsFromInvoke(
       p.tableGrid = {
         rows: quoted?.rows ?? rowsFromProp(props.rows ?? props.tsv ?? ''),
         hasHeaders: boolFromProp(props.headers, true),
+        ...(props.headerFill ? { headerFill: props.headerFill } : {}),
         ...numberProp(props, 'left'),
         ...numberProp(props, 'top'),
         ...numberProp(props, 'width'),
@@ -1185,6 +1186,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
   if (manifest.surface === 'powerpoint')
     lines.push(
       'There is no image, picture or icon insertion on PowerPoint here. When asked for one, never draw a shape as a stand-in: answer with done "…", in the language the user wrote in, that icons and pictures cannot be added yet (Insert → Icons in PowerPoint does it), and offer a short text label instead.',
+    );
+  // CIMB UAT 2026-10-16: "table 3x3" came back as a header and 2 empty rows.
+  if (manifest.actuations.some((a) => a.kind === 'add-table-slide'))
+    lines.push(
+      'A "3x3" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide\'s topic; empty cells only when the user asks for empty rows.',
     );
   // CIMB UAT 2026-10-16: "trend per branch" on one-row-per-branch-per-month data charted raw columns.
   if (allowed.has('chart') && manifest.surface === 'excel')

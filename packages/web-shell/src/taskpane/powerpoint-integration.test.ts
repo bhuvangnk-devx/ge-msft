@@ -100,4 +100,27 @@ describe('PowerPoint full-stack integration', () => {
 
     expect(sim.snapshot().slides.length).toBe(before);
   });
+
+  it('a table added without headerFill gets the brand colour on its header row (CIMB UAT #16)', async () => {
+    sim = installFakePowerPoint();
+    ui = mountStack({
+      surface: 'powerpoint',
+      tableHeaderFill: '#C8102E',
+      client: scriptedClient([
+        '```cmd\n/add-table-slide slide=1 rows="No\\tDimensi\\n1\\tRegulasi" left=72 top=110 width=400 height=120\n```',
+        '```cmd\ndone "Added."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('add a table');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    const table = sim.snapshot().slides[0]?.shapes.find((sh) => sh.type === 'Table');
+    expect(table?.tableHeaderFill).toBe('#C8102E');
+  });
 });

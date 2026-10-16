@@ -481,6 +481,8 @@ export interface AssistSessionOptions {
   commandSessionMode?: 'sessionless' | 'conversation';
   /** A brand's email opening: Outlook drafts that start with one of `replace` start with `with`. */
   draftGreeting?: DraftGreeting;
+  /** #RRGGBB for the header row of a PowerPoint table added without `headerFill=` (the brand colour). */
+  tableHeaderFill?: string;
   /** Deterministic live state is the sessionless default; transcript replays all prior observations. */
   commandContextMode?: 'projection' | 'transcript';
   /** Maximum UTF-8 query bytes for a complete sessionless command capsule (default 64 KiB). */
@@ -2411,7 +2413,13 @@ export class AssistSession {
     const resolved =
       'error' in effect
         ? effect
-        : { ...effect, request: withDraftGreeting(effect.request, this.options.draftGreeting) };
+        : {
+            ...effect,
+            request: withTableHeaderFill(
+              withDraftGreeting(effect.request, this.options.draftGreeting),
+              this.options.tableHeaderFill,
+            ),
+          };
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).
@@ -4523,6 +4531,17 @@ function answerOnlyIntent(task: string): string | undefined {
 }
 
 /** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
+/** A PowerPoint table's header row takes the brand colour unless the model chose one. */
+function withTableHeaderFill(
+  request: ActuationRequest,
+  fill: string | undefined,
+): ActuationRequest {
+  const grid = request.params.tableGrid;
+  if (!fill || request.kind !== 'add-table-slide' || !grid?.hasHeaders || grid.headerFill)
+    return request;
+  return { ...request, params: { ...request.params, tableGrid: { ...grid, headerFill: fill } } };
+}
+
 function effectKey(request: ActuationRequest): string {
   const range = request.params.target?.range;
   // One spelling per range: the recorded write drops the sheet quotes, the model may or may not

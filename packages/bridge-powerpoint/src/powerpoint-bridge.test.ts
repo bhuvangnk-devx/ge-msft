@@ -1814,6 +1814,36 @@ describe('PowerPointBridge shape and slide references (tests 48–51)', () => {
     expect(d.slides[0]?.shapes[1]?.text).toBe('Deck title');
   });
 
+  it('colours the header row with headerFill and white bold text (CIMB UAT #16)', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate({
+      changeId: asChangeId('table-header-fill'),
+      kind: 'add-table-slide',
+      surface: 'powerpoint',
+      params: {
+        target: { slideId: '2' },
+        tableGrid: {
+          hasHeaders: true,
+          headerFill: '#C8102E',
+          rows: [
+            ['No', 'Dimensi'],
+            ['1', 'Regulasi'],
+          ],
+        },
+      },
+    });
+    expect(res.ok).toBe(true);
+    const options = d.addedShapes.at(-1)?.options as PowerPoint.TableAddOptions;
+    expect(options.specificCellProperties).toEqual([
+      [
+        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true } },
+        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true } },
+      ],
+      [{}, {}],
+    ]);
+  });
+
   it('rejects title= on an existing slide instead of silently ignoring it', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);

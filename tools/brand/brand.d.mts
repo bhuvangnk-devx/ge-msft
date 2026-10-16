@@ -15,6 +15,8 @@ export interface Brand {
   >;
   /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
   draftGreeting?: { replace: string[]; with: string };
+  /** The theme's --primary as #RRGGBB (e.g. a PowerPoint table header). */
+  accentColor?: string;
   fontStylesheet: string;
   iconsDir: string;
   themePath: string | null;
@@ -31,12 +33,14 @@ export interface BrandText {
   >;
   /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
   draftGreeting?: { replace: string[]; with: string };
+  accentColor?: string;
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];
 export function selectedBrand(): string;
 export function loadBrand(id?: string): Brand;
 export function brandText(brand: Brand): BrandText;
+export function primaryColor(css: string): string | null;
 export function fillBrandTokens(html: string, brand: Brand): string;
 export function brandAssets(brand: Brand): Record<string, string>;
 export function contentHash(path: string): string;

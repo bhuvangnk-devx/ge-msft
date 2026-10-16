@@ -43,7 +43,22 @@ export function scenarioBrand(): Brand {
     ...(raw.tagline ? { tagline: raw.tagline } : {}),
     ...(raw.promptName ? { promptName: raw.promptName } : {}),
     ...(raw.promptRules?.length ? { promptRules: raw.promptRules } : {}),
+    ...(raw.draftGreeting ? { draftGreeting: raw.draftGreeting } : {}),
+    ...accent(id),
   };
+}
+
+/** The brand's main colour, as the build reads it (tools/brand/brand.mjs `primaryColor`). */
+function accent(id: string): { accentColor?: string } {
+  const theme = join(REPO_ROOT, 'brands', id, 'theme.css');
+  if (!existsSync(theme)) return {};
+  const css = readFileSync(theme, 'utf8');
+  const value = (name: string): string | undefined =>
+    new RegExp(`--${name}\\s*:\\s*([^;]+);`).exec(css)?.[1]?.trim();
+  let v = value('primary');
+  const ref = v ? /^var\(--([\w-]+)\)$/.exec(v) : null;
+  if (ref) v = value(ref[1]!);
+  return v && /^#[0-9a-fA-F]{6}$/.test(v) ? { accentColor: v.toUpperCase() } : {};
 }
 
 /** `packages/web-shell/.env`, then the process environment (same order as the Vite build). */

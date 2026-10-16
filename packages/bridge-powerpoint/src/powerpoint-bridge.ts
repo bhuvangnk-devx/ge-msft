@@ -826,6 +826,16 @@ export class PowerPointBridge implements DocBridge {
         if (grid.width !== undefined) options.width = grid.width;
         else if (belowTitle) options.width = belowTitle.width;
         if (grid.height !== undefined) options.height = grid.height;
+        // The deck's colour on the header row, not the theme's default (CIMB UAT 2026-10-16: purple).
+        if (grid.hasHeaders && grid.headerFill) {
+          const header = {
+            fill: { color: grid.headerFill },
+            font: { color: '#FFFFFF', bold: true },
+          };
+          options.specificCellProperties = grid.rows.map((_, r) =>
+            Array.from({ length: columnCount }, () => (r === 0 ? header : {})),
+          );
+        }
         mutationQueued = true;
         const added = shapes.addTable(grid.rows.length, columnCount, options);
         const table = added.getTable();

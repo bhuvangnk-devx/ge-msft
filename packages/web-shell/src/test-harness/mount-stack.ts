@@ -28,6 +28,8 @@ export interface MountStackOptions {
   unit?: UnitDescriptor;
   /** Optional actuation gate / event registry wired into the session. */
   triggers?: TriggerRegistry;
+  /** The brand colour for a PowerPoint table header (as compose passes it from the build). */
+  tableHeaderFill?: string;
 }
 
 /** Accept either a raw client or the `{ client, queries }` wrapper from `scriptedClient`. */
@@ -85,6 +87,7 @@ export function mountStack(opts: MountStackOptions): MountedStack {
   const session = new AssistSession(bridge, resolveClient(opts.client), {
     unit: opts.unit ?? bareUnit(opts.surface),
     ...(opts.triggers ? { triggers: opts.triggers } : {}),
+    ...(opts.tableHeaderFill ? { tableHeaderFill: opts.tableHeaderFill } : {}),
   });
   const controller = new PanelController(session, bridge);
 

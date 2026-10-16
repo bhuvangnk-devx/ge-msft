@@ -394,6 +394,11 @@ export const ActuationParamsSchema = z.object({
     .object({
       rows: z.array(z.array(z.string())),
       hasHeaders: z.boolean().default(false),
+      /** PowerPoint: the header row's fill (#RRGGBB), with white bold text — the deck's colour. */
+      headerFill: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/, 'headerFill must be #RRGGBB')
+        .optional(),
       left: z.number().optional(),
       top: z.number().optional(),
       width: z.number().optional(),

@@ -332,6 +332,19 @@ describe('compileCommand', () => {
     });
   });
 
+  it('takes headerFill= for /add-table-slide (CIMB UAT #16)', () => {
+    const c = compileCommand(
+      {
+        verb: 'invoke',
+        kind: 'add-table-slide',
+        props: { slide: '4', rows: 'No\\tDimensi\\n1\\tRegulasi', headerFill: '#C8102E' },
+        args: [],
+      } as never,
+      { surface: 'powerpoint', mintChangeId: () => asChangeId('cid') },
+    );
+    expect(c).toMatchObject({ request: { params: { tableGrid: { headerFill: '#C8102E' } } } });
+  });
+
   it('takes positional text for /replace-selection when text= is missing', () => {
     const c = compileCommand(
       { verb: 'invoke', kind: 'replace-selection', props: {}, args: ['Short new text.'] } as never,

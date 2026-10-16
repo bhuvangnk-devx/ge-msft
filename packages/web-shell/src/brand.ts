@@ -25,6 +25,8 @@ export interface Brand {
    * "Yth."). Applied before the approval card; only the opening words change.
    */
   readonly draftGreeting?: { readonly replace: readonly string[]; readonly with: string };
+  /** The brand's main colour (#RRGGBB, the theme's --primary): a new PowerPoint table's header row. */
+  readonly accentColor?: string;
 }
 
 /** The turns a rule can be limited to: answering, planning, or writing into the document/email. */

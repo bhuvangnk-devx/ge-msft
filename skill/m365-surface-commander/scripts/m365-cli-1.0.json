@@ -3426,7 +3426,7 @@
       "priority": "p0",
       "command": "/add-table-slide",
       "title": "PowerPoint native slide table",
-      "useWhen": "add a native table (rows and columns) to a new slide (slide=new title=\"…\", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text",
+      "useWhen": "add a native table (rows and columns) to a new slide (slide=new title=\"…\", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text. A \"3x3\" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide's topic (number a No column 1..N); leave cells empty only when the user asks for empty rows. headerFill=#RRGGBB only when the user names a colour; otherwise the pane colours the header row in the brand colour",
       "hostApis": [
         "PowerPoint.ShapeCollection.addTable"
       ],
@@ -3452,7 +3452,8 @@
       ],
       "examples": [
         "/add-table-slide slide=new title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\" left=72 top=110 width=560 height=200",
-        "/add-table-slide slide=new at=2 title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\""
+        "/add-table-slide slide=new at=2 title=\"Key metrics\" rows=\"Metric\\tValue\\nARR\\t$12M\"",
+        "/add-table-slide slide=4 rows=\"No\\tDimensi\\tDeskripsi\\n1\\tRegulasi\\tPatuh OJK\\n2\\tData\\tLokasi data\\n3\\tBiaya\\tTCO 3 tahun\" left=72 top=110 width=560 height=200"
       ],
       "preview": [
         "target slide",

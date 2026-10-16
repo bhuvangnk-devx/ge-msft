@@ -57,6 +57,8 @@ export interface ShellConfig {
   assistantRules?: readonly PromptRule[];
   /** The brand's email opening for Outlook drafts (e.g. "Halo", not "Yth."). */
   draftGreeting?: { readonly replace: readonly string[]; readonly with: string };
+  /** The brand's main colour: the header row of a PowerPoint table the model adds without one. */
+  accentColor?: string;
 }
 
 /**
@@ -221,6 +223,7 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
   const session = new AssistSession(bridge, client, {
     unit,
     ...(config.draftGreeting ? { draftGreeting: config.draftGreeting } : {}),
+    ...(config.accentColor ? { tableHeaderFill: config.accentColor } : {}),
     recoveryOwner: identity.oid ?? identity.username,
     evidence: new EvidencePipeline({
       search: new SearchClient(

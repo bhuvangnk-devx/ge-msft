@@ -113,6 +113,7 @@ export function loadBrand(id = selectedBrand()) {
   if (missing.length) throw new Error(`brands/${id}/icons is missing ${missing.join(', ')}.`);
   const themePath = join(dir, 'theme.css');
   const assetsDir = join(dir, 'assets');
+  const accentColor = existsSync(themePath) ? primaryColor(readFileSync(themePath, 'utf8')) : null;
   return {
     id,
     dir,
@@ -123,6 +124,7 @@ export function loadBrand(id = selectedBrand()) {
     ...(raw.promptName ? { promptName: raw.promptName } : {}),
     ...(raw.promptRules?.length ? { promptRules: raw.promptRules } : {}),
     ...(raw.draftGreeting ? { draftGreeting: raw.draftGreeting } : {}),
+    ...(accentColor ? { accentColor } : {}),
     fontStylesheet: raw.fontStylesheet,
     iconsDir,
     themePath: existsSync(themePath) ? themePath : null,
@@ -140,7 +142,20 @@ export function brandText(brand) {
     ...(brand.promptName ? { promptName: brand.promptName } : {}),
     ...(brand.promptRules?.length ? { promptRules: brand.promptRules } : {}),
     ...(brand.draftGreeting ? { draftGreeting: brand.draftGreeting } : {}),
+    ...(brand.accentColor ? { accentColor: brand.accentColor } : {}),
   };
+}
+
+/**
+ * The theme's `--primary` as #RRGGBB, following one `var(--x)` step (CIMB: var(--cimb-red) →
+ * #c8102e). Documents use it where a brand colour is wanted, e.g. a PowerPoint table header.
+ */
+export function primaryColor(css) {
+  const value = (name) => new RegExp(`--${name}\\s*:\\s*([^;]+);`).exec(css)?.[1]?.trim();
+  let v = value('primary');
+  const ref = v && /^var\(--([\w-]+)\)$/.exec(v);
+  if (ref) v = value(ref[1]);
+  return v && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : null;
 }
 
 /** Replace %GE_BRAND_*% placeholders in an HTML page with the brand's (HTML-escaped) values. */

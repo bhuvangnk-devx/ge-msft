@@ -208,6 +208,13 @@ describe('command discovery', () => {
       actuations: [],
     };
     expect(renderCommandBootstrap(ppt)).toContain('never draw a shape as a stand-in');
+    const withTables: CapabilityManifest = {
+      ...ppt,
+      actuations: [
+        { kind: 'add-table-slide', surface: 'powerpoint', title: 'Table', reversible: true },
+      ],
+    };
+    expect(renderCommandBootstrap(withTables)).toContain('a header row plus N data rows');
   });
 
   it('tells the Excel model to fill a column in one set, never cell by cell (CIMB UAT #7)', () => {
