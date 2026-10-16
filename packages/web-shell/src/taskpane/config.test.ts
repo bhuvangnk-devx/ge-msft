@@ -129,6 +129,13 @@ describe('config from env', () => {
     expect(shellConfigFromEnv(full, cimb).assistantName).toBe('CNGPT');
   });
 
+  it('passes the brand writing rules through only when the brand sets them', () => {
+    expect(shellConfigFromEnv(full).assistantRules).toBeUndefined();
+    const rules = ['Open Bahasa emails with "Halo", never "Yth."'];
+    const cimb = { ...DEFAULT_BRAND, promptName: 'CNGPT', promptRules: rules };
+    expect(shellConfigFromEnv(full, cimb).assistantRules).toEqual(rules);
+  });
+
   it('assembles the full shell config with release profile and no secrets', () => {
     const cfg = shellConfigFromEnv(full);
     expect(cfg.assistant.project).toBe('proj-12345');

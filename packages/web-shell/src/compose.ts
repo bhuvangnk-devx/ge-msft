@@ -1,4 +1,5 @@
 import type { ContextKind, ReleaseProfileName, UnitDescriptor } from '@ge/contracts';
+import { rulesFor, type PromptRule } from './brand.js';
 import { asSessionId, filterManifestForReleaseProfile, releaseProfile } from '@ge/contracts';
 import type {
   AssistantPath,
@@ -52,6 +53,8 @@ export interface ShellConfig {
   releaseProfile?: ReleaseProfileName;
   /** Branded assistant name the model calls itself; unset keeps the engine's default persona. */
   assistantName?: string;
+  /** Brand writing rules sent with the name on every turn; only the open app's are kept. */
+  assistantRules?: readonly PromptRule[];
 }
 
 /**
@@ -143,6 +146,9 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
       identity: identity.username,
       ...(config.modelId ? { modelId: config.modelId } : {}),
       ...(config.assistantName ? { assistantName: config.assistantName } : {}),
+      ...(rulesFor(config.assistantRules, bridge.surface).length
+        ? { assistantRules: rulesFor(config.assistantRules, bridge.surface) }
+        : {}),
       ...(config.skills?.length ? { skills: config.skills } : {}),
       ...(config.skillMentions?.length ? { skillMentions: config.skillMentions } : {}),
       ...(config.plannerSkills?.length ? { plannerSkills: config.plannerSkills } : {}),

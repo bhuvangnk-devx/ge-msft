@@ -22,12 +22,16 @@ const filter = (process.env.GE_SCENARIO ?? '')
   .filter(Boolean);
 
 function loadScenarios(): Scenario[] {
-  return readdirSync(DIR)
-    .filter((f) => f.endsWith('.json'))
-    .sort()
-    .flatMap((f) => JSON.parse(readFileSync(join(DIR, f), 'utf8')) as Scenario[])
-    .filter((s) => !filter.length || filter.some((id) => s.id.includes(id)))
-    .filter((s) => !surfaceFilter || s.surface === surfaceFilter);
+  return (
+    readdirSync(DIR)
+      .filter((f) => f.endsWith('.json'))
+      .sort()
+      .map((f) => JSON.parse(readFileSync(join(DIR, f), 'utf8')) as unknown)
+      // Non-list files (e.g. quality-baseline.json) are data, not scenarios.
+      .flatMap((d) => (Array.isArray(d) ? (d as Scenario[]) : []))
+      .filter((s) => !filter.length || filter.some((id) => s.id.includes(id)))
+      .filter((s) => !surfaceFilter || s.surface === surfaceFilter)
+  );
 }
 
 const surfaceFilter = process.env.GE_SCENARIO_SURFACE?.trim();

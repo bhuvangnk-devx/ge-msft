@@ -170,16 +170,29 @@ class FakeAssist implements AssistLike {
     }
   }
   /** F: the planner pre-stage result. Default → no plan (proposePlan degrades to the executor). */
-  planned: { plan: CommandPlan | null; errors: string[]; needsClarification: boolean } = {
+  planned: {
+    plan: CommandPlan | null;
+    errors: string[];
+    needsClarification: boolean;
+    failure?: { message: string; code?: string; blocked?: boolean };
+  } = {
     plan: null,
     errors: [],
     needsClarification: false,
   };
-  plannedQueue: { plan: CommandPlan | null; errors: string[]; needsClarification: boolean }[] = [];
+  plannedQueue: {
+    plan: CommandPlan | null;
+    errors: string[];
+    needsClarification: boolean;
+    failure?: { message: string; code?: string; blocked?: boolean };
+  }[] = [];
   planTasks: string[] = [];
-  plan(
-    task: string,
-  ): Promise<{ plan: CommandPlan | null; errors: string[]; needsClarification: boolean }> {
+  plan(task: string): Promise<{
+    plan: CommandPlan | null;
+    errors: string[];
+    needsClarification: boolean;
+    failure?: { message: string; code?: string; blocked?: boolean };
+  }> {
     this.planTasks.push(task);
     return Promise.resolve(this.plannedQueue.shift() ?? this.planned);
   }
@@ -2081,6 +2094,85 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     // No plan card; the executor ran directly (its gate staged).
     expect(c.getState().pendingCommandPlan).toBeUndefined();
     expect(c.getState().pendingPlan).toBeDefined();
+  });
+
+  it('shows an answer-only command run as one answer: no error, no failed run', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      { event: { type: 'token', text: 'Hello! How can I help?' } },
+      { event: { type: 'no-fence', turn: 1, rawSnippet: 'Hello!' } as CommandLoopEvent },
+      { event: { type: 'token', text: 'Hi! What would you like to do?' } },
+      {
+        event: {
+          type: 'done',
+          turn: 2,
+          answer: 'Hi! What would you like to do?',
+          answerOnly: true,
+        } as CommandLoopEvent,
+      },
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('hii');
+    const last = c.getState().messages.at(-1)!;
+    expect(last).toMatchObject({ role: 'assistant', text: 'Hi! What would you like to do?' });
+    expect(last.error).toBeUndefined();
+    expect(last.note).toBeUndefined();
+    expect(c.getState().error).toBeUndefined();
+  });
+
+  it('stops with an error card when the planner call itself failed; the executor never runs', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: null,
+      errors: ['streamAssist failed (401)'],
+      needsClarification: false,
+      failure: { message: 'streamAssist failed (401)', code: 'http_401' },
+    };
+    assist.commandScript = [{ plan: [planEffect('w2')] }];
+    const runs = vi.spyOn(assist, 'runCommands');
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('hii', undefined);
+    await tick();
+    await tick();
+    expect(runs).not.toHaveBeenCalled();
+    const s = c.getState();
+    expect(s.pendingPlan).toBeUndefined();
+    expect(s.busy).toBe(false);
+    expect(s.messages.filter((m) => m.role === 'user').map((m) => m.text)).toEqual(['hii']);
+    const last = s.messages.at(-1)!;
+    expect(last).toMatchObject({ role: 'assistant', error: 'streamAssist failed (401)' });
+    expect(last.streaming).toBeFalsy();
+    expect(JSON.parse(c.diagnostics({ surface: 'word' })).errors.at(-1)).toMatchObject({
+      code: 'http_401',
+    });
+  });
+
+  it('shows a blocked planner call as blocked, and runs nothing', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: null,
+      errors: ['The planner request was blocked by policy.'],
+      needsClarification: false,
+      failure: { message: 'The planner request was blocked by policy.', blocked: true },
+    };
+    const runs = vi.spyOn(assist, 'runCommands');
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('something blocked', undefined);
+    await tick();
+    expect(runs).not.toHaveBeenCalled();
+    expect(c.getState().messages.at(-1)).toMatchObject({ role: 'assistant', blocked: true });
+  });
+
+  it('shows the question once when the planner yields no plan and the executor takes over', async () => {
+    const assist = new FakeAssist();
+    assist.planned = { plan: null, errors: [], needsClarification: false };
+    assist.commandScript = [{ plan: [planEffect('w2')] }];
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('hii', undefined);
+    await tick();
+    await tick();
+    const asked = c.getState().messages.filter((m) => m.role === 'user');
+    expect(asked.map((m) => m.text)).toEqual(['hii']);
   });
 });
 

@@ -25,7 +25,13 @@ import { excelSeed, installFakeExcel } from '../test-harness/fake-excel.js';
 import { installFakeOutlook, outlookSeed } from '../test-harness/fake-outlook.js';
 import { installFakePowerPoint, powerPointSeed } from '../test-harness/fake-powerpoint.js';
 import { installFakeWord, wordSeed } from '../test-harness/fake-word.js';
-import { liveFetch, loadShellEnv, scenarioAuth, type TranscriptEntry } from './live-env.js';
+import {
+  liveFetch,
+  loadShellEnv,
+  scenarioAuth,
+  scenarioBrand,
+  type TranscriptEntry,
+} from './live-env.js';
 
 export interface ScenarioExpect {
   /** Final status of the last task (default "completed"; "any" skips the check). */
@@ -126,7 +132,9 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     const bridge = selectBridge(scenario.surface);
     if (!bridge) throw new Error(`no bridge for ${scenario.surface}`);
     const { session } = await composeSession({
-      config: shellConfigFromEnv(env),
+      // The selected brand (brands/current), as the web build applies it: its name and writing
+      // rules reach every turn, so a scenario sees what users of that build see.
+      config: shellConfigFromEnv(env, scenarioBrand()),
       auth: scenarioAuth,
       bridge,
       unit: initialUnit({ surface: scenario.surface }),

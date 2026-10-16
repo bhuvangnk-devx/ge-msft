@@ -433,7 +433,9 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
       dataStores: availableDataStores.length,
       connectors: [...new Set(availableDataStores.map((d) => d.connector))].join(','),
     });
-    const catalogClient = new DiscoveryCatalogClient(tokens, config);
+    // The catalog sends no prompts, so it gets no brand writing rules.
+    const { assistantRules: _rules, ...catalogConfig } = config;
+    const catalogClient = new DiscoveryCatalogClient(tokens, catalogConfig);
     await applyBootCatalogRouting(client, catalogClient);
     const controller = new PanelController(session, prepared.bridge);
     controller.setDiscoveredCatalog(availableAgents, availableDataStores);

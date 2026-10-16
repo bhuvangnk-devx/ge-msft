@@ -638,8 +638,13 @@ describe('AssistSession.runCommands — loop bounds', () => {
 
   it('`exhausted.turns` reflects the actual last-started turn, not a hardcoded maxTurns', async () => {
     const bridge = new FlexBridge('word');
-    // Two consecutive no-fence replies end the loop at turn 2, well before maxTurns (6).
-    const { fetch } = scriptedFetch(['just prose, no fence', 'still no fence']);
+    // A program ran at turn 1; then two consecutive no-fence replies end the loop at turn 3, well
+    // before maxTurns (6).
+    const { fetch } = scriptedFetch([
+      '```cmd\noutline\n```',
+      'just prose, no fence',
+      'still no fence',
+    ]);
     const client = new StreamAssistClient(tokens, cfg, fetch);
     const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
 
@@ -647,7 +652,35 @@ describe('AssistSession.runCommands — loop bounds', () => {
     const exhausted = events.find((e) => e.type === 'exhausted') as
       | Extract<CommandLoopEvent, { type: 'exhausted' }>
       | undefined;
-    expect(exhausted?.turns).toBe(2);
+    expect(exhausted?.turns).toBe(3);
+  });
+
+  it('keeps a confirmed change plan incomplete when the model only replies in prose', async () => {
+    const bridge = new FlexBridge('word');
+    const { fetch } = scriptedFetch(['I will rewrite it.', 'Rewriting the paragraph now.']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    const task =
+      '<confirmed_plan>\noriginal_request: rewrite the intro\nintent: rewrite\nstep 1: rewrite the introduction paragraph\n</confirmed_plan>';
+
+    const events = await collectLoop(session.runCommands(task, { maxTurns: 6 }));
+    expect(events.some((e) => e.type === 'done' && 'answerOnly' in e)).toBe(false);
+    expect(events.some((e) => e.type === 'exhausted')).toBe(true);
+  });
+
+  it('ends as an answer when the model replies in prose twice and no command ran', async () => {
+    const bridge = new FlexBridge('word');
+    const { fetch } = scriptedFetch(['Hello! How can I help?', 'Hi! What would you like to do?']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+
+    const events = await collectLoop(session.runCommands('hii', { maxTurns: 6 }));
+    expect(events.some((e) => e.type === 'exhausted')).toBe(false);
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      answerOnly: true,
+      answer: 'Hi! What would you like to do?',
+    });
   });
 });
 

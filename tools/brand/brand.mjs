@@ -68,6 +68,23 @@ export function loadBrand(id = selectedBrand()) {
   ) {
     throw new Error(`brands/${id}/brand.json: "promptName" must be a non-empty string when set.`);
   }
+  const list = (v, ok) => v === undefined || (Array.isArray(v) && v.length > 0 && v.every(ok));
+  const validRule = (rule) =>
+    (typeof rule === 'string' && rule.trim()) ||
+    (rule &&
+      typeof rule === 'object' &&
+      typeof rule.text === 'string' &&
+      rule.text.trim() &&
+      list(rule.surfaces, (s) => typeof s === 'string' && s.trim()) &&
+      list(rule.turns, (t) => ['chat', 'planner', 'command'].includes(t)));
+  if (
+    raw.promptRules !== undefined &&
+    (!Array.isArray(raw.promptRules) || !raw.promptRules.every(validRule))
+  ) {
+    throw new Error(
+      `brands/${id}/brand.json: "promptRules" must list rules: text, or { "text", "surfaces"?: [...], "turns"?: ["chat" | "planner" | "command"] }.`,
+    );
+  }
   if (
     !raw.fontStylesheet.startsWith('https://fonts.googleapis.com/') ||
     /["'<>\s]/.test(raw.fontStylesheet)
@@ -87,6 +104,7 @@ export function loadBrand(id = selectedBrand()) {
     fullName: raw.fullName,
     ...(raw.tagline ? { tagline: raw.tagline } : {}),
     ...(raw.promptName ? { promptName: raw.promptName } : {}),
+    ...(raw.promptRules?.length ? { promptRules: raw.promptRules } : {}),
     fontStylesheet: raw.fontStylesheet,
     iconsDir,
     themePath: existsSync(themePath) ? themePath : null,
@@ -102,6 +120,7 @@ export function brandText(brand) {
     fullName: brand.fullName,
     ...(brand.tagline ? { tagline: brand.tagline } : {}),
     ...(brand.promptName ? { promptName: brand.promptName } : {}),
+    ...(brand.promptRules?.length ? { promptRules: brand.promptRules } : {}),
   };
 }
 
