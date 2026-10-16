@@ -55,6 +55,8 @@ export interface SheetSeed {
   origin: string;
   /** Row-major grid of cell values; `''` is an empty cell. */
   values: string[][];
+  /** Review → Protect Sheet is on (every cell locked, the Excel default). */
+  protected?: boolean;
 }
 
 /** A workbook-scoped named range (`NamedItem`): a name → its A1 reference (no leading `=`). */
@@ -288,6 +290,7 @@ class FakeRange {
   private readonly edges = new Map<string, Record<string, string>>();
   private autofitted = false;
   readonly format = {
+    protection: { locked: true, load(_props?: string): void {} },
     font: {
       bold: undefined as boolean | undefined,
       italic: undefined as boolean | undefined,
@@ -742,6 +745,9 @@ class FakeWorksheet {
   }
   get id(): string {
     return `sheet:${this.name}`;
+  }
+  get protection(): { protected: boolean; load(_props?: string): void } {
+    return { protected: sheetByName(this.seed, this.name).protected === true, load() {} };
   }
   constructor(
     private readonly seed: ExcelSeed,

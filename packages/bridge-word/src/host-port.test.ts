@@ -289,7 +289,9 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     set changeTrackingMode(m: string) {
       this._ctm = m;
       rec.changeTrackingMode = m;
+      rec.trace.push(`mode:${m}`);
     },
+    load: () => undefined,
     get changeTrackingMode(): string {
       return this._ctm;
     },
@@ -704,6 +706,39 @@ describe('OfficeWordHost.findReplace', () => {
     });
     expect(out).toEqual({ status: 'applied', replacedCount: 3 });
     expect(rec.inserts.map((i) => i.anchor)).toEqual(['hit-3', 'hit-2', 'hit-1']);
+  });
+});
+
+describe('OfficeWordHost tracks every edit (CIMB decision 2026-10-15)', () => {
+  it('records a direct edit as a tracked change, then restores the user setting', async () => {
+    const rec = setup({ searchHits: { '45 days': ['45 days'] } });
+    await new OfficeWordHost().findReplace('45 days', '30 days', {
+      matchCase: false,
+      matchWholeWord: false,
+    });
+    const on = rec.trace.indexOf('mode:TrackAll');
+    expect(on).toBeGreaterThanOrEqual(0);
+    expect(on).toBeLessThan(rec.trace.indexOf('insertText'));
+    // The user's own later edits are not forced into Track Changes.
+    expect(rec.trace.at(-1) === 'mode:' || rec.changeTrackingMode === '').toBe(true);
+  });
+
+  it('never anchors an edit on struck-out text', async () => {
+    const rec = setup({
+      searchHits: { '45 days': ['struck-out', 'live'] },
+      deletedHits: ['struck-out'],
+    });
+    await new OfficeWordHost().insertText('45 days', { matchCase: false }, ' (net)', () => 0);
+    expect(rec.inserts.map((i) => i.anchor)).toEqual(['live']);
+  });
+
+  it('leaves Track Changes alone when trackEdits is off', async () => {
+    const rec = setup({ searchHits: { '45 days': ['45 days'] } });
+    await new OfficeWordHost({ trackEdits: false }).findReplace('45 days', '30 days', {
+      matchCase: false,
+      matchWholeWord: false,
+    });
+    expect(rec.changeTrackingMode).toBeUndefined();
   });
 });
 

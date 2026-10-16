@@ -52,7 +52,8 @@ export function classifyFailure(diagnostic: Diagnostic, since: string): ReportKi
   const run = diagnostic.runs
     .filter((r) => (r.finishedAt ?? r.startedAt) >= since || r.status === 'running')
     .at(-1);
-  if (run?.status === 'cancelled') return undefined;
+  // Cancelled, or stopped for the user to act (protected sheet, unsupported write): not a bug.
+  if (run?.status === 'cancelled' || run?.status === 'needs-user') return undefined;
   const failedEffects = (run?.effects ?? []).filter(
     (e) => !e.ok && !DECLINED.has(e.errorCode ?? ''),
   );

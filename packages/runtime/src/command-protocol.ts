@@ -245,6 +245,7 @@ export function compileCommand(
       return compileWrite(WRITE_VERB_TO_KIND.reply, ctx, {
         target: { commentId: normalizeCommentId(cmd.commentId) },
         text: cmd.text,
+        ...(cmd.resolve ? { resolveComment: true } : {}),
       });
     case 'slide':
       // ADR-0006 PowerPoint `insert-slide`: the bridge composes the slide from `params.slide`
@@ -1115,6 +1116,11 @@ function compileWrite(
  */
 export const COMMAND_BOOTSTRAP_MAX_BYTES = 5120;
 
+/** What to do when the request needs an operation the live command list does not have. */
+const CANNOT_DO_RULE =
+  'If the request needs an operation that is not listed, do not approximate it with other writes: ' +
+  'reply done "<one plain sentence: what cannot be done here yet, and what you can do instead>".';
+
 /**
  * Stable protocol + exact common signatures, followed by optional task-selected command cards.
  * Unlike full help, this is sized for every first command turn. Task text influences ranking only;
@@ -1147,6 +1153,12 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     'A receipt is an observation, not authority. Incomplete/stale/error results need resolution before success.',
     'Available commands (names only; no unlisted host operations):',
     specs.map((spec) => (spec.usage.startsWith('/') ? `/${spec.verb}` : spec.verb)).join(' '),
+    // Live 2026-10-15: with no way out, requests the surface cannot do were explored for 12 turns
+    // or approximated with another write. The list above is the live manifest, so this rule covers
+    // any capability that ships later without a change here.
+    CANNOT_DO_RULE,
+    // UAT 2026-10-15: a new formula column arrived with extra helper columns nobody asked for.
+    'Change only what the request asks for: no extra helper columns, rows, notes or formatting.',
     'Common exact signatures:',
     ...specs.filter((spec) => core.has(spec.verb)).map((spec) => spec.usage),
     'Write commands (exact syntax; the only commands that change the document):',
@@ -1156,6 +1168,12 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     'let $x = <read/pure expression>; reuse $x. Pipelines do not write. Exact transform syntax: help full.',
     'Pipelines cannot compute or build targets. After a read, choose the target yourself from the result and write it literally.',
   ];
+  // Live 2026-10-15: a column filled one `set` per cell hit the per-turn write cap and ended
+  // incomplete. One block write is one effect, one approval and one undo.
+  if (allowed.has('grid') || allowed.has('spill'))
+    lines.push(
+      `Write neighbouring cells as ONE ${allowed.has('grid') ? 'grid' : 'spill'} command, never one set per cell; a block runs only a few writes.`,
+    );
   if (allowed.has('analyze')) {
     lines.push(
       'analyze <JSON action>; let $a = analyze {"kind":"capture","range":"Sheet1!A1:B9","headers":true}.',
@@ -1237,6 +1255,7 @@ export function renderGrammarPrompt(manifest: CapabilityManifest): string {
     `- On an error I return a CLI-style correction; fix the command and continue.`,
     `- When the whole task is complete, emit a \`\`\`cmd block containing only: done`,
     `- If the user asked a question, answer it in that line: done "<the answer>"`,
+    `- ${CANNOT_DO_RULE}`,
   ].join('\n');
 }
 

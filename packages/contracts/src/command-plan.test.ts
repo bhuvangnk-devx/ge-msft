@@ -270,6 +270,16 @@ describe('commandIntentText', () => {
   });
 });
 
+describe('live write vocabulary', () => {
+  it('plans only the writes the surface offers, and says no to the rest', () => {
+    const prompt = renderPlanPrompt('excel', ['ask', 'rewrite'], ['Write cells', 'Format cells']);
+    expect(prompt).toContain('Changes this add-in can make: Write cells; Format cells.');
+    expect(prompt).toContain('never approximate it with other changes');
+    // The static vocabulary named unshipped features (pivot, sort) and invited plans for them.
+    expect(prompt).not.toContain('pivot');
+  });
+});
+
 describe('intent effects (fix G)', () => {
   it('describes only the offered intents by their effect', () => {
     const prompt = renderPlanPrompt('excel', ['ask', 'rewrite', 'visualize']);

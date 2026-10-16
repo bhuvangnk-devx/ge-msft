@@ -1021,7 +1021,9 @@ function Message({
           {message.streaming && (message.activity || !text) ? (
             <WorkingIndicator activity={message.activity} />
           ) : null}
-          {stripped.hidden > 0 && (
+          {/* Only when the bubble would otherwise be empty: next to an answer or a change card the
+              note was technical noise (UAT 2026-10-15, "chat by CN-GPT in the bubble"). */}
+          {stripped.hidden > 0 && !text.trim() && !message.changes?.length && (
             <span className="cmd-hidden-note muted small">
               {stripped.hidden === 1
                 ? '1 command block sent to the add-in. See Activity.'

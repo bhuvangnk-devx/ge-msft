@@ -499,7 +499,12 @@ function levenshtein(a: string, b: string): number {
  * intents the active surface offers (so the planner picks a verb the surface can run); when omitted,
  * all seven are allowed.
  */
-export function renderPlanPrompt(surface: Surface, verbs?: readonly Intent[]): string {
+export function renderPlanPrompt(
+  surface: Surface,
+  verbs?: readonly Intent[],
+  /** Titles of the writes the live surface offers; replaces the static vocabulary when given. */
+  writes?: readonly string[],
+): string {
   const allowed = (verbs && verbs.length > 0 ? verbs : IntentSchema.options).join(' | ');
   return [
     'You are the COMMAND PLANNER. Turn the request into ONE fenced ```plan block — a small, ' +
@@ -524,10 +529,20 @@ export function renderPlanPrompt(surface: Surface, verbs?: readonly Intent[]): s
     'A request that changes the document never uses ask, summarize or explain.',
     'Classify arbitrary text into capability-shaped steps. Infer intent, scope, context hints, then ' +
       'phrase each step in the active surface vocabulary without emitting commands.',
-    'Surface vocabulary: Word tracked rewrite/comment/style/table/hyperlink/content-control; ' +
-      'Excel rectangular grid/table/formula/format/comment/chart/pivot/sort/filter/worksheet; ' +
-      'PowerPoint slide/shape/text/image/table/layout/format; Outlook staged reply/draft/body/subject/recipients/attachment/calendar; ' +
-      'OneNote page/outline/rich-text/tag/section; Teams staged post/card/transcript/thread handoff.',
+    ...(writes
+      ? [
+          // The live manifest, so a capability that ships later is planned without a change here.
+          `Changes this add-in can make: ${writes.join('; ')}.`,
+          'Plan only these changes. If the request needs a change outside this list, plan one step ' +
+            'that tells the user it is not available yet and what can be done instead; never ' +
+            'approximate it with other changes.',
+        ]
+      : [
+          'Surface vocabulary: Word tracked rewrite/comment/style/table/hyperlink/content-control; ' +
+            'Excel rectangular grid/table/formula/format/comment/chart/pivot/sort/filter/worksheet; ' +
+            'PowerPoint slide/shape/text/image/table/layout/format; Outlook staged reply/draft/body/subject/recipients/attachment/calendar; ' +
+            'OneNote page/outline/rich-text/tag/section; Teams staged post/card/transcript/thread handoff.',
+        ]),
     'For bulk data entry such as schedules or generated tables, plan one rectangular grid/table ' +
       'materialization step, not dozens of per-cell steps.',
     'Rules: one ```plan block only; phrase steps as intentions (not ```cmd commands); context is ' +

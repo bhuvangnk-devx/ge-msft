@@ -828,8 +828,46 @@ export const ActuationErrorReasonSchema = z.enum([
   'no_text',
   'reread_failed',
   'format_failed',
+  // `host_refused`: Office rejected the change for a reason the user can fix.
+  'protected',
+  'edit_mode',
+  'conflict',
+  'not_found',
+  'unsupported_api',
 ]);
 export type ActuationErrorReason = z.infer<typeof ActuationErrorReasonSchema>;
+
+/** The `ActuationErrorReason`s that refine a `host_refused` result. */
+export const HostRefusalReasonSchema = ActuationErrorReasonSchema.extract([
+  'protected',
+  'edit_mode',
+  'conflict',
+  'not_found',
+  'unsupported_api',
+]);
+export type HostRefusalReason = z.infer<typeof HostRefusalReasonSchema>;
+
+/**
+ * Why a task stopped to wait for the user rather than failing: the host refused the change for a
+ * reason the user can fix, or the request needs a write this surface does not offer. Neither is
+ * retried by the model, and neither is an error.
+ */
+export type TaskBlocker =
+  | {
+      cause: 'host_refused';
+      reason: HostRefusalReason;
+      kind: ActuationKind;
+      /** The target the host refused (e.g. `Sheet2!A1`), when the bridge knows it. */
+      location?: string;
+    }
+  | {
+      cause: 'not_supported';
+      kind: ActuationKind;
+      /** The writes this surface does offer, for the "what I can do instead" line. */
+      available: ActuationKind[];
+    }
+  /** The model repeated the same read-only program: it has no way forward with these tools. */
+  | { cause: 'no_progress' };
 
 /**
  * The read verbs a surface can serve (ADR-0006 capability closure). The CLI grammar scopes host read

@@ -56,8 +56,8 @@ export interface WordSeed {
   comments: WordCommentSeed[];
   /** Recorded: the last `changeTrackingMode` the bridge set (asserts tracked changes were turned on). */
   changeTrackingMode?: string;
-  /** Recorded tracked-change inserts: `{ anchor, text }` per applied replace. */
-  inserts: Array<{ anchor: string; text: string }>;
+  /** Recorded inserts: `{ anchor, text, tracked }` per applied write (tracked = Track Changes was on). */
+  inserts: Array<{ anchor: string; text: string; tracked: boolean }>;
   /** Recorded comments added via `insertComment`: `{ anchor, text }`. */
   addedComments: Array<{ anchor: string; text: string }>;
   /** Recorded native tables inserted via `insertTable` (cell values per row). */
@@ -145,7 +145,11 @@ class FakeSearchResult {
   /** Inline OOXML after the anchor text. */
   insertOoxml(ooxml: string, _location: string): void {
     const text = ooxmlText(ooxml).join(' ');
-    this.seed.inserts.push({ anchor: this.text, text });
+    this.seed.inserts.push({
+      anchor: this.text,
+      text,
+      tracked: this.seed.changeTrackingMode === 'TrackAll',
+    });
     replaceFirst(this.seed, this.text, `${this.text}${text}`);
   }
   /** A native table after the anchor's paragraph: one paragraph per row, cells tab-separated. */
@@ -159,7 +163,11 @@ class FakeSearchResult {
   }
   /** The tracked-change WRITE: replace the first occurrence of the anchor in the body. */
   insertText(text: string, _location: string): void {
-    this.seed.inserts.push({ anchor: this.text, text });
+    this.seed.inserts.push({
+      anchor: this.text,
+      text,
+      tracked: this.seed.changeTrackingMode === 'TrackAll',
+    });
     replaceFirst(this.seed, this.text, text);
   }
   /** Comments-as-citations WRITE. */
@@ -303,7 +311,11 @@ class FakeSelection {
   }
   /** Overwrite the selected text (the only location the bridge uses on a selection is replace). */
   insertText(text: string, _location: string): void {
-    this.seed.inserts.push({ anchor: this.seed.selectionText, text });
+    this.seed.inserts.push({
+      anchor: this.seed.selectionText,
+      text,
+      tracked: this.seed.changeTrackingMode === 'TrackAll',
+    });
     replaceFirst(this.seed, this.seed.selectionText, text);
     this.seed.selectionText = text;
   }
@@ -351,6 +363,9 @@ class FakeWordDocument {
   }
   get changeTrackingMode(): string {
     return this._mode;
+  }
+  load(_props?: string): this {
+    return this;
   }
 }
 
@@ -406,7 +421,7 @@ export interface WordSnapshot {
   bodyText: string;
   paragraphs: ReadonlyArray<WordParagraphSeed>;
   comments: ReadonlyArray<WordCommentSeed>;
-  inserts: ReadonlyArray<{ anchor: string; text: string }>;
+  inserts: ReadonlyArray<{ anchor: string; text: string; tracked: boolean }>;
   addedComments: ReadonlyArray<{ anchor: string; text: string }>;
   changeTrackingMode?: string;
 }

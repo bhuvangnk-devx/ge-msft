@@ -196,6 +196,7 @@ class FakeRange {
   private readonly edges = new Map<string, Record<string, string>>();
   private autofitted = false;
   readonly format = {
+    protection: { locked: true, load(_props?: string): void {} },
     font: {
       bold: undefined as boolean | undefined,
       italic: undefined as boolean | undefined,
@@ -609,9 +610,15 @@ class FakeNamedItem {
   }
 }
 
+const protectedSheets = new Set<string>();
+
 class FakeWorksheet {
   get id(): string {
     return `sheet:${this.name}`;
+  }
+  /** Sheets named in `protectedSheets` are protected (Review → Protect Sheet). */
+  get protection(): { protected: boolean; load(_props?: string): void } {
+    return { protected: protectedSheets.has(this.name), load() {} };
   }
   constructor(
     private readonly seed: ExcelSeed,
@@ -1536,6 +1543,26 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
     expect(active.seed.sheets[0]?.values[1]).toEqual(['EAST', 'ALICE', '999']);
     // No provenance payload → flagged unattributed.
     expect(res.provenanceMissing).toBe(true);
+  });
+
+  it.each([
+    ['write-cells', writeCells({ target: { range: 'Sales!A2:C2' }, cells: [['x', 'y', 'z']] })],
+    ['format-cells', formatCells({ target: { range: 'Sales!A2:C2' }, format: { bold: true } })],
+  ])('refuses %s on a protected sheet before writing', async (_kind, request) => {
+    active = installExcel(salesSeed());
+    const before = structuredClone(active.seed.sheets[0]?.values);
+    protectedSheets.add('Sales');
+    try {
+      const res = await new ExcelBridge().actuate(request);
+      expect(res).toMatchObject({
+        ok: false,
+        location: 'Sales!A2:C2',
+        error: { code: 'host_refused', reason: 'protected' },
+      });
+      expect(active.seed.sheets[0]?.values).toEqual(before);
+    } finally {
+      protectedSheets.clear();
+    }
   });
 
   it('rejects with no_anchor when target.range is absent (before any write)', async () => {

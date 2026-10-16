@@ -545,6 +545,55 @@ describe('command-grammar — ADR-0007 host-native verbs (table / chart / cf)', 
     });
   });
 
+  // Live 2026-10-15 (mx-xl-chart-11/12/15/20): a second quoted area was cut at its space.
+  it('keeps several quoted areas (and a quoted prop value) as one token', () => {
+    const areas = `'Branch Performance'!A1:A21,'Branch Performance'!C1:D21`;
+    expect(parseCommandLine(`chart column ${areas} title="Loans"`)).toEqual({
+      verb: 'chart',
+      chartType: 'column',
+      range: areas,
+      props: { title: 'Loans' },
+    });
+    expect(parseCommandLine(`table 'It''s Q3'!A1:C9 headers`)).toMatchObject({
+      range: `'It''s Q3'!A1:C9`,
+    });
+    expect(
+      parseCommandLine(`/insert-chart sourceRange='Branch Performance'!A1:B9 chartType=bar`),
+    ).toMatchObject({ props: { sourceRange: `'Branch Performance'!A1:B9` } });
+  });
+
+  // UAT 2026-10-15: Outlook drafts showed a literal "\n\n" instead of blank lines.
+  it('decodes \\n and \\t inside quoted text into real line breaks and tabs', () => {
+    expect(parseCommandLine('mail "Hi Rina,\\n\\nThank you."')).toMatchObject({
+      body: 'Hi Rina,\n\nThank you.',
+    });
+    expect(parseCommandLine('reply c1 "Line 1\\nLine 2"')).toMatchObject({
+      text: 'Line 1\nLine 2',
+    });
+    // An escaped backslash stays a backslash: "C:\\new" is not a line break.
+    expect(parseCommandLine('reply c1 "C:\\\\new"')).toMatchObject({ text: 'C:\\new' });
+    expect(parseCommandLine('grid A1:B2 = "a\\tb\\nc\\td"')).toMatchObject({
+      verb: 'grid',
+    });
+  });
+
+  it('reply can also resolve the thread (the bridges support it; the verb could not ask)', () => {
+    expect(parseCommandLine('reply xl:comment:c1 "Done, thanks" resolve')).toEqual({
+      verb: 'reply',
+      commentId: 'xl:comment:c1',
+      text: 'Done, thanks',
+      resolve: true,
+    });
+    expect(parseCommandLine('reply c1 "Done"')).toEqual({
+      verb: 'reply',
+      commentId: 'c1',
+      text: 'Done',
+    });
+    expect(parseCommandLine('reply c1 "Done" maybe')).toMatchObject({
+      error: expect.stringContaining('[resolve]'),
+    });
+  });
+
   it('chart needs a type and a range', () => {
     expect(parseCommandLine('chart column')).toMatchObject({
       error: expect.stringContaining('range'),
@@ -1023,7 +1072,7 @@ describe('command-grammar — capability scoping', () => {
 
   it('Word advertises reply when comment-reply is in its actuations', () => {
     const specs = grammarFor(wordManifest);
-    expect(specs.find((v) => v.verb === 'reply')?.usage).toBe('reply <commentId> "text"');
+    expect(specs.find((v) => v.verb === 'reply')?.usage).toBe('reply <commentId> "text" [resolve]');
   });
 
   it('does NOT advertise reply when comment-reply is absent (Excel here has none)', () => {

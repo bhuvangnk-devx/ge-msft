@@ -3811,7 +3811,9 @@ button.cite:hover {
   cursor: pointer;
 }
 .result-card-actions .error-card-retry {
-  border: 0;
+  /* same box as the outlined chip beside it, so the two line up */
+  margin-top: 0;
+  border: 1px solid transparent;
   background: var(--primary, #c8102e);
   color: #fff;
 }

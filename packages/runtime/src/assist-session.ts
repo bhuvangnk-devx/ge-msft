@@ -7,7 +7,12 @@ import {
 } from './analysis-workspace.js';
 import { RecoveryCoordinator } from './recovery.js';
 import { admitActuationRequest } from './actuation-admission.js';
-import { assessActuationResult, unknownActuationResult } from '@ge/contracts';
+import {
+  assessActuationResult,
+  HostRefusalReasonSchema,
+  unknownActuationResult,
+  type HostRefusalReason,
+} from '@ge/contracts';
 import {
   AnalysisBindings,
   compileAnalysisProgram,
@@ -46,6 +51,7 @@ import type {
   SourceRef,
   Surface,
   SseEvent,
+  TaskBlocker,
   UnitDescriptor,
   CommandPlan,
 } from '@ge/contracts';
@@ -168,6 +174,8 @@ type StreamOptionsWithGrounding = NonNullable<Parameters<StreamAssistClient['str
 const DEFAULT_MAX_TURNS = 12;
 /** Consecutive failing turns allowed after the first before a command task stops as incomplete. */
 const MAX_REPAIR_TURNS = 2;
+/** Times one program that changes nothing may be sent before the task stops for the user. */
+const MAX_SAME_PROGRAM = 3;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
 const DEFAULT_MAX_WRITES_PER_TURN = 8;
@@ -315,7 +323,9 @@ export type CommandLoopEvent =
   /** The model emitted `done`; the loop stops. `answer` is the final accumulated text. */
   | { type: 'done'; turn: number; answer: string; message?: string }
   /** The loop hit `maxTurns` without `done`. */
-  | { type: 'exhausted'; turns: number; answer: string };
+  | { type: 'exhausted'; turns: number; answer: string }
+  /** The loop stopped because only the user can unblock it (host refusal, unsupported write). */
+  | { type: 'needs-user'; turn: number; blocker: TaskBlocker };
 
 /**
  * ADR-0005 Phase 2 — one resolved effect in a turn's PLAN: the dry-run-built, Zod-validated
@@ -365,6 +375,8 @@ interface PlanState {
   doneMessage?: string;
   /** `done` arrived in the same block as writes: finish only if every one of them lands. */
   doneAfterWrites?: boolean;
+  /** The first write in this block that the surface does not offer. */
+  unsupported?: ActuationKind;
   /** `done` was requested but ignored because earlier lines in the block failed. */
   doneIgnored?: boolean;
   finishVerified?: boolean;
@@ -638,6 +650,7 @@ export class AssistSession {
       // Writes held back by the per-turn cap. Each one clears when the model sends it again; any
       // still pending at the end leaves the task incomplete (never a silently dropped write).
       const deferred = new Set<string>();
+      let needsUser = false;
       for await (const event of run()) {
         signal?.throwIfAborted();
         if (event && typeof event === 'object' && 'type' in event) {
@@ -646,6 +659,8 @@ export class AssistSession {
             deferred.add(loopEvent.deferred);
           } else if (loopEvent.type === 'exhausted' || loopEvent.type === 'capped') {
             task.status = 'incomplete';
+          } else if (loopEvent.type === 'needs-user') {
+            needsUser = true;
           }
           if (loopEvent.type === 'command' && deferred.size > 0) {
             deferred.delete(JSON.stringify(loopEvent.command));
@@ -694,10 +709,44 @@ export class AssistSession {
             : task.status === 'running'
               ? 'completed'
               : task.status;
+      // Waiting on the user is not a failure when nothing changed: every effect is the refusal or
+      // a dependent of it. Anything landed, uncertain or failed otherwise keeps "incomplete" and its
+      // "may already have applied" warning, so asking again cannot repeat a landed write.
+      if (
+        needsUser &&
+        task.status !== 'blocked' &&
+        deferred.size === 0 &&
+        task.effects.every((result) =>
+          ['host_refused', 'prerequisite_failed'].includes(result.error?.code ?? ''),
+        )
+      )
+        task.status = 'needs-user';
+      // A same-kind write that landed is not a retry of the refused one: the task stopped there.
+      else if (needsUser && task.status === 'completed') task.status = 'incomplete';
+      // The host rejected a write cleanly (nothing written), and the model then finished with its
+      // own explanation instead of a workaround: that is an answer, not a failure (SIT 2026-10-14
+      // #4: "change the subject" with a received mail open ended on the error card).
+      else if (
+        task.status === 'incomplete' &&
+        doneMessage(completion) !== undefined &&
+        deferred.size === 0 &&
+        task.effects.length > 0 &&
+        task.effects.every(
+          (result) =>
+            assessActuationResult(result) === 'failed' &&
+            WRONG_TARGET_CODES.has(result.error?.code ?? ''),
+        )
+      )
+        task.status = 'needs-user';
       const { signal: _signal, ...outcome } = task;
       await this.hooks.run('task:verify', { outcome }, this.hookContext());
       consumed = true;
-      if (completion !== undefined && task.status === 'completed') yield completion;
+      if (
+        completion !== undefined &&
+        (task.status === 'completed' ||
+          (task.status === 'needs-user' && doneMessage(completion) !== undefined))
+      )
+        yield completion;
     } catch (error) {
       task.status =
         signal?.aborted || (error instanceof Error && error.name === 'AbortError')
@@ -1430,6 +1479,7 @@ export class AssistSession {
     let answer = '';
     let pendingNoFenceReprompt = false;
     let failingTurns = 0;
+    const repeatedPrograms = new Map<string, number>();
     let lastTurn = 0;
 
     for (let turn = 1; turn <= maxTurns || pendingNoFenceReprompt; turn++) {
@@ -1486,6 +1536,7 @@ export class AssistSession {
       }
       pendingNoFenceReprompt = false;
 
+      const effectsBefore = this.task?.effects.length ?? 0;
       const { results, done, stopped, message, failed } = yield* this.executeProgramTurn(
         entries,
         turn,
@@ -1499,6 +1550,21 @@ export class AssistSession {
         return;
       }
       if (stopped) return;
+      // The same program with no write, sent a third time, learns nothing new: the model has no
+      // way forward (live 2026-10-15: `properties mail:item` until turn 12). Never seen in a
+      // passing run, so it cannot cut a task that was making progress.
+      // A failing program has its own bound (the repair budget below). A turn that lands a change
+      // is progress, so the count starts again (read → write → read must never trip it).
+      if ((this.task?.effects.length ?? 0) > effectsBefore) repeatedPrograms.clear();
+      else if (!failed) {
+        const program = turnText.replace(/\s+/g, ' ').trim();
+        const seen = (repeatedPrograms.get(program) ?? 0) + 1;
+        repeatedPrograms.set(program, seen);
+        if (seen >= MAX_SAME_PROGRAM) {
+          yield { type: 'needs-user', turn, blocker: { cause: 'no_progress' } };
+          return;
+        }
+      }
       // Consecutive turns whose program had a failed line, whether or not it staged a write: a model
       // that keeps repeating one mistake stops here instead of spending every remaining turn.
       failingTurns = failed ? failingTurns + 1 : 0;
@@ -1742,6 +1808,22 @@ export class AssistSession {
       if (plan.done) break;
     }
 
+    // A write this surface does not offer cannot be repaired by the model; retrying only
+    // approximates it. Stop before anything is staged and tell the user (unless an inline effect
+    // already landed this turn: the repair path below reports it).
+    if (plan.unsupported && plan.landedInline.length === 0) {
+      yield {
+        type: 'needs-user',
+        turn,
+        blocker: {
+          cause: 'not_supported',
+          kind: plan.unsupported,
+          available: capabilities.actuations.map((a) => a.kind),
+        },
+      };
+      return { results: plan.results, done: false, stopped: true };
+    }
+
     // A model-authored program is all-or-nothing at dry-run. When any line failed to parse, compile
     // or read, none of its writes run and a trailing `done` is ignored; the errors go back to the
     // model for a bounded repair turn. Live 2026-09-30: an invalid line followed by `done` ended the
@@ -1895,6 +1977,22 @@ export class AssistSession {
       this.task.status = 'incomplete';
     // A rejected plan ends the task: re-asking the model only re-proposes the change.
     if (plan.rejected) return { results: plan.results, done: false, stopped: true };
+    // The host refused for a reason only the user can fix (protected sheet, edit mode): the same
+    // write would be refused again, so stop at the first one.
+    const refused = plan.results.find(isHostRefusal);
+    if (refused?.error?.reason) {
+      yield {
+        type: 'needs-user',
+        turn,
+        blocker: {
+          cause: 'host_refused',
+          reason: refused.error.reason as HostRefusalReason,
+          kind: refused.kind,
+          ...(refused.location !== undefined ? { location: refused.location } : {}),
+        },
+      };
+      return { results: plan.results, done: false, stopped: true };
+    }
     return {
       results: plan.results,
       done: plan.done,
@@ -2283,6 +2381,7 @@ export class AssistSession {
     }
 
     const resolved = await this.resolveEffect(command);
+    if ('unsupported' in resolved) plan.unsupported ??= resolved.unsupported;
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).
@@ -2381,7 +2480,7 @@ export class AssistSession {
    */
   private async resolveEffect(
     command: Extract<ParsedCommand, { verb: WriteVerb | 'invoke' }>,
-  ): Promise<PlanEffect | { error: string }> {
+  ): Promise<PlanEffect | { error: string; unsupported?: ActuationKind }> {
     try {
       // Type-check: the verb must map to an advertised actuation kind for this surface. A `/<kind>`
       // invoke carries its kind directly (ADR-0008 §two-tier); the availability check is identical —
@@ -2393,7 +2492,13 @@ export class AssistSession {
       const supported = new Set(this.capabilityKinds);
       if (!supported.has(kind)) {
         const label = command.verb === 'invoke' ? `/${command.kind}` : `verb "${command.verb}"`;
-        return { error: `${label} (${kind}) is not supported on this surface` };
+        // Only an explicit `/<kind>` names a capability the surface lacks (pivot, sort). A core verb
+        // used on the wrong surface (`reply` = comment-reply in Outlook) is a grammar slip the
+        // repair turn corrects (live 2026-10-15, mx-ol-read-10).
+        return {
+          error: `${label} (${kind}) is not supported on this surface`,
+          ...(command.verb === 'invoke' ? { unsupported: kind } : {}),
+        };
       }
 
       // Dry-run resolve any effect-arg expression to a concrete literal param (the keystone:
@@ -2682,6 +2787,7 @@ export class AssistSession {
     const protocol = renderPlanPrompt(
       capabilities.surface,
       VERBS_BY_SURFACE[capabilities.surface].filter((intent) => offered.has(intent)),
+      capabilities.actuations.map((a) => a.title),
     );
     const docState = await this.renderAmbientDocState(!this.isolateCommands);
     const parts = [protocol];
@@ -3689,7 +3795,7 @@ function contextRefProperties(ref: ContextRef, bridge: DocBridge): unknown {
   };
 }
 
-function matchesContextSelector(ref: ContextRef, selector: string): boolean {
+export function matchesContextSelector(ref: ContextRef, selector: string): boolean {
   const needle = selector.trim();
   if (!needle) return false;
   // Models write `inspect selection` / `inspect [selection]` for the live selection ref.
@@ -3701,7 +3807,22 @@ function matchesContextSelector(ref: ContextRef, selector: string): boolean {
     ref.anchor?.matchText,
     hostRefSelector(ref),
   ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
-  return candidates.some((candidate) => candidate === needle);
+  if (candidates.some((candidate) => candidate === needle)) return true;
+  const wanted = sameAddress(needle);
+  return candidates.some((candidate) => sameAddress(candidate) === wanted);
+}
+
+/**
+ * One spelling for a sheet address: Excel quotes a sheet name with spaces (`'Branch
+ * Performance'!D2`) and models often do not, or wrap the whole address in double quotes; `$` marks
+ * are absolute-reference noise. Live 2026-10-15 (mx-xl-reply-06): `comments "Branch
+ * Performance!D2"` found nothing three times running.
+ */
+function sameAddress(text: string): string {
+  const s = text.trim().replace(/^"(.*)"$/, '$1');
+  const quoted = /^'((?:[^']|'')*)'!(.*)$/.exec(s);
+  const address = quoted ? `${quoted[1]!.replace(/''/g, "'")}!${quoted[2]}` : s;
+  return address.replace(/\$/g, '').toLowerCase();
 }
 
 function hostRefSelector(ref: ContextRef): string | undefined {
@@ -4159,6 +4280,19 @@ function advisory<T extends object>(result: T): T {
 }
 
 /** A line that failed to parse, compile, resolve or read, as opposed to an advisory. */
+/** The answer a final `done "<answer>"` event carries, if any. */
+function doneMessage(event: unknown): string | undefined {
+  if (event === null || typeof event !== 'object' || !('message' in event)) return undefined;
+  const message = (event as { message: unknown }).message;
+  return typeof message === 'string' && message.trim() ? message : undefined;
+}
+
+function isHostRefusal(result: unknown): result is ActuationResult {
+  if (result === null || typeof result !== 'object' || !('changeId' in result)) return false;
+  const { error } = result as ActuationResult;
+  return error?.code === 'host_refused' && HostRefusalReasonSchema.safeParse(error.reason).success;
+}
+
 function isValidationFailure(result: unknown): boolean {
   return (
     result !== null &&

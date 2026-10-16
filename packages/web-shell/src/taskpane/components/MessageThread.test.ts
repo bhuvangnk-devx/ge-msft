@@ -50,6 +50,8 @@ describe('MessageThread', () => {
     expect(container.textContent).toContain('Done.');
     expect(container.textContent).not.toContain('format Sheet1!A1:H1');
     expect(container.querySelector('.md-code')).toBeNull();
+    // Next to an answer, the "command blocks sent" note is noise.
+    expect(container.querySelector('.cmd-hidden-note')).toBeNull();
   });
 
   it('replaces a commands-only reply with a short note instead of the commands', () => {

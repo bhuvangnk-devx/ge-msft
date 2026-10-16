@@ -195,7 +195,7 @@ export type ParsedCommand =
   | { verb: 'suggest'; oldText: string; newText: string }
   | { verb: 'comment'; selector: string; text: string; textExpr?: ParsedExpr }
   | { verb: 'format'; range: string; props: Record<string, string> }
-  | { verb: 'reply'; commentId: string; text: string; textExpr?: ParsedExpr }
+  | { verb: 'reply'; commentId: string; text: string; textExpr?: ParsedExpr; resolve?: true }
   // ADR-0006 CLI parity effect verbs — now composition-bearing: the free-text slot accepts a
   // `( <pipeline> )` / `$var` expression (evaluated at dry-run) as well as a quoted literal. The
   // anchor slots (title/subject) stay literal. `slide` bullets accept a table expression whose rows
@@ -306,6 +306,7 @@ export const ParsedCommandSchema: z.ZodType<ParsedCommand> = z.discriminatedUnio
     commentId: z.string(),
     text: z.string(),
     textExpr: z.lazy(() => ParsedExprSchema).optional(),
+    resolve: z.literal(true).optional(),
   }),
   z.object({
     verb: z.literal('slide'),
@@ -1062,16 +1063,18 @@ function parseJsonFormat(rest: string, usage: string): ParsedCommand | CommandPa
 function splitFirstArg(rest: string): { arg: string; tail: string } | undefined {
   const s = rest.trimStart();
   if (!s) return undefined;
-  const m = /^"([^"]*)"(\S*)|'([^']*)'(\S*)|(\S+)/.exec(s);
+  const m = new RegExp(`^"([^"]*)"(\\S*)|(${QUOTED_SHEET_TOKEN})|(\\S+)`).exec(s);
   if (!m) return undefined;
-  const arg =
-    m[1] !== undefined
-      ? `${m[1]}${m[2] ?? ''}`
-      : m[3] !== undefined
-        ? `'${m[3]}'${m[4] ?? ''}`
-        : m[5]!;
+  const arg = m[1] !== undefined ? `${m[1]}${m[2] ?? ''}` : (m[3] ?? m[4]!);
   return { arg, tail: s.slice(m[0]!.length) };
 }
+
+/**
+ * A token that starts with an Excel single-quoted sheet name (`'Branch Performance'!A1:B9`, `''`
+ * escapes a quote). Later areas may quote their sheet too (`'A B'!A1,'A B'!C1`), so the token runs
+ * on through further quoted segments instead of stopping at the space inside the second name.
+ */
+const QUOTED_SHEET_TOKEN = `'(?:[^']|'')*'(?:[^\\s']+|'(?:[^']|'')*')*`;
 
 /** `set A1 "hello world"` is a scalar cell value, not a request to include quote characters. */
 function unquoteSetValue(value: string): string {
@@ -1089,16 +1092,18 @@ function tokenizeArgs(rest: string): { positional: string[]; props: Record<strin
   const props: Record<string, string> = {};
   // Double-quoted values honour `\"` and `\\` escapes, so a quoted value can carry quotes — an
   // OOXML attribute (`ooxml="<w:pStyle w:val=\"Heading1\"/>"`) was otherwise cut at the first one.
-  const re =
-    /(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|'([^']*)'(\S*)|(\S+)/g;
+  const re = new RegExp(
+    `(\\w[\\w-]*)="((?:[^"\\\\]|\\\\.)*)"|(\\w[\\w-]*)=(${QUOTED_SHEET_TOKEN}|\\S+)|` +
+      `"((?:[^"\\\\]|\\\\.)*)"|(${QUOTED_SHEET_TOKEN})|(\\S+)`,
+    'g',
+  );
   const unescape = (s: string): string => s.replace(/\\(["\\])/g, '$1');
   let m: RegExpExecArray | null;
   while ((m = re.exec(rest)) !== null) {
     if (m[1] !== undefined) props[m[1]] = unescape(m[2]!);
     else if (m[3] !== undefined) props[m[3]] = m[4]!;
     else if (m[5] !== undefined) positional.push(unescape(m[5]));
-    else if (m[6] !== undefined) positional.push(`'${m[6]}'${m[7] ?? ''}`);
-    else positional.push(m[8]!);
+    else positional.push(m[6] ?? m[7]!);
   }
   return { positional, props };
 }
@@ -1248,7 +1253,8 @@ function nearestKind(kind: string): string | undefined {
  * which Word/Excel advertise. A missing id or body is a corrective error.
  */
 function parseReply(rest: string): ParsedCommand | CommandParseError {
-  const usage = 'reply needs a comment id and a quoted reply — usage: reply <commentId> "text"';
+  const usage =
+    'reply needs a comment id and a quoted reply — usage: reply <commentId> "text" [resolve]';
 
   // Skip leading whitespace.
   let i = 0;
@@ -1276,8 +1282,11 @@ function parseReply(rest: string): ParsedCommand | CommandParseError {
 
   const body = scanQuoted(rest, i);
   if (!body) return { error: usage };
-  // Anything after the closing quote (other than whitespace) is malformed.
-  if (rest.slice(body.end).trim() !== '') return { error: usage };
+  // After the closing quote: nothing, or `resolve` to also mark the thread resolved (the bridges
+  // always supported it; the verb could not ask, live 2026-10-15 mx-xl-reply-04). Else malformed.
+  const tail = rest.slice(body.end).trim();
+  if (tail === 'resolve') return { verb: 'reply', commentId, text: body.value, resolve: true };
+  if (tail !== '') return { error: usage };
   return { verb: 'reply', commentId, text: body.value };
 }
 
@@ -1460,7 +1469,7 @@ function scanQuotedList(s: string): string[] | null {
 
 /**
  * Scan a double-quoted string starting at `start` (which must index the opening `"`).
- * Honors `\"` (literal quote) and `\\` (literal backslash). Returns the unescaped value and
+ * Honors `\"` (quote), `\\` (backslash), `\n` (line break) and `\t` (tab). Returns the unescaped value and
  * the index just past the closing quote, or `null` if there is no well-formed quoted string.
  */
 export function scanQuoted(s: string, start: number): { value: string; end: number } | null {
@@ -1471,7 +1480,16 @@ export function scanQuoted(s: string, start: number): { value: string; end: numb
     const ch = s[i]!;
     if (ch === '\\' && i + 1 < s.length) {
       const next = s[i + 1]!;
-      value += next === '"' || next === '\\' ? next : `\\${next}`;
+      // `\n` / `\t` are line breaks and tabs: models write them in mail bodies and replies, and a
+      // literal "\n\n" reached Outlook drafts (UAT 2026-10-15). Other escapes stay as written.
+      value +=
+        next === '"' || next === '\\'
+          ? next
+          : next === 'n'
+            ? '\n'
+            : next === 't'
+              ? '\t'
+              : `\\${next}`;
       i += 2;
       continue;
     }
@@ -2011,8 +2029,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'reply':
       return {
         verb: 'reply',
-        usage: 'reply <commentId> "text"',
-        hint: 'reply to an existing comment by its id, e.g. reply {3f2a} "addressed in the redline"',
+        usage: 'reply <commentId> "text" [resolve]',
+        hint: 'reply to an existing comment by its id; add resolve to also mark it resolved, e.g. reply {3f2a} "addressed in the redline" resolve',
       };
     case 'slide':
       return {

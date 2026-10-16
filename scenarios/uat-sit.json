@@ -1,0 +1,438 @@
+[
+  {
+    "id": "uat-pp-1-add-slide",
+    "surface": "powerpoint",
+    "prompt": "Add a slide about our plan to open 5 new branches in Q1",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q4 Branch Network Review",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Network Strategy, October 2026",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Highlights",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Deposits up 14% YoY\nNPL down to 2.1%\n12 new branches",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Open 5 branches in Q1\nClose 2 low-traffic branches",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [1]
+    },
+    "expect": {
+      "appliedAny": ["insert-slide", "add-table-slide"],
+      "documentIncludes": ["branches"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-pp-2-complex-design",
+    "surface": "powerpoint",
+    "prompt": "On slide 2 add three coloured boxes side by side labelled Growth, Risk and People, and a gold line under the title",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q4 Branch Network Review",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Network Strategy, October 2026",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Highlights",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Deposits up 14% YoY\nNPL down to 2.1%\n12 new branches",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Open 5 branches in Q1\nClose 2 low-traffic branches",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [1]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 3
+      },
+      "documentIncludes": ["Growth", "Risk", "People"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-pp-3-triangle",
+    "surface": "powerpoint",
+    "prompt": "Draw a triangle on slide 2",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q4 Branch Network Review",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Network Strategy, October 2026",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Highlights",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Deposits up 14% YoY\nNPL down to 2.1%\n12 new branches",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Open 5 branches in Q1\nClose 2 low-traffic branches",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [1]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      },
+      "documentIncludes": ["Triangle"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-pp-5-star",
+    "surface": "powerpoint",
+    "prompt": "Add a star shape on slide 2",
+    "seed": {
+      "slides": [
+        {
+          "id": "s1",
+          "shapes": [
+            {
+              "text": "Q4 Branch Network Review",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Network Strategy, October 2026",
+              "placeholderType": "Subtitle"
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "shapes": [
+            {
+              "text": "Highlights",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Deposits up 14% YoY\nNPL down to 2.1%\n12 new branches",
+              "placeholderType": "Body"
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "shapes": [
+            {
+              "text": "Next steps",
+              "placeholderType": "Title"
+            },
+            {
+              "text": "Open 5 branches in Q1\nClose 2 low-traffic branches",
+              "placeholderType": "Body"
+            }
+          ]
+        }
+      ],
+      "selectedIndices": [1]
+    },
+    "expect": {
+      "applied": {
+        "add-shape": 1
+      },
+      "documentIncludes": ["Star5"],
+      "documentExcludes": ["\"Rectangle\""]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-xl-7-formula-column",
+    "surface": "excel",
+    "prompt": "Add a new column F called Total that adds Q1 to Q4 with a formula, for every branch",
+    "seed": {
+      "sheets": [
+        {
+          "name": "Branch Performance",
+          "origin": "A1",
+          "values": [
+            ["Branch", "Q1", "Q2", "Q3", "Q4"],
+            ["Sudirman", "100", "110", "120", "130"],
+            ["Thamrin", "107", "115", "126", "134"],
+            ["Kuningan", "114", "120", "132", "138"],
+            ["Kelapa Gading", "121", "125", "138", "142"],
+            ["Bekasi", "128", "130", "144", "146"],
+            ["Depok", "135", "135", "150", "150"],
+            ["Tangerang", "142", "140", "156", "154"],
+            ["Bogor", "149", "145", "162", "158"],
+            ["Bandung", "156", "150", "168", "162"],
+            ["Surabaya", "163", "155", "174", "166"],
+            ["Malang", "170", "160", "180", "170"],
+            ["Semarang", "177", "165", "186", "174"],
+            ["Yogyakarta", "184", "170", "192", "178"],
+            ["Solo", "191", "175", "198", "182"],
+            ["Medan", "198", "180", "204", "186"],
+            ["Palembang", "205", "185", "210", "190"],
+            ["Makassar", "212", "190", "216", "194"],
+            ["Denpasar", "219", "195", "222", "198"],
+            ["Balikpapan", "226", "200", "228", "202"],
+            ["Manado", "233", "205", "234", "206"]
+          ]
+        }
+      ],
+      "selection": "'Branch Performance'!A1:E21"
+    },
+    "expect": {
+      "applied": {
+        "write-cells": 1
+      },
+      "documentIncludes": ["Total", "E21"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-xl-7-formula-column-id",
+    "surface": "excel",
+    "prompt": "Tambahkan kolom baru F berjudul Total dengan rumus penjumlahan Q1 sampai Q4 untuk setiap cabang",
+    "seed": {
+      "sheets": [
+        {
+          "name": "Branch Performance",
+          "origin": "A1",
+          "values": [
+            ["Branch", "Q1", "Q2", "Q3", "Q4"],
+            ["Sudirman", "100", "110", "120", "130"],
+            ["Thamrin", "107", "115", "126", "134"],
+            ["Kuningan", "114", "120", "132", "138"],
+            ["Kelapa Gading", "121", "125", "138", "142"],
+            ["Bekasi", "128", "130", "144", "146"],
+            ["Depok", "135", "135", "150", "150"],
+            ["Tangerang", "142", "140", "156", "154"],
+            ["Bogor", "149", "145", "162", "158"],
+            ["Bandung", "156", "150", "168", "162"],
+            ["Surabaya", "163", "155", "174", "166"],
+            ["Malang", "170", "160", "180", "170"],
+            ["Semarang", "177", "165", "186", "174"],
+            ["Yogyakarta", "184", "170", "192", "178"],
+            ["Solo", "191", "175", "198", "182"],
+            ["Medan", "198", "180", "204", "186"],
+            ["Palembang", "205", "185", "210", "190"],
+            ["Makassar", "212", "190", "216", "194"],
+            ["Denpasar", "219", "195", "222", "198"],
+            ["Balikpapan", "226", "200", "228", "202"],
+            ["Manado", "233", "205", "234", "206"]
+          ]
+        }
+      ],
+      "selection": "'Branch Performance'!A1:E21"
+    },
+    "expect": {
+      "applied": {
+        "write-cells": 1
+      },
+      "documentIncludes": ["Total", "E21"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-xl-8-mom-growth-chart",
+    "surface": "excel",
+    "prompt": "Tambahkan kolom baru C berisi pertumbuhan bulan-ke-bulan (MoM %) dengan rumus, lalu buat grafiknya",
+    "seed": {
+      "sheets": [
+        {
+          "name": "Monthly Deposits",
+          "origin": "A1",
+          "values": [
+            ["Month", "Deposits (IDR bn)"],
+            ["Jan", "5100"],
+            ["Feb", "5180"],
+            ["Mar", "5240"],
+            ["Apr", "5210"],
+            ["May", "5350"],
+            ["Jun", "5420"],
+            ["Jul", "5480"],
+            ["Aug", "5530"],
+            ["Sep", "5610"],
+            ["Oct", "5650"],
+            ["Nov", "5720"],
+            ["Dec", "5810"]
+          ]
+        }
+      ],
+      "selection": "'Monthly Deposits'!A1:B13"
+    },
+    "expect": {
+      "applied": {
+        "write-cells": 1,
+        "insert-chart": 1
+      },
+      "documentIncludes": ["B13"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-ol-sit-1-accept",
+    "surface": "outlook",
+    "prompt": "Create a polite reply that accepts the meeting invitation.",
+    "seed": {
+      "subject": "Invitation: Q4 Branch Network Review - Thu 23 Oct 10:00",
+      "body": "Dear team,\n\nYou are invited to the Q4 Branch Network Review on Thursday 23 October at 10:00 WIB. Please confirm your attendance by replying to this email.\n\nRegards,\nRina Wijaya",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.co.id"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-ol-sit-2-accept-id",
+    "surface": "outlook",
+    "prompt": "Re: [Subjek Undangan]\nIsi pesan (body) memuat teks balasan sopan yang menyatakan penerimaan undangan rapat\nEmail berstatus DRAFT dan TIDAK terkirim secara otomatis sebelum user menekan tombol Send",
+    "seed": {
+      "subject": "Invitation: Q4 Branch Network Review - Thu 23 Oct 10:00",
+      "body": "Dear team,\n\nYou are invited to the Q4 Branch Network Review on Thursday 23 October at 10:00 WIB. Please confirm your attendance by replying to this email.\n\nRegards,\nRina Wijaya",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.co.id"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      }
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-ol-sit-3-line-breaks",
+    "surface": "outlook",
+    "prompt": "Reply in three short paragraphs: thank Rina, confirm I will attend, and say I will bring the branch figures.",
+    "seed": {
+      "subject": "Invitation: Q4 Branch Network Review - Thu 23 Oct 10:00",
+      "body": "Dear team,\n\nYou are invited to the Q4 Branch Network Review on Thursday 23 October at 10:00 WIB. Please confirm your attendance by replying to this email.\n\nRegards,\nRina Wijaya",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.co.id"
+      }
+    },
+    "expect": {
+      "applied": {
+        "reply-mail": 1
+      },
+      "documentExcludes": ["\\\\n"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  },
+  {
+    "id": "uat-ol-sit-4-subject",
+    "surface": "outlook",
+    "prompt": "Change the subject to \"Release Freeze - Friday\".",
+    "seed": {
+      "subject": "Invitation: Q4 Branch Network Review - Thu 23 Oct 10:00",
+      "body": "Dear team,\n\nYou are invited to the Q4 Branch Network Review on Thursday 23 October at 10:00 WIB. Please confirm your attendance by replying to this email.\n\nRegards,\nRina Wijaya",
+      "from": {
+        "displayName": "Rina Wijaya",
+        "emailAddress": "rina.wijaya@example.co.id"
+      }
+    },
+    "expect": {
+      "status": "any",
+      "noErrors": true,
+      "notApplied": ["create-mail"]
+    },
+    "clarification": "NA",
+    "title": "UAT/SIT re-check"
+  }
+]

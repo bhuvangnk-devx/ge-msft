@@ -54,7 +54,7 @@ import { ProvenanceStore, type ChangeRecord, type ShareRecord } from './provenan
 import { renderCommandLine } from './render-command.js';
 import { assertNever } from './assert-never.js';
 import { TurnQueue } from './turn-queue.js';
-import { detectLanguage, kindLabel, type UiLanguage } from './ui-language.js';
+import { blockerText, detectLanguage, kindLabel, type UiLanguage } from './ui-language.js';
 import { documentHash, type InProgress } from './resume-store.js';
 import { ApprovalCoordinator } from './approval-coordinator.js';
 import { findContextRefForLocation, synthesizeLocationRef } from './host-location.js';
@@ -465,6 +465,7 @@ export interface RunStep {
     | 'repair'
     | 'done'
     | 'exhausted'
+    | 'needs-user'
     | 'code-execution'
     | 'activity'
     | 'error';
@@ -1521,6 +1522,16 @@ export class PanelController {
       case 'exhausted':
         this.addStep('exhausted', `Stopped after ${ev.turns} turns`);
         return;
+      case 'needs-user': {
+        // Not an error: say what blocked it and what to do, with no retry that would fail again.
+        const text = blockerText(ev.blocker, this.state.language ?? 'en');
+        this.patchMessage(replyId, (m) => ({
+          text: `${m.text}${m.text ? '\n\n' : ''}${text}`,
+          activity: undefined,
+        }));
+        this.addStep('needs-user', text);
+        return;
+      }
       // SSE variants the command-loop transcript does not surface — explicitly ignored.
       case 'finding':
       case 'slide':

@@ -4,7 +4,7 @@ import { intentsForManifest, type Surface, type ChangeId } from '@ge/contracts';
 import { POWERPOINT_CAPABILITIES } from '@ge/bridge-powerpoint';
 import type { PanelController, PanelState } from '../controller.js';
 import { makeDemoController } from './preview-interactive.js';
-import { App } from './components/App.js';
+import { App, type AppProps } from './components/App.js';
 import {
   FIXTURE_CHIPS,
   FIXTURE_MESSAGES,
@@ -192,6 +192,15 @@ function Preview(): JSX.Element {
   );
   useEffect(() => () => controller.cancel(), [controller]);
 
+  // An empty engine catalog, so the ⋯ menu shows its Routing item in the harness.
+  const catalogClient = useMemo(
+    () =>
+      ({
+        listCatalog: async () => ({ skills: [], dataStores: [], connectors: [] }),
+      }) as unknown as NonNullable<AppProps['catalogClient']>,
+    [],
+  );
+
   const panel = (
     <div className="preview-stage">
       <div
@@ -201,6 +210,7 @@ function Preview(): JSX.Element {
       >
         <App
           diagnosticsScope="preview"
+          catalogClient={catalogClient}
           key={`${surface}-${interactive}`}
           controller={controller}
           surface={surface}

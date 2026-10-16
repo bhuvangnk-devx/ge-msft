@@ -2315,8 +2315,10 @@ describe('AssistSession.runCommands — the bounded command loop', () => {
 
   it('stops at maxTurns without done (exhausted)', async () => {
     const bridge = new FakeExcelBridge();
-    // Every turn emits a read, never done.
-    const { client } = fakeClient(Array(20).fill('```cmd\noutline\n```'));
+    // Every turn emits a different read, never done (an identical one stops earlier: no progress).
+    const { client } = fakeClient(
+      Array.from({ length: 20 }, (_, i) => `\`\`\`cmd\nread Sheet1!A${i + 1}\n\`\`\``),
+    );
     const session = new AssistSession(bridge, client, { unit });
 
     const events = await collect(session.runCommands('loop forever', { maxTurns: 3 }));

@@ -365,12 +365,43 @@ export interface WordHost {
  * re-resolve that degrades a drifted finding, and the defensive event registration/teardown.
  */
 export class OfficeWordHost implements WordHost {
+  /**
+   * `trackEdits` (default on): every text edit is recorded as a Word tracked change, so a reviewer
+   * accepts or rejects each one (CIMB decision 2026-10-15). It is the one switch for all edits.
+   */
+  constructor(private readonly options: { readonly trackEdits?: boolean } = {}) {}
+
+  /**
+   * Runs one document edit as a tracked change when `trackEdits` is on, then puts the user's own
+   * Track Changes setting back. WordApi 1.6: anchored edits must skip tracked deletions
+   * (`withoutTrackedDeletions`), which needs 1.6, so tracking is never on without that filter.
+   */
+  private edit<T>(batch: (ctx: Word.RequestContext) => Promise<T>): Promise<T> {
+    return Word.run(async (ctx) => {
+      if (this.options.trackEdits === false || !isSet('WordApi', '1.6')) return batch(ctx);
+      const doc = ctx.document;
+      doc.load('changeTrackingMode');
+      await ctx.sync();
+      const prior = doc.changeTrackingMode;
+      doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+      try {
+        return await batch(ctx);
+      } finally {
+        if (prior !== Word.ChangeTrackingMode.trackAll) {
+          doc.changeTrackingMode = prior;
+          // Never mask the edit's own outcome with a failed restore.
+          await ctx.sync().catch(() => undefined);
+        }
+      }
+    });
+  }
+
   async readSelectionText(): Promise<string> {
     return Word.run(async (ctx) => {
       const sel = ctx.document.getSelection();
       sel.load('text');
       await ctx.sync();
-      return sel.text;
+      return (await reviewedText(ctx, sel)) ?? sel.text;
     });
   }
 
@@ -379,7 +410,7 @@ export class OfficeWordHost implements WordHost {
       const body = ctx.document.body;
       body.load('text');
       await ctx.sync();
-      return body.text;
+      return (await reviewedText(ctx, body)) ?? body.text;
     });
   }
 
@@ -674,7 +705,7 @@ export class OfficeWordHost implements WordHost {
     text: string,
     choose: ChooseHit,
   ): Promise<InsertOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       if (query === undefined) {
         // No anchor → insert at the current selection (replace its content with the new text).
         const sel = ctx.document.getSelection();
@@ -686,8 +717,10 @@ export class OfficeWordHost implements WordHost {
       results.load('items/text');
       // Read-then-write: re-resolve the anchor before inserting so a drifted finding degrades.
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       // Insert AFTER the anchored range (a direct edit appends to the matched content).
       range.insertText(text, Word.InsertLocation.after);
@@ -697,7 +730,7 @@ export class OfficeWordHost implements WordHost {
   }
 
   async replaceSelection(text: string): Promise<ReplaceSelectionOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       const sel = ctx.document.getSelection();
       // Capture the prior selection text BEFORE overwriting — this is the inverse's restore payload.
       sel.load('text');
@@ -716,7 +749,7 @@ export class OfficeWordHost implements WordHost {
     ooxml: string,
     choose: ChooseHit,
   ): Promise<InsertOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       if (query === undefined) {
         const sel = ctx.document.getSelection();
         sel.insertOoxml(ooxml, Word.InsertLocation.replace);
@@ -726,8 +759,10 @@ export class OfficeWordHost implements WordHost {
       const results = ctx.document.body.search(query, { matchCase: opts.matchCase });
       results.load('items/text');
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       // Block content (a paragraph or table) goes after the anchor's paragraph: inserted after the
       // matched text it merged into that sentence ("…may terminateSummary", live 2026-10-01).
@@ -745,7 +780,7 @@ export class OfficeWordHost implements WordHost {
     contentControlId: string,
     text: string,
   ): Promise<FillContentControlOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       // `getByIdOrNullObject` resolves the named container; a stale id yields a null object (no
       // throw), which we degrade to `gone` — the content-control analogue of anchor drift.
       const cc = ctx.document.contentControls.getByIdOrNullObject(Number(contentControlId));
@@ -767,7 +802,7 @@ export class OfficeWordHost implements WordHost {
     builtIn: boolean,
     choose: ChooseHit,
   ): Promise<ApplyStyleOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       // `styleBuiltIn` is the locale-portable name but needs WordApi 1.3; the localized `style`
       // is WordApi 1.1 — the bridge gates per variant, this batch writes whichever was planned.
       const writeStyle = (target: Word.Range): void => {
@@ -787,8 +822,10 @@ export class OfficeWordHost implements WordHost {
       results.load('items/text');
       // Read-then-write: re-resolve the anchor before styling so a drifted finding degrades.
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       range.load('style');
       await ctx.sync();
@@ -807,7 +844,7 @@ export class OfficeWordHost implements WordHost {
     values: readonly (readonly string[])[],
     choose: ChooseHit,
   ): Promise<InsertTableOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       if (query === undefined) {
         const sel = ctx.document.getSelection();
         sel.insertTable(rowCount, columnCount, Word.InsertLocation.after, values as string[][]);
@@ -817,8 +854,10 @@ export class OfficeWordHost implements WordHost {
       const results = ctx.document.body.search(query, { matchCase: opts.matchCase });
       results.load('items/text');
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       range.insertTable(rowCount, columnCount, Word.InsertLocation.after, values as string[][]);
       await ctx.sync();
@@ -834,7 +873,7 @@ export class OfficeWordHost implements WordHost {
     title: string | undefined,
     choose: ChooseHit,
   ): Promise<InsertContentControlOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       // The `contentControlType` parameter itself arrived in WordApi 1.5 — omit it entirely on the
       // default rich-text path so a 1.1 host still gets a control. tag/title setters are WordApi 1.1.
       const controlTypeArg =
@@ -860,8 +899,10 @@ export class OfficeWordHost implements WordHost {
       const results = ctx.document.body.search(query, { matchCase: opts.matchCase });
       results.load('items/text');
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       const cc = wrap(range);
       cc.load('id');
@@ -880,7 +921,7 @@ export class OfficeWordHost implements WordHost {
     url: string,
     choose: ChooseHit,
   ): Promise<InsertHyperlinkOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       if (query === undefined) {
         const sel = ctx.document.getSelection();
         sel.load('hyperlink');
@@ -893,8 +934,10 @@ export class OfficeWordHost implements WordHost {
       const results = ctx.document.body.search(query, { matchCase: opts.matchCase });
       results.load('items/text');
       await ctx.sync();
-      const idx = choose(results.items.map((r) => r.text));
-      const range = idx >= 0 ? results.items[idx] : undefined;
+      // A tracked deletion still matches the search: never anchor an edit on struck-out text.
+      const live = await withoutTrackedDeletions(ctx, results.items);
+      const idx = choose(live.map((r) => r.text));
+      const range = idx >= 0 ? live[idx] : undefined;
       if (!range) return { status: 'drift' };
       range.load('hyperlink');
       await ctx.sync();
@@ -910,7 +953,7 @@ export class OfficeWordHost implements WordHost {
     replace: string,
     opts: { readonly matchCase: boolean; readonly matchWholeWord: boolean },
   ): Promise<FindReplaceOutcome> {
-    return Word.run(async (ctx) => {
+    return this.edit(async (ctx) => {
       const results = ctx.document.body.search(find, {
         matchCase: opts.matchCase,
         matchWholeWord: opts.matchWholeWord,
@@ -1087,6 +1130,21 @@ async function reviewedTexts(
     return reviewed.map((r) => r.value);
   } catch {
     return [];
+  }
+}
+
+/** Body or selection text without tracked deletions (see {@link reviewedTexts}); undefined = use `.text`. */
+async function reviewedText(
+  ctx: Word.RequestContext,
+  target: Word.Body | Word.Range,
+): Promise<string | undefined> {
+  if (!isSet('WordApi', '1.4') || typeof target.getReviewedText !== 'function') return undefined;
+  try {
+    const reviewed = target.getReviewedText('Current');
+    await ctx.sync();
+    return reviewed.value;
+  } catch {
+    return undefined;
   }
 }
 

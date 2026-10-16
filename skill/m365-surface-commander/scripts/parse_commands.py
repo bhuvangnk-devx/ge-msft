@@ -102,7 +102,12 @@ def _scan_quoted(rest: str):
     m = _QUOTED.match(rest.strip())
     if not m:
         return None
-    val = m.group(1).replace('\\"', '"').replace("\\\\", "\\")
+    # Mirrors scanQuoted: \" \\ \n \t decode; other escapes stay as written.
+    val = re.sub(
+        r'\\(["\\nt])',
+        lambda e: {'"': '"', "\\": "\\", "n": "\n", "t": "\t"}[e.group(1)],
+        m.group(1),
+    )
     return val, rest.strip()[m.end():].strip()
 
 
@@ -115,15 +120,13 @@ def _split_first_arg(rest: str):
     s = rest.lstrip()
     if not s:
         return None
-    m = re.match(r'"([^"]*)"(\S*)|\'([^\']*)\'(\S*)|(\S+)', s)
+    m = re.match(r'"([^"]*)"(\S*)|(' + _QUOTED_SHEET + r')|(\S+)', s)
     if not m:
         return None
     if m.group(1) is not None:
         arg = f"{m.group(1)}{m.group(2) or ''}"
-    elif m.group(3) is not None:
-        arg = f"'{m.group(3)}'{m.group(4) or ''}"
     else:
-        arg = m.group(5)
+        arg = m.group(3) if m.group(3) is not None else m.group(4)
     return arg, s[m.end():]
 
 
@@ -142,7 +145,14 @@ def _parse_grid_body(body: str):
 # `key="quoted"` / `key=bare` match yields a prop; anything else is positional (a range, a chart
 # type, a bare CF mode like `databar`).
 # Double-quoted values honour \" and \\ escapes (mirrors tokenizeArgs in command-grammar.ts).
-_TOKENIZE = re.compile(r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(\S+)|"((?:[^"\\]|\\.)*)"|(\S+)')
+# A token starting with a single-quoted sheet name runs on through later quoted areas
+# ('A B'!A1,'A B'!C1); mirrors QUOTED_SHEET_TOKEN in command-grammar.ts.
+_QUOTED_SHEET = r"'(?:[^']|'')*'(?:[^\s']+|'(?:[^']|'')*')*"
+_TOKENIZE = re.compile(
+    r'(\w[\w-]*)="((?:[^"\\]|\\.)*)"|(\w[\w-]*)=(' + _QUOTED_SHEET + r'|\S+)|"((?:[^"\\]|\\.)*)"|('
+    + _QUOTED_SHEET
+    + r'|\S+)'
+)
 
 
 def _unescape(value: str) -> str:
@@ -689,8 +699,12 @@ def parse_line(line: str):
         m = re.match(r"(\S+)\s+", rest)
         q = _QUOTED.search(rest)
         if not m or not q:
-            return {"error": 'reply needs a comment id and a quoted reply — usage: reply <id> "text"'}
-        return {"verb": "reply", "commentId": m.group(1), "text": q.group(1)}
+            return {"error": 'reply needs a comment id and a quoted reply — usage: reply <id> "text" [resolve]'}
+        out = {"verb": "reply", "commentId": m.group(1), "text": q.group(1)}
+        # `resolve` after the quoted text also marks the thread resolved (mirrors parseReply).
+        if rest[q.end():].strip() == "resolve":
+            out["resolve"] = True
+        return out
 
     if verb in ("page", "compose"):
         qs = _QUOTED.findall(rest)

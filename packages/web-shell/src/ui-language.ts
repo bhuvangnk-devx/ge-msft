@@ -1,3 +1,5 @@
+import type { TaskBlocker } from '@ge/contracts';
+
 /**
  * The pane follows the language the user started the conversation in (English or Bahasa
  * Indonesia). There is no language setting: the first request decides, and a new chat decides again.
@@ -134,6 +136,12 @@ const KIND_LABEL: Record<UiLanguage, Record<string, string>> = {
     'delete-slide': 'Slide removal',
     'manage-worksheet': 'Sheet',
     'resolve-revisions': 'Tracked changes',
+    'insert-pivot': 'Pivot table',
+    'sort-range': 'Sort',
+    'filter-range': 'Filter',
+    'format-chart': 'Chart format',
+    'insert-image': 'Image',
+    'apply-slide-layout': 'Slide layout',
   },
   id: {
     'write-cells': 'Sel',
@@ -163,8 +171,56 @@ const KIND_LABEL: Record<UiLanguage, Record<string, string>> = {
     'delete-slide': 'Penghapusan slide',
     'manage-worksheet': 'Sheet',
     'resolve-revisions': 'Perubahan terlacak',
+    'insert-pivot': 'Pivot table',
+    'sort-range': 'Urutkan',
+    'filter-range': 'Filter',
+    'format-chart': 'Format grafik',
+    'insert-image': 'Gambar',
+    'apply-slide-layout': 'Tata letak slide',
   },
 };
+
+/**
+ * The one sentence a task that stopped for the user ends with: what blocked it and what to do.
+ * Built from closed codes and the target address only, never from host or model text.
+ */
+export function blockerText(blocker: TaskBlocker, lang: UiLanguage): string {
+  const id = lang === 'id';
+  if (blocker.cause === 'not_supported') {
+    const can = blocker.available.map((kind) => kindLabel(kind, lang).toLowerCase()).join(', ');
+    const what = kindLabel(blocker.kind, lang);
+    return id
+      ? `CN-GPT belum bisa melakukan ini: ${what}. Yang bisa saya bantu: ${can}.`
+      : `CN-GPT can't do this yet: ${what}. I can help with: ${can}.`;
+  }
+  if (blocker.cause === 'no_progress')
+    return id
+      ? 'Saya tidak bisa menyelesaikan ini: saya sudah memeriksa dokumen, tetapi tidak menemukan cara melakukannya dengan perubahan yang bisa saya buat di sini. Coba jelaskan dengan cara lain, atau lakukan langkah ini langsung di Office.'
+      : "I couldn't finish this: I checked the document but found no way to do it with the changes I can make here. Try asking in a different way, or do this step in Office directly.";
+  const where = blocker.location ?? (id ? 'Bagian ini' : 'This part of the document');
+  switch (blocker.reason) {
+    case 'protected':
+      return id
+        ? `${where} dilindungi atau hanya-baca, jadi tidak bisa saya ubah. Matikan proteksi (di Excel: Review → Unprotect Sheet), lalu minta lagi.`
+        : `${where} is protected or read-only, so I couldn't change it. Turn off protection (in Excel: Review → Unprotect Sheet), then ask again.`;
+    case 'edit_mode':
+      return id
+        ? 'Excel sedang mengedit sebuah sel. Tekan Enter atau Esc untuk selesai mengedit, lalu minta lagi.'
+        : 'Excel is still editing a cell. Press Enter or Esc to finish editing, then ask again.';
+    case 'conflict':
+      return id
+        ? `${where} bertabrakan dengan sel gabungan, tabel, filter, atau PivotTable, jadi tidak bisa saya ubah. Pilih tempat lain, lalu minta lagi.`
+        : `${where} overlaps merged cells, a table, a filter or a PivotTable, so I couldn't change it. Choose another place, then ask again.`;
+    case 'not_found':
+      return id
+        ? `${where} tidak ditemukan. Mungkin sudah diganti nama atau dihapus. Periksa, lalu minta lagi.`
+        : `I couldn't find ${where}. It may have been renamed or deleted. Check it, then ask again.`;
+    case 'unsupported_api':
+      return id
+        ? `Versi Office ini belum mendukung perubahan ini (${kindLabel(blocker.kind, lang)}). Coba di Office versi web atau versi terbaru.`
+        : `This version of Office can't make this change (${kindLabel(blocker.kind, lang)}). Try Office on the web or a newer version.`;
+  }
+}
 
 /** A plain noun for a change kind (read before and after it runs, so never past tense), falling back to the kind with dashes as spaces. */
 export function kindLabel(kind: string, lang: UiLanguage): string {

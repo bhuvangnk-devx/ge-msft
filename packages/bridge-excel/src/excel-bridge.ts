@@ -555,6 +555,8 @@ export class ExcelBridge implements DocBridge {
           ? ctx.workbook.worksheets.getItem(sheetName)
           : ctx.workbook.worksheets.getActiveWorksheet();
       const range = sheet.getRange(rangeAddress);
+      const refused = await protectedSheetRefusal(ctx, sheet, range, req, true);
+      if (refused) return refused;
       const before = await snapshotRange(range, ctx, await excelDocumentId());
       const pinned: CellRequest = {
         ...req,
@@ -691,6 +693,8 @@ export class ExcelBridge implements DocBridge {
           ? ctx.workbook.worksheets.getItem(sheetName)
           : ctx.workbook.worksheets.getActiveWorksheet();
       const range = sheet.getRange(rangeAddress);
+      const refused = await protectedSheetRefusal(ctx, sheet, range, req, false);
+      if (refused) return refused;
       // Each facet maps to one `range.format.*` write, applied only when present in the plan. All
       // four are ExcelApi 1.1 (typings: `RangeFont.bold` l.42865, `.italic` l.42879,
       // `RangeFill.color` l.42619, `Range.numberFormat` l.38249, `Range.format` l.38092), so no
@@ -1343,6 +1347,35 @@ async function addAreaChart(
     throw error;
   }
   return chart;
+}
+
+/**
+ * A protected sheet refuses the write, so say so before trying: a certain non-write the user can
+ * fix (Review → Unprotect Sheet). Values may still go into cells the owner unlocked; formatting
+ * is refused either way (the default protection). ExcelApi 1.2; older hosts skip the check.
+ */
+async function protectedSheetRefusal(
+  ctx: Excel.RequestContext,
+  sheet: Excel.Worksheet,
+  range: Excel.Range,
+  req: ActuationRequest,
+  unlockedCellsAllowed: boolean,
+): Promise<ActuationResult | undefined> {
+  if (!isSet('ExcelApi', '1.2')) return undefined;
+  sheet.protection.load('protected');
+  range.load('address');
+  if (unlockedCellsAllowed) range.format.protection.load('locked');
+  await ctx.sync();
+  if (!sheet.protection.protected) return undefined;
+  // `locked` is null when the range mixes locked and unlocked cells: treat that as locked.
+  if (unlockedCellsAllowed && range.format.protection.locked === false) return undefined;
+  return {
+    ok: false,
+    changeId: req.changeId,
+    kind: req.kind,
+    location: range.address,
+    error: { code: 'host_refused', reason: 'protected', message: 'The sheet is protected.' },
+  };
 }
 
 export function parseAddress(address: string): { sheetName?: string; rangeAddress: string } {
