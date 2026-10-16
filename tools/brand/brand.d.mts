@@ -13,6 +13,8 @@ export interface Brand {
   promptRules?: Array<
     string | { text: string; surfaces?: string[]; turns?: Array<'chat' | 'planner' | 'command'> }
   >;
+  /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
+  draftGreeting?: { replace: string[]; with: string };
   fontStylesheet: string;
   iconsDir: string;
   themePath: string | null;
@@ -27,6 +29,8 @@ export interface BrandText {
   promptRules?: Array<
     string | { text: string; surfaces?: string[]; turns?: Array<'chat' | 'planner' | 'command'> }
   >;
+  /** Outlook drafts starting with one of `replace` start with `with` instead (before approval). */
+  draftGreeting?: { replace: string[]; with: string };
 }
 export const brandsRoot: string;
 export const BRAND_ICONS: readonly string[];

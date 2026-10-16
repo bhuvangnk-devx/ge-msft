@@ -77,6 +77,23 @@ export function loadBrand(id = selectedBrand()) {
       rule.text.trim() &&
       list(rule.surfaces, (s) => typeof s === 'string' && s.trim()) &&
       list(rule.turns, (t) => ['chat', 'planner', 'command'].includes(t)));
+  const g = raw.draftGreeting;
+  if (
+    g !== undefined &&
+    !(
+      g &&
+      typeof g === 'object' &&
+      typeof g.with === 'string' &&
+      g.with.trim() &&
+      Array.isArray(g.replace) &&
+      g.replace.length > 0 &&
+      g.replace.every((w) => typeof w === 'string' && w.trim())
+    )
+  ) {
+    throw new Error(
+      `brands/${id}/brand.json: "draftGreeting" must be { "replace": ["…"], "with": "…" }.`,
+    );
+  }
   if (
     raw.promptRules !== undefined &&
     (!Array.isArray(raw.promptRules) || !raw.promptRules.every(validRule))
@@ -105,6 +122,7 @@ export function loadBrand(id = selectedBrand()) {
     ...(raw.tagline ? { tagline: raw.tagline } : {}),
     ...(raw.promptName ? { promptName: raw.promptName } : {}),
     ...(raw.promptRules?.length ? { promptRules: raw.promptRules } : {}),
+    ...(raw.draftGreeting ? { draftGreeting: raw.draftGreeting } : {}),
     fontStylesheet: raw.fontStylesheet,
     iconsDir,
     themePath: existsSync(themePath) ? themePath : null,
@@ -121,6 +139,7 @@ export function brandText(brand) {
     ...(brand.tagline ? { tagline: brand.tagline } : {}),
     ...(brand.promptName ? { promptName: brand.promptName } : {}),
     ...(brand.promptRules?.length ? { promptRules: brand.promptRules } : {}),
+    ...(brand.draftGreeting ? { draftGreeting: brand.draftGreeting } : {}),
   };
 }
 

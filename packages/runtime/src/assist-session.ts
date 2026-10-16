@@ -112,6 +112,7 @@ import {
 import { byteLength, truncateToBytes } from './docfs/bytes.js';
 import { RuntimeHooks, HookBlockedError, snapshot } from './hooks.js';
 import { ExecutionLedger, type RunOutcome, type TaskMode } from './execution-ledger.js';
+import { withDraftGreeting, type DraftGreeting } from './draft-greeting.js';
 
 /**
  * Bounded-history compaction policy for the resident `SessionContext` (ADR-0003, element 5).
@@ -476,6 +477,8 @@ export interface AssistSessionOptions {
   commandDisclosure?: 'compact' | 'full';
   /** Internal command/planner exchanges default to isolated v1alpha requests; chat keeps its session. */
   commandSessionMode?: 'sessionless' | 'conversation';
+  /** A brand's email opening: Outlook drafts that start with one of `replace` start with `with`. */
+  draftGreeting?: DraftGreeting;
   /** Deterministic live state is the sessionless default; transcript replays all prior observations. */
   commandContextMode?: 'projection' | 'transcript';
   /** Maximum UTF-8 query bytes for a complete sessionless command capsule (default 64 KiB). */
@@ -2372,7 +2375,13 @@ export class AssistSession {
       return;
     }
 
-    const resolved = await this.resolveEffect(command);
+    const effect = await this.resolveEffect(command);
+    // A brand's email opening ("Halo", not "Yth.") is applied here, before the dry-run and the
+    // approval card, so the user reviews exactly the text that reaches the draft.
+    const resolved =
+      'error' in effect
+        ? effect
+        : { ...effect, request: withDraftGreeting(effect.request, this.options.draftGreeting) };
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).

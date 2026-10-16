@@ -55,6 +55,8 @@ export interface ShellConfig {
   assistantName?: string;
   /** Brand writing rules sent with the name on every turn; only the open app's are kept. */
   assistantRules?: readonly PromptRule[];
+  /** The brand's email opening for Outlook drafts (e.g. "Halo", not "Yth."). */
+  draftGreeting?: { readonly replace: readonly string[]; readonly with: string };
 }
 
 /**
@@ -218,6 +220,7 @@ export async function composeSession(opts: ComposeOptions): Promise<ComposedSess
 
   const session = new AssistSession(bridge, client, {
     unit,
+    ...(config.draftGreeting ? { draftGreeting: config.draftGreeting } : {}),
     recoveryOwner: identity.oid ?? identity.username,
     evidence: new EvidencePipeline({
       search: new SearchClient(

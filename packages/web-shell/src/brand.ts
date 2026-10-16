@@ -20,6 +20,11 @@ export interface Brand {
    * wording only in Outlook, only when the assistant writes the email).
    */
   readonly promptRules?: readonly PromptRule[];
+  /**
+   * Outlook drafts that START with one of `replace` start with `with` instead (e.g. "Halo", not
+   * "Yth."). Applied before the approval card; only the opening words change.
+   */
+  readonly draftGreeting?: { readonly replace: readonly string[]; readonly with: string };
 }
 
 /** The turns a rule can be limited to: answering, planning, or writing into the document/email. */

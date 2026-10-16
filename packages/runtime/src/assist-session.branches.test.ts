@@ -353,6 +353,35 @@ describe('AssistSession.runCommands — surface effect-arg expressions resolve a
     expect(mail?.body).toBe('350');
   });
 
+  it("a brand's draft greeting reaches the approval card and the draft (Yth. → Halo)", async () => {
+    const bridge = composeBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nmail "Yth. Pak Budi,\\n\\nSaya setuju dengan jadwalnya."\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, {
+      unit,
+      context: { docState: false },
+      draftGreeting: { replace: ['Yth.', 'Yth', 'Yang terhormat'], with: 'Halo' },
+    });
+    const reviewed: string[] = [];
+    await collectLoop(
+      session.runCommands('reply', {
+        approvePlan: (effects) => {
+          for (const e of effects) {
+            reviewed.push((e.request.params.mail as { body: string }).body);
+          }
+          return true;
+        },
+      }),
+    );
+    expect(reviewed[0]).toMatch(/^Halo Pak Budi,/);
+    const mail = bridge.applied[0]!.params.mail as { body: string };
+    expect(mail.body).toMatch(/^Halo Pak Budi,/);
+    expect(mail.body).toContain('Saya setuju dengan jadwalnya.');
+  });
+
   it('compose (bodyExpr) resolves an expression and keeps the literal subject', async () => {
     const bridge = composeBridge();
     const { fetch } = scriptedFetch([
