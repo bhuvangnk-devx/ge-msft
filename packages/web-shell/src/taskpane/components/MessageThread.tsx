@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { ChatMessage, ResultChange } from '../../controller.js';
 import { uiStrings, type UiLanguage } from '../../ui-language.js';
 import {
+  ALL_VERBS,
   CONFIRMED_PLAN_OPEN,
   isCommandParseError,
   parseCommandLine,
@@ -811,14 +812,21 @@ function WorkingIndicator({ activity }: { activity?: string }): JSX.Element {
 /** Command structure a sentence rarely has: a sheet/cell reference, an `=` or a quoted value. */
 const COMMAND_STRUCTURE = /["=!]|\b[A-Z]{1,3}\d+\b/;
 
+/** Words that start a command or program line (`finish when=verified`, `let $x = …`). */
+const COMMAND_WORDS = new Set<string>([...ALL_VERBS, 'finish', 'let']);
+
 /**
  * A line the model wrote as a command rather than prose: lowercase (sentences start with a capital),
  * parsed by the real command grammar, and carrying command structure, so "Read the summary below." or
  * "Done! The chart is ready." stay visible. A bare `done` closes a narrated program.
  */
-function isNarratedCommand(line: string): boolean {
+function isNarratedCommand(line: string, inFence = false): boolean {
   const t = line.trim();
   if (t === 'done') return true;
+  // A command the grammar rejects is still a command (CIMB UAT 2026-10-16: `set I2 ""`,
+  // `finish when=verified`, a bare `save` in a fence showed in an Excel reply).
+  const word = /^\/?([a-z][\w-]*)/.exec(t)?.[1];
+  if (word && COMMAND_WORDS.has(word) && (inFence || COMMAND_STRUCTURE.test(t))) return true;
   // A binding (`let $data = read 'Sheet'!A1:Q49`) is program syntax the line parser does not take.
   const binding = /^let \$\w+ = (.+)$/.exec(t);
   if (binding) return isNarratedCommand(binding[1] ?? '') || /^read\b/.test(binding[1] ?? '');
@@ -871,7 +879,7 @@ export function stripCommandBlocks(
       const protocol = label === 'cmd' || label === 'plan';
       const allCommands =
         body.some((l) => l.trim()) &&
-        joinQuotedLines(body).every((l) => !l.trim() || isNarratedCommand(l));
+        joinQuotedLines(body).every((l) => !l.trim() || isNarratedCommand(l, true));
       if ((protocol && (closed || streaming)) || (closed && allCommands)) {
         hidden++;
         inNarration = false;
@@ -881,7 +889,10 @@ export function stripCommandBlocks(
       if (protocol && !closed) {
         // Finished reply, fence never closed (live 2026-10-13: the command showed as a code block).
         let j = i + 1;
-        while (j < lines.length && (!(lines[j] ?? '').trim() || isNarratedCommand(lines[j] ?? '')))
+        while (
+          j < lines.length &&
+          (!(lines[j] ?? '').trim() || isNarratedCommand(lines[j] ?? '', true))
+        )
           j++;
         if (j > i + 1) {
           hidden++;

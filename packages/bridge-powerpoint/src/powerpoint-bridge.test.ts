@@ -1432,6 +1432,19 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     expect(appended?.shapes[1]?.text).toBe('Point A\nPoint B');
   });
 
+  it('turns a literal \\n in slide text into a real line break (CIMB UAT 2026-10-16)', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    await new PowerPointBridge().actuate(
+      insertSlide({
+        slide: { title: 'Lifecycle\\nControl', bullets: ['Pre-Deployment\\n• Checklist'] },
+      }),
+    );
+    const appended = d.slides[d.slides.length - 1];
+    expect(appended?.shapes[0]?.text).toBe('Lifecycle\nControl');
+    expect(appended?.shapes[1]?.text).toBe('Pre-Deployment\n• Checklist');
+  });
+
   it('writes a title-only slide without touching the body placeholder', async () => {
     const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
     installed = install(d);
@@ -2004,6 +2017,13 @@ describe('PowerPointBridge.actuate set-shape-text', () => {
       }
     },
   );
+
+  it('turns a literal \\n in shape text into a real line break', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    installed = install(d);
+    await new PowerPointBridge().actuate(setShapeText('s2', 's2-shape-1', 'Pat\\nSam'));
+    expect(d.slides[1]?.shapes[1]?.text).toBe('Pat\nSam');
+  });
 
   it('rewrites one addressed shape and records the inverse text', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);

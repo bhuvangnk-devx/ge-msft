@@ -200,10 +200,16 @@ export const PANE_INSTRUCTIONS_CLOSE = '</pane_instructions>';
 const PANE_BLOCK = /^\s*<pane_instructions>[\s\S]*?<\/pane_instructions>\s*/;
 /** The unmarked name line sent before 2026-10-16 ("Your name is CNGPT. …"), then a blank line. */
 const LEGACY_NAME_LINE = /^\s*Your name is [^\n]*(?:\n[^\n]+)*\n\n/;
+/**
+ * The same line sent as its own part (with attached context, e.g. every Outlook turn): no blank
+ * line follows it (CIMB UAT 2026-10-16: shown above the user's question).
+ */
+const LEGACY_NAME_PART =
+  /^\s*Your name is [^\n]+? only; never call yourself Gemini or Gemini Enterprise\.\s*$/;
 
 /** A query text without the pane's instruction block (or the older unmarked name line). */
 export function withoutPaneInstructions(text: string): string {
-  return text.replace(PANE_BLOCK, '').replace(LEGACY_NAME_LINE, '');
+  return text.replace(PANE_BLOCK, '').replace(LEGACY_NAME_LINE, '').replace(LEGACY_NAME_PART, '');
 }
 
 /**

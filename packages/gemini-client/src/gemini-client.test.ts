@@ -348,12 +348,14 @@ describe('ConversationClient', () => {
           },
           { query: { parts: [{ text: paneInstructions('CNGPT')! }, { text: question }] } },
           { query: { text: `${legacy}\n\n${question}` } },
+          // Old wording as its own part, as Outlook sent it with the email attached.
+          { query: { parts: [{ text: legacy }, { text: question }] } },
         ],
       }),
     );
     const client = new ConversationClient(tokens, cfg(), f as never);
     const out = await client.getConversation('s5');
-    expect(out.turns.map((t) => t.userText)).toEqual([question, question, question]);
+    expect(out.turns.map((t) => t.userText)).toEqual([question, question, question, question]);
     expect(out.title).toBe(question);
   });
 
