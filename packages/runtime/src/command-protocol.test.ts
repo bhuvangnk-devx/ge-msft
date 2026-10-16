@@ -7,6 +7,7 @@ import type {
   DocStateSnapshot,
   ResolvedContext,
   SseEvent,
+  Surface,
 } from '@ge/contracts';
 import { ActuationRequestSchema, parseCommandLine } from '@ge/contracts';
 import type { StreamAssistClient, StreamOptions } from '@ge/gemini-client';
@@ -41,6 +42,31 @@ describe('compileCommand', () => {
       },
     });
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+  });
+
+  it('turns the \n escape into a line break in quoted text, keeping \\n literal (live 2026-10-14)', () => {
+    // Commands are one line, so the model writes line breaks as `\n`; Outlook showed them literally.
+    const compiled = (line: string, surface: Surface) => {
+      const parsed = parseCommandLine(line);
+      if ('error' in parsed) throw new Error(parsed.error);
+      const c = compileCommand(parsed, { surface, mintChangeId: mint });
+      return 'request' in c ? c.request.params : c;
+    };
+    expect(compiled('mail "Halo Irpan,\\n\\nSalam,\\nAdele"', 'outlook')).toEqual({
+      mail: { body: 'Halo Irpan,\n\nSalam,\nAdele' },
+    });
+    expect(compiled('post "Update:\\n- done"', 'teams')).toMatchObject({
+      text: 'Update:\n- done',
+    });
+    // An escaped backslash stays a backslash: a path or LaTeX survives in written text.
+    expect(compiled('comment "Budget" "Saved in C:\\\\new folder"', 'word')).toMatchObject({
+      target: { matchText: 'Budget' },
+      text: 'Saved in C:\\new folder',
+    });
+    // Props decode the same way, so nested fields built from them get real line breaks too.
+    expect(compiled('/set-body text="Hi,\\nThanks"', 'outlook')).toMatchObject({
+      mail: { body: 'Hi,\nThanks' },
+    });
   });
 
   it('compiles `suggest` → a tracked-change with target.matchText', () => {
