@@ -154,8 +154,9 @@ describe('Word stale-anchor degrade (full-stack interplay)', () => {
     await ui!.flush();
 
     const snap = sim.snapshot();
+    // Word-level tracked edit: only the changed word of the anchor is replaced (CIMB UAT #17).
     expect(snap.inserts.length).toBe(1);
-    expect(snap.inserts[0]?.anchor).toBe(ANCHOR);
+    expect(ANCHOR).toContain(snap.inserts[0]!.anchor);
     expect(snap.bodyText).toContain(SUGGESTION);
     expect(snap.changeTrackingMode).toBe('TrackAll');
     // The clean apply DID record durable provenance (the stale case above recorded none).
