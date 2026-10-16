@@ -599,7 +599,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: '/insert-table',
     title: 'Word native table insertion',
-    useWhen: 'insert a small grounded table into a Word document',
+    useWhen:
+      'insert a small grounded table into a Word document: "at the cursor" (pada lokasi kursor) = no match= (it goes after the cursor\'s paragraph); match="exact text" only when the user names a place. Empty rows the user asks for are tab-only lines',
     hostApis: ['Word.Range.insertTable', 'Word.Table'],
     requirementSets: [{ name: 'WordApi', minVersion: '1.3' }],
     contextKinds: ['selection', 'paragraph', 'table'],
@@ -609,7 +610,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Keep the table small enough for preview.',
       'Emit one /insert-table with a tableGrid payload or use OOXML when native table is unavailable.',
     ],
-    examples: ['/insert-table match="Appendix" rows="Metric\\tValue\\nRevenue\\t100"'],
+    examples: [
+      '/insert-table rows="#\\tAktivitas\\tDeliverable\\n\\t\\t\\n\\t\\t"',
+      '/insert-table match="Appendix" rows="Metric\\tValue\\nRevenue\\t100"',
+    ],
     preview: ['anchor', 'row/column count', 'first rows'],
     inverse: 'delete the inserted table when a stable inserted range can be re-resolved',
     provenance: 'record anchor, table hash, row/column count, and changeId',

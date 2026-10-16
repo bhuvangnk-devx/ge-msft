@@ -183,6 +183,9 @@ export interface WordHost {
   /** The current selection's text (empty string when nothing is selected). */
   readSelectionText(): Promise<string>;
 
+  /** The text of the paragraph the selection (or the bare cursor) is in; undefined if unknown. */
+  readCursorParagraph?(): Promise<string | undefined>;
+
   /** The whole body text (for the document context preview). */
   readBodyText(): Promise<string>;
 
@@ -373,6 +376,19 @@ export class OfficeWordHost implements WordHost {
       await ctx.sync();
       return sel.text;
     });
+  }
+
+  async readCursorParagraph(): Promise<string | undefined> {
+    try {
+      return await Word.run(async (ctx) => {
+        const paragraph = ctx.document.getSelection().paragraphs.getFirstOrNullObject();
+        paragraph.load('text,isNullObject');
+        await ctx.sync();
+        return paragraph.isNullObject ? undefined : paragraph.text;
+      });
+    } catch {
+      return undefined;
+    }
   }
 
   async readBodyText(): Promise<string> {

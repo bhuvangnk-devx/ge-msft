@@ -52,6 +52,8 @@ export interface WordCommentSeed {
 /** The Word document seed: selection text + ordered paragraphs + comments. */
 export interface WordSeed {
   selectionText: string;
+  /** With nothing selected: the index of the paragraph the cursor sits in (default 0). */
+  cursorParagraph?: number;
   paragraphs: WordParagraphSeed[];
   comments: WordCommentSeed[];
   /** Recorded: the last `changeTrackingMode` the bridge set (asserts tracked changes were turned on). */
@@ -309,6 +311,27 @@ class FakeSelection {
   get text(): string {
     return this.seed.selectionText;
   }
+  /** `selection.paragraphs.getFirstOrNullObject()`: the paragraph the selection or cursor is in. */
+  get paragraphs(): {
+    getFirstOrNullObject(): { text: string; isNullObject: boolean; load(): unknown };
+  } {
+    const p = this.seed.paragraphs[this.anchorIndex()];
+    return {
+      getFirstOrNullObject: () => ({
+        text: p?.text ?? '',
+        isNullObject: !p,
+        load() {
+          return this;
+        },
+      }),
+    };
+  }
+  private anchorIndex(): number {
+    if (!this.seed.selectionText) return this.seed.cursorParagraph ?? 0;
+    return this.seed.paragraphs.findIndex((p) =>
+      p.text.toLowerCase().includes(this.seed.selectionText.toLowerCase()),
+    );
+  }
   load(_props?: string): this {
     return this;
   }
@@ -340,9 +363,7 @@ class FakeSelection {
     this.insertText(ooxmlText(ooxml).join('\n'), location);
   }
   insertTable(_rows: number, _cols: number, _location: string, values: string[][]): void {
-    const index = this.seed.paragraphs.findIndex((p) =>
-      p.text.toLowerCase().includes(this.seed.selectionText.toLowerCase()),
-    );
+    const index = this.anchorIndex();
     insertParagraphsAfter(
       this.seed,
       index,
@@ -493,11 +514,13 @@ export function installFakeWord(
 /** Build a {@link WordSeed} from paragraphs, defaulting empty selection/comments + write logs. */
 export function wordSeed(init: {
   selectionText?: string;
+  cursorParagraph?: number;
   paragraphs: WordParagraphSeed[];
   comments?: WordCommentSeed[];
 }): WordSeed {
   return {
     selectionText: init.selectionText ?? '',
+    ...(init.cursorParagraph !== undefined ? { cursorParagraph: init.cursorParagraph } : {}),
     paragraphs: init.paragraphs,
     comments: init.comments ?? [],
     inserts: [],
