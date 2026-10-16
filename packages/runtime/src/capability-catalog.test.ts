@@ -215,6 +215,13 @@ describe('command discovery', () => {
       ],
     };
     expect(renderCommandBootstrap(withTables)).toContain('a header row plus N data rows');
+    const withSlides: CapabilityManifest = {
+      ...ppt,
+      actuations: [
+        { kind: 'insert-slide', surface: 'powerpoint', title: 'Slide', reversible: true },
+      ],
+    };
+    expect(renderCommandBootstrap(withSlides)).toContain('means N NEW slides');
   });
 
   it('tells the Excel model to fill a column in one set, never cell by cell (CIMB UAT #7)', () => {

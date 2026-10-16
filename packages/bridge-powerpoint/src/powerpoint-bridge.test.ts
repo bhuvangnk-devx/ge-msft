@@ -79,6 +79,10 @@ interface DeckSeed {
   newSlideShapes?: ShapeSeed[];
   /** Make `Slide.moveTo` fail its sync, like a host that rejects the move. */
   failMoveTo?: boolean;
+  /** Layouts of the one slide master (`presentation.slideMasters`); absent = API not modelled. */
+  layouts?: Array<{ id: string; name: string; shapes: ShapeSeed[] }>;
+  /** Options each `slides.add(options)` call received. */
+  addSlideOptions?: Array<PowerPoint.AddSlideOptions | undefined>;
   addedShapes: Array<{
     slideId: string;
     kind: 'textBox' | 'geometric' | 'line' | 'table';
@@ -437,13 +441,16 @@ class FakeSlideCollection {
   getCount(): { value: number } {
     return { value: this.seed.slides.length };
   }
-  add(): void {
+  add(options?: PowerPoint.AddSlideOptions): void {
     this.addCalls += 1;
+    (this.seed.addSlideOptions ??= []).push(options);
     const n = this.seed.slides.length + 1;
+    const layout = this.seed.layouts?.find((l) => l.id === options?.layoutId);
     this.seed.slides.push({
       id: `provisional-${n}#0`,
       settledId: `sim-slide-${n}`,
       shapes: (
+        layout?.shapes ??
         this.seed.newSlideShapes ?? [
           { text: '', type: 'Placeholder', placeholderType: 'Title', zOrderCalls: [] },
           { text: '', type: 'Placeholder', placeholderType: 'Body', zOrderCalls: [] },
@@ -478,6 +485,17 @@ class FakePresentation {
   constructor(private readonly seed: DeckSeed) {}
   get slides(): FakeSlideCollection {
     return new FakeSlideCollection(this.seed);
+  }
+  get slideMasters(): unknown {
+    const seed = this.seed;
+    if (!seed.layouts) throw new Error('fake-powerpoint: slideMasters not modelled');
+    const layouts = seed.layouts.map((l) => ({
+      id: l.id,
+      name: l.name,
+      shapes: new FakeShapeCollection({ id: l.id, shapes: l.shapes }, seed, l.id),
+    }));
+    const master = { id: 'master-1', layouts: { items: layouts, load: () => undefined } };
+    return { items: [master], load: () => undefined };
   }
   getSelectedSlides(): FakeSlideCollection {
     const all = new FakeSlideCollection(this.seed);
@@ -1443,6 +1461,46 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     const appended = d.slides[d.slides.length - 1];
     expect(appended?.shapes[0]?.text).toBe('Lifecycle\nControl');
     expect(appended?.shapes[1]?.text).toBe('Pre-Deployment\n• Checklist');
+  });
+
+  it('adds a new slide with the Title and Content layout, not the default cover (CIMB UAT #12/#13)', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    const ph = (placeholderType: string): ShapeSeed => ({
+      text: '',
+      type: 'Placeholder',
+      placeholderType,
+      zOrderCalls: [],
+    });
+    d.newSlideShapes = [ph('CenterTitle'), ph('Subtitle')];
+    d.layouts = [
+      { id: 'L-cover', name: 'Title Slide', shapes: [ph('CenterTitle'), ph('Subtitle')] },
+      { id: 'L-two', name: 'Two Content', shapes: [ph('Title'), ph('Body'), ph('Body')] },
+      { id: 'L-content', name: 'Title and Content', shapes: [ph('Title'), ph('Body')] },
+    ];
+    installed = install(d);
+    await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Daftar Isi', bullets: ['Latar belakang', 'Monitoring'] } }),
+    );
+    expect(d.addSlideOptions?.at(-1)).toEqual({ layoutId: 'L-content', slideMasterId: 'master-1' });
+    const added = d.slides.at(-1)!;
+    expect(added.shapes[0]?.text).toBe('Daftar Isi');
+    expect(added.shapes[1]?.text).toBe('Latar belakang\nMonitoring');
+  });
+
+  it('never writes bullets into a cover subtitle: they go in a left-aligned text box', async () => {
+    const d = deck(SAMPLE_SLIDES, [0]);
+    d.newSlideShapes = [
+      { text: '', type: 'Placeholder', placeholderType: 'CenterTitle', zOrderCalls: [] },
+      { text: '', type: 'Placeholder', placeholderType: 'Subtitle', zOrderCalls: [] },
+    ];
+    installed = install(d);
+    await new PowerPointBridge().actuate(
+      insertSlide({ slide: { title: 'Roadmap', bullets: ['Q4 2026', 'Q1 2027'] } }),
+    );
+    const added = d.slides.at(-1)!;
+    expect(added.shapes[0]?.text).toBe('Roadmap');
+    expect(added.shapes[1]?.text).toBe('');
+    expect(added.shapes.at(-1)?.text).toBe('• Q4 2026\n• Q1 2027');
   });
 
   it('writes a title-only slide without touching the body placeholder', async () => {

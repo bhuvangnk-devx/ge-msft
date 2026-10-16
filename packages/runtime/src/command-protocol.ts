@@ -1187,6 +1187,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(
       'There is no image, picture or icon insertion on PowerPoint here. When asked for one, never draw a shape as a stand-in: answer with done "…", in the language the user wrote in, that icons and pictures cannot be added yet (Insert → Icons in PowerPoint does it), and offer a short text label instead.',
     );
+  // CIMB UAT 2026-10-16: "8 slides" took 20+ minutes, repeated a topic and counted existing slides.
+  if (manifest.surface === 'powerpoint' && allowed.has('slide'))
+    lines.push(
+      '"Make N slides" means N NEW slides; existing slides do not count. Write them all in ONE block, one slide command per topic in the order given, never a topic twice: a short title and 3–5 short bullets (one idea each, no paragraphs).',
+    );
   // CIMB UAT 2026-10-16: "table 3x3" came back as a header and 2 empty rows.
   if (manifest.actuations.some((a) => a.kind === 'add-table-slide'))
     lines.push(

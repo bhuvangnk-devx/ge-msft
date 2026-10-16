@@ -1329,7 +1329,9 @@ async function readShapeContext(
 
 /** Placeholder types that take a slide title / its body text, in preference order. */
 const TITLE_PLACEHOLDERS: readonly string[] = ['Title', 'CenterTitle', 'VerticalTitle'];
-const BODY_PLACEHOLDERS: readonly string[] = ['Body', 'Content', 'Subtitle', 'VerticalBody'];
+// Not 'Subtitle': a cover layout's subtitle is small, light and centred — bullets written there were
+// unreadable (CIMB UAT 2026-10-16). With no body placeholder they go in a left-aligned text box.
+const BODY_PLACEHOLDERS: readonly string[] = ['Body', 'Content', 'VerticalBody'];
 
 /**
  * Slide size used for fallback text boxes when the host can't report it (`pageSetup` is
@@ -1493,6 +1495,65 @@ const SLIDE_TARGET_HINT =
   'Pass slide= a slide id from the outline, a slide number, or last. To create a new slide with a title and ' +
   'bullets, use the slide command instead: slide "Title" "bullet" "bullet".';
 
+/** The chosen title-and-content layout per deck layout set, so later slides skip the shape reads. */
+const contentLayouts = new Map<string, PowerPoint.AddSlideOptions | null>();
+
+/**
+ * A layout of the first slide master with a title and a body placeholder, so a new slide's bullets
+ * get the template's list style. `slides.add()` alone uses the master's default layout, which in
+ * the CIMB template is a cover (title + subtitle). Undefined when the host can't say (then the
+ * default layout is used, as before); never throws.
+ */
+async function contentLayout(
+  ctx: PowerPoint.RequestContext,
+): Promise<PowerPoint.AddSlideOptions | undefined> {
+  if (!isSet('PowerPointApi', '1.8')) return undefined;
+  try {
+    const masters = ctx.presentation.slideMasters;
+    masters.load('items/id');
+    await ctx.sync();
+    const master = masters.items[0];
+    if (!master) return undefined;
+    const layouts = master.layouts;
+    layouts.load('items/id,items/name');
+    await ctx.sync();
+    // Keyed by the deck's own layout ids: ids alone repeat across presentations.
+    const key = [master.id, ...layouts.items.map((layout) => layout.id)].join('|');
+    const cached = contentLayouts.get(key);
+    if (cached !== undefined) return cached ?? undefined;
+    const shapeLists = layouts.items.map((layout) => {
+      const shapes = layout.shapes;
+      shapes.load('items/type');
+      return shapes;
+    });
+    await ctx.sync();
+    const formats = shapeLists.map((shapes) =>
+      shapes.items
+        .filter((shape) => shape.type === 'Placeholder')
+        .map((shape) => {
+          const format = shape.placeholderFormat;
+          format.load('type');
+          return format;
+        }),
+    );
+    await ctx.sync();
+    const fits = layouts.items.flatMap((layout, i) => {
+      const types = new Set(formats[i]?.map((format) => String(format.type)));
+      const titled = TITLE_PLACEHOLDERS.some((type) => types.has(type));
+      const body = BODY_PLACEHOLDERS.some((type) => types.has(type));
+      return titled && body ? [layout] : [];
+    });
+    // Prefer the template's own "Title and Content" by name (English or Indonesian Office).
+    const named = fits.find((layout) => /title.*content|judul.*(konten|isi)/i.test(layout.name));
+    const chosen = named ?? fits[0];
+    const options = chosen ? { layoutId: chosen.id, slideMasterId: master.id } : null;
+    contentLayouts.set(key, options);
+    return options ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Append a slide and identify it. Finds the new slide's POSITION by the one id that is new (never a
  * pre-computed index — a co-author's concurrent add must not redirect later writes), then reads its
@@ -1510,7 +1571,9 @@ async function appendSlide(
   slides.load('items/id');
   await ctx.sync();
   const existingIds = new Set(slides.items.map((item) => item.id));
-  slides.add();
+  const layout = await contentLayout(ctx);
+  if (layout) slides.add(layout);
+  else slides.add();
   await ctx.sync();
   const after = ctx.presentation.slides;
   after.load('items/id');
