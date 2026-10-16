@@ -291,7 +291,11 @@ export const COMMAND_HELP = {
     'tail <path> [n]',
     'you need only the last n lines (default 10) of a saved artifact or document entry, not the whole file',
   ),
-  set: genericWrite('set', 'set <A1> <value|=formula>', 'you need to write one Excel cell'),
+  set: genericWrite(
+    'set',
+    'set <A1|range> <value|=formula>',
+    'you need to write one Excel cell, or fill one formula down a column (top-left formula, refs shift per row)',
+  ),
   grid: {
     command: 'grid',
     useWhen:

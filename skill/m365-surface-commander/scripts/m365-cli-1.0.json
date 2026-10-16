@@ -1708,8 +1708,8 @@
     },
     "set": {
       "command": "set",
-      "useWhen": "you need to write one Excel cell",
-      "syntax": "set <A1> <value|=formula>",
+      "useWhen": "you need to write one Excel cell, or fill one formula down a column (top-left formula, refs shift per row)",
+      "syntax": "set <A1|range> <value|=formula>",
       "discovery": [
         "outline or list",
         "read/search/inspect/properties the target"
@@ -1720,7 +1720,7 @@
         "Wait for preview, approval, and result before done."
       ],
       "examples": [
-        "set <A1> <value|=formula>"
+        "set <A1|range> <value|=formula>"
       ],
       "doNot": [
         "Do not write before reading.",
@@ -2607,7 +2607,7 @@
       "priority": "p0",
       "command": "set/grid/spill",
       "title": "Excel cell and grid writes",
-      "useWhen": "write scalar cells, literal rectangular grids, or composed table results into Excel",
+      "useWhen": "write scalar cells, fill a formula down a range, literal rectangular grids, or composed table results into Excel",
       "hostApis": [
         "Excel.Range.values",
         "Excel.Range.formulas"

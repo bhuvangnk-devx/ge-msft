@@ -69,7 +69,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     priority: 'p0',
     command: 'set/grid/spill',
     title: 'Excel cell and grid writes',
-    useWhen: 'write scalar cells, literal rectangular grids, or composed table results into Excel',
+    useWhen:
+      'write scalar cells, fill a formula down a range, literal rectangular grids, or composed table results into Excel',
     hostApis: ['Excel.Range.values', 'Excel.Range.formulas'],
     requirementSets: [{ name: 'ExcelApi', minVersion: '1.1' }],
     contextKinds: ['range', 'sheet', 'table'],

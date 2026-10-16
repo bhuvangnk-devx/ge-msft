@@ -1980,8 +1980,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'set':
       return {
         verb: 'set',
-        usage: 'set <A1> <value|=formula>',
-        hint: 'write one cell, e.g. set Sales!F2 =C2-D2',
+        usage: 'set <A1|range> <value|=formula>',
+        hint: 'write one cell, or fill a range from its top-left cell like the fill handle, e.g. set Sales!F2:F50 =C2-D2',
       };
     case 'grid':
       return {

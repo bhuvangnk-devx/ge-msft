@@ -44,6 +44,26 @@ describe('compileCommand', () => {
     if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
   });
 
+  it('compiles `set` on a range → one write-cells grid filled like the fill handle (UAT 2026-10)', () => {
+    // UAT: `set R2` wrote one cell, and `set R2:R49` failed at apply-time on a size mismatch.
+    const parsed = parseCommandLine(`set 'Branch Performance'!R2:R4 =IF(A2=A1,(F2-F1)/F1,"")`);
+    if ('error' in parsed) throw new Error(parsed.error);
+    expect(compileCommand(parsed, { surface: 'excel', mintChangeId: mint })).toMatchObject({
+      kind: 'write',
+      request: {
+        kind: 'write-cells',
+        params: {
+          target: { range: "'Branch Performance'!R2:R4" },
+          cells: [
+            ['=IF(A2=A1,(F2-F1)/F1,"")'],
+            ['=IF(A3=A2,(F3-F2)/F2,"")'],
+            ['=IF(A4=A3,(F4-F3)/F3,"")'],
+          ],
+        },
+      },
+    });
+  });
+
   it('turns the \n escape into a line break in quoted text, keeping \\n literal (live 2026-10-14)', () => {
     // Commands are one line, so the model writes line breaks as `\n`; Outlook showed them literally.
     const compiled = (line: string, surface: Surface) => {
@@ -1184,7 +1204,7 @@ describe('compileCommand', () => {
 describe('renderGrammarPrompt', () => {
   it('advertises set for Excel and not suggest', () => {
     const prompt = renderGrammarPrompt(excelManifest);
-    expect(prompt).toContain('set <A1> <value|=formula>');
+    expect(prompt).toContain('set <A1|range> <value|=formula>');
     expect(prompt).toContain('grid <range> = "a\\tb\\nc\\td"');
     expect(prompt).toContain('read <A1|NamedRange>');
     expect(prompt).toContain('context [incremental|inline-preferred');

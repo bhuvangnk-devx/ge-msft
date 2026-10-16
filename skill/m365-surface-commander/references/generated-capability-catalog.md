@@ -21,7 +21,7 @@ This file is generated from `packages/contracts/src/capability-registry.ts`. Reg
 | excel | implemented | `format` | `format-cells` | Excel cell formatting | ExcelApi 1.1 | apply safe visual formatting to an exact worksheet range |
 | excel | implemented | `cf` | `format-conditional` | Excel conditional formatting | ExcelApi 1.6 | add one safe conditional-format rule to an exact worksheet range |
 | excel | implemented | `chart` | `insert-chart` | Excel native chart insertion | ExcelApi 1.1 | create an Office-native chart over an exact worksheet range |
-| excel | implemented | `set/grid/spill` | `write-cells` | Excel cell and grid writes | ExcelApi 1.1 | write scalar cells, literal rectangular grids, or composed table results into Excel |
+| excel | implemented | `set/grid/spill` | `write-cells` | Excel cell and grid writes | ExcelApi 1.1 | write scalar cells, fill a formula down a range, literal rectangular grids, or composed table results into Excel |
 | excel | promotable | `/filter-range` | `filter-range` | Excel native filter | ExcelApi 1.2 | apply an AutoFilter/table filter without deleting or rewriting rows |
 | excel | promotable | `/format-chart` | `format-chart` | Excel chart formatting | ExcelApi 1.1 | retitle or restyle an existing chart without recreating its data source |
 | excel | promotable | `/insert-pivot` | `insert-pivot` | Excel native PivotTable | ExcelApi 1.8 | summarize a table/range by row, column, value, or filter fields without hand-building formulas |

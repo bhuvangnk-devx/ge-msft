@@ -5,6 +5,7 @@ import {
   POWERPOINT_GEOMETRIES,
   commandIntentText,
   WRITE_VERB_TO_KIND,
+  fillRange,
   grammarFor,
   powerpointGeometry,
   registryEntryForKindAndSurface,
@@ -209,11 +210,12 @@ export function compileCommand(
       return { kind: 'control', verb: 'done' };
     case 'help':
       return { kind: 'control', verb: 'help', ...(cmd.topic ? { topic: cmd.topic } : {}) };
-    case 'set':
-      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, {
-        target: { range: cmd.cell },
-        cells: [[cmd.value]],
-      });
+    case 'set': {
+      // A range target fills every cell from its top-left one, like Excel's fill handle.
+      const cells = fillRange(cmd.cell, cmd.value);
+      if ('error' in cells) return cells;
+      return compileWrite(WRITE_VERB_TO_KIND.set, ctx, { target: { range: cmd.cell }, cells });
+    }
     case 'grid':
       return compileWrite(WRITE_VERB_TO_KIND.grid, ctx, {
         target: { range: cmd.range },
