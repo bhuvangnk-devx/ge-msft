@@ -64,6 +64,13 @@ interface SlideSeed {
    * provisional id (`getItem(id)` or the `items` list) fail the next sync; `getItemAt` works.
    */
   settledId?: string;
+  /**
+   * With {@link DeckSeed.settleIdsAfterSyncs}: syncs left before the provisional id settles inside
+   * the same request, as PowerPoint for the web does live (2026-10-16).
+   */
+  settleAfterSyncs?: number;
+  /** With {@link DeckSeed.layoutShapesOnSettle}: the layout's shapes, shown once the id settles. */
+  pendingShapes?: ShapeSeed[];
 }
 
 /** A no-op write check, for fakes not reached through a slide. */
@@ -77,12 +84,29 @@ interface DeckSeed {
   insertedDeckOptions: PowerPoint.InsertSlideOptions[];
   /** Shapes a `slides.add()` slide gets from the default layout (default: title + body placeholders). */
   newSlideShapes?: ShapeSeed[];
+  /**
+   * The slide master's layouts (`SlideLayout.type`, PowerPointApi 1.8). `slides.add({ layoutId })`
+   * with one of these ids gives the slide its shapes; an unknown id is ignored and the default
+   * layout applies, as PowerPoint for the web does (live 2026-10-16).
+   */
+  layouts?: Array<{ id: string; type?: string; name?: string; shapes: ShapeSeed[] }>;
+  /**
+   * A slide added WITH a layout has no shapes until its id settles — PowerPoint for the web, live
+   * 2026-10-16 (about a second after the add).
+   */
+  layoutShapesOnSettle?: boolean;
+  /** Runs at the start of every sync, before ids settle: a co-author's change mid-request. */
+  onSync?: () => void;
+  /** The options each `slides.add()` was called with. */
+  addOptions?: Array<PowerPoint.AddSlideOptions | undefined>;
   /** Make `Slide.moveTo` fail its sync, like a host that rejects the move. */
   failMoveTo?: boolean;
-  /** Layouts of the one slide master (`presentation.slideMasters`); absent = API not modelled. */
-  layouts?: Array<{ id: string; name: string; shapes: ShapeSeed[] }>;
-  /** Options each `slides.add(options)` call received. */
-  addSlideOptions?: Array<PowerPoint.AddSlideOptions | undefined>;
+  /**
+   * Settle a just-added slide's id after this many syncs instead of at the end of the request.
+   * Live PowerPoint for the web (2026-10-16): `add` + sync, then `items/id` + sync still reads the
+   * provisional id, and the next sync already reads the settled one — so 3.
+   */
+  settleIdsAfterSyncs?: number;
   addedShapes: Array<{
     slideId: string;
     kind: 'textBox' | 'geometric' | 'line' | 'table';
@@ -301,16 +325,21 @@ class FakeShape {
 }
 
 class FakeShapeCollection {
-  items: FakeShape[];
+  private built: FakeShape[] = [];
   constructor(
     private readonly slide: SlideSeed,
     private readonly deck: DeckSeed,
     private readonly slideId: string,
     private readonly guard: () => void = NO_GUARD,
-  ) {
-    this.items = slide.shapes.map(
-      (s, i) => new FakeShape(s, `${slide.id}-shape-${i}`, false, guard),
-    );
+  ) {}
+  /** Read live, like loaded Office.js values after a sync: a settling slide's shapes can appear. */
+  get items(): FakeShape[] {
+    if (this.built.length !== this.slide.shapes.length) {
+      this.built = this.slide.shapes.map(
+        (s, i) => new FakeShape(s, `${this.slide.id}-shape-${i}`, false, this.guard),
+      );
+    }
+    return this.built;
   }
   load(_p?: string): this {
     return this;
@@ -333,11 +362,12 @@ class FakeShapeCollection {
 
   /** Append a simulated shape to the host model and the live collection, then return it. */
   private append(seed: ShapeSeed): FakeShape {
-    const id = `${this.slideId}-shape-${this.items.length}`;
+    const items = this.items;
+    const id = `${this.slideId}-shape-${items.length}`;
     this.slide.shapes.push(seed);
     this.guard();
     const shape = new FakeShape(seed, id, false, this.guard);
-    this.items.push(shape);
+    items.push(shape);
     return shape;
   }
 
@@ -412,6 +442,10 @@ class FakeSlide {
   get shapes(): FakeShapeCollection {
     return new FakeShapeCollection(this.slide, this.seed, this.slide.id, this.guard);
   }
+  /** `Slide.slideMaster` (PowerPointApi 1.3): every fake slide shares the one master. */
+  get slideMaster(): FakeSlideMaster {
+    return new FakeSlideMaster(this.seed);
+  }
   /** `Slide.moveTo` (PowerPointApi 1.8): reorders the deck. */
   moveTo(slideIndex: number): void {
     if (this.seed.failMoveTo) {
@@ -425,6 +459,45 @@ class FakeSlide {
   setSelectedShapes(shapeIds: string[]): void {
     this.seed.selectedIndices = [this.index];
     this.seed.selectedShapeIds = [...shapeIds];
+  }
+}
+
+/** A slide master whose layouts come from {@link DeckSeed.layouts}. */
+class FakeSlideMaster {
+  constructor(private readonly seed: DeckSeed) {}
+  get layouts(): FakeLayoutCollection {
+    return new FakeLayoutCollection(this.seed);
+  }
+}
+
+class FakeLayoutCollection {
+  constructor(private readonly seed: DeckSeed) {}
+  get items(): Array<{ id: string; type?: string; name: string }> {
+    return (this.seed.layouts ?? []).map(({ id, type, name }) => ({ id, type, name: name ?? '' }));
+  }
+  load(_p?: string): this {
+    return this;
+  }
+  getItemAt(index: number): {
+    id: string;
+    type?: string;
+    name: string;
+    shapes: FakeShapeCollection;
+    load(_p?: string): unknown;
+  } {
+    const layout = this.seed.layouts?.[index];
+    if (!layout) throw new Error(`fake-powerpoint: no layout at ${index}`);
+    return {
+      id: layout.id,
+      type: layout.type,
+      name: layout.name ?? '',
+      shapes: new FakeShapeCollection(
+        { id: layout.id, shapes: layout.shapes.map((shape) => ({ ...shape, zOrderCalls: [] })) },
+        this.seed,
+        layout.id,
+      ),
+      load: () => undefined,
+    };
   }
 }
 
@@ -443,19 +516,28 @@ class FakeSlideCollection {
   }
   add(options?: PowerPoint.AddSlideOptions): void {
     this.addCalls += 1;
-    (this.seed.addSlideOptions ??= []).push(options);
-    const n = this.seed.slides.length + 1;
+    (this.seed.addOptions ??= []).push(options);
     const layout = this.seed.layouts?.find((l) => l.id === options?.layoutId);
+    const late = layout && this.seed.layoutShapesOnSettle;
+    const n = this.seed.slides.length + 1;
     this.seed.slides.push({
       id: `provisional-${n}#0`,
       settledId: `sim-slide-${n}`,
+      ...(late
+        ? { pendingShapes: layout.shapes.map((shape) => ({ ...shape, zOrderCalls: [] })) }
+        : {}),
+      ...(this.seed.settleIdsAfterSyncs === undefined
+        ? {}
+        : { settleAfterSyncs: this.seed.settleIdsAfterSyncs }),
       shapes: (
         layout?.shapes ??
         this.seed.newSlideShapes ?? [
           { text: '', type: 'Placeholder', placeholderType: 'Title', zOrderCalls: [] },
           { text: '', type: 'Placeholder', placeholderType: 'Body', zOrderCalls: [] },
         ]
-      ).map((shape) => ({ ...shape, zOrderCalls: [] })),
+      )
+        .filter(() => !late)
+        .map((shape) => ({ ...shape, zOrderCalls: [] })),
     });
     this.items = this.seed.slides.map((s, i) => new FakeSlide(s, i, this.seed));
   }
@@ -486,16 +568,8 @@ class FakePresentation {
   get slides(): FakeSlideCollection {
     return new FakeSlideCollection(this.seed);
   }
-  get slideMasters(): unknown {
-    const seed = this.seed;
-    if (!seed.layouts) throw new Error('fake-powerpoint: slideMasters not modelled');
-    const layouts = seed.layouts.map((l) => ({
-      id: l.id,
-      name: l.name,
-      shapes: new FakeShapeCollection({ id: l.id, shapes: l.shapes }, seed, l.id),
-    }));
-    const master = { id: 'master-1', layouts: { items: layouts, load: () => undefined } };
-    return { items: [master], load: () => undefined };
+  get slideMasters(): { getItemAt(index: number): FakeSlideMaster } {
+    return { getItemAt: () => new FakeSlideMaster(this.seed) };
   }
   getSelectedSlides(): FakeSlideCollection {
     const all = new FakeSlideCollection(this.seed);
@@ -518,14 +592,29 @@ class FakePresentation {
   }
 }
 
+/** A just-added slide gets its real id, and any layout shapes the host was still building. */
+function settle(slide: SlideSeed): void {
+  if (slide.settledId !== undefined) slide.id = slide.settledId;
+  if (slide.pendingShapes) slide.shapes = slide.pendingShapes;
+  delete slide.settledId;
+  delete slide.settleAfterSyncs;
+  delete slide.pendingShapes;
+}
+
 class FakeContext {
   readonly presentation: FakePresentation;
   syncs = 0;
-  constructor(seed: DeckSeed) {
+  constructor(private readonly seed: DeckSeed) {
     this.presentation = new FakePresentation(seed);
   }
   sync(): Promise<void> {
     this.syncs += 1;
+    this.seed.onSync?.();
+    for (const slide of this.seed.slides) {
+      if (slide.settleAfterSyncs === undefined || slide.settledId === undefined) continue;
+      slide.settleAfterSyncs -= 1;
+      if (slide.settleAfterSyncs <= 0) settle(slide);
+    }
     const error = pendingHostError;
     pendingHostError = undefined;
     return error ? Promise.reject(new Error(error)) : Promise.resolve();
@@ -575,10 +664,7 @@ function install(seed: DeckSeed, opts: InstallOpts = {}): Installed {
       } finally {
         // A request completed: just-added slides get their real ids (see SlideSeed.settledId).
         for (const slide of seed.slides) {
-          if (slide.settledId !== undefined) {
-            slide.id = slide.settledId;
-            delete slide.settledId;
-          }
+          if (slide.settledId !== undefined) settle(slide);
         }
       }
     },
@@ -1447,7 +1533,7 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     expect(d.slides.length).toBe(before + 1);
     const appended = d.slides[d.slides.length - 1];
     expect(appended?.shapes[0]?.text).toBe('New Topic');
-    expect(appended?.shapes[1]?.text).toBe('Point A\nPoint B');
+    expect(appended?.shapes[1]?.text).toBe('Point A\rPoint B');
   });
 
   it('turns a literal \\n in slide text into a real line break (CIMB UAT 2026-10-16)', async () => {
@@ -1481,10 +1567,12 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     await new PowerPointBridge().actuate(
       insertSlide({ slide: { title: 'Daftar Isi', bullets: ['Latar belakang', 'Monitoring'] } }),
     );
-    expect(d.addSlideOptions?.at(-1)).toEqual({ layoutId: 'L-content', slideMasterId: 'master-1' });
+    // The layout comes from the last slide's master, so no slideMasterId (PR #5); bullets are
+    // paragraphs (\r), not line breaks.
+    expect(d.addOptions?.at(-1)).toEqual({ layoutId: 'L-content' });
     const added = d.slides.at(-1)!;
     expect(added.shapes[0]?.text).toBe('Daftar Isi');
-    expect(added.shapes[1]?.text).toBe('Latar belakang\nMonitoring');
+    expect(added.shapes[1]?.text).toBe('Latar belakang\rMonitoring');
   });
 
   it('never writes bullets into a cover subtitle: they go in a left-aligned text box', async () => {
@@ -1500,7 +1588,7 @@ describe('PowerPointBridge.actuate insert-slide (native compose)', () => {
     const added = d.slides.at(-1)!;
     expect(added.shapes[0]?.text).toBe('Roadmap');
     expect(added.shapes[1]?.text).toBe('');
-    expect(added.shapes.at(-1)?.text).toBe('• Q4 2026\n• Q1 2027');
+    expect(added.shapes.at(-1)?.text).toBe('• Q4 2026\r• Q1 2027');
   });
 
   it('writes a title-only slide without touching the body placeholder', async () => {
@@ -1593,7 +1681,7 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
     expect(res.ok).toBe(true);
     const appended = d.slides[d.slides.length - 1];
     expect(appended?.shapes[1]?.text).toBe('Typed');
-    expect(appended?.shapes[0]?.text).toBe('One\nTwo');
+    expect(appended?.shapes[0]?.text).toBe('One\rTwo');
     expect(d.addedShapes).toEqual([]);
   });
 
@@ -1608,7 +1696,7 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
     const appended = d.slides[d.slides.length - 1];
     expect(appended?.shapes.map((shape) => shape.text)).toEqual([
       'this is a test slide',
-      '• First\n• Second',
+      '• First\r• Second',
     ]);
     // Both boxes sit inside the 720 × 405 pt slide the host reported.
     for (const added of d.addedShapes) {
@@ -1660,6 +1748,116 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
     ]);
   });
 
+  it('writes the new slide when its id settles mid-request (PowerPoint web, live 2026-10-16)', async () => {
+    // Live: the id read right after `add` is provisional and the very next sync already reads the
+    // settled one. That is the same slide, not a co-author's change — it must not fail the insert.
+    const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
+    d.settleIdsAfterSyncs = 3;
+    installed = install(d);
+    const bridge = new PowerPointBridge();
+    const first = await bridge.actuate(
+      insertSlide({ slide: { title: 'Latar belakang', bullets: ['Adopsi AI meningkat'] } }),
+    );
+    const second = await bridge.actuate(
+      insertSlide({ slide: { title: 'Risiko utama', bullets: ['Bias model'] } }),
+    );
+    expect(first).toMatchObject({ ok: true, location: 'slide:sim-slide-2' });
+    expect(second).toMatchObject({ ok: true, location: 'slide:sim-slide-3' });
+    expect(d.slides.map((slide) => slide.shapes.map((shape) => shape.text))).toEqual([
+      ['Existing'],
+      ['Latar belakang', 'Adopsi AI meningkat'],
+      ['Risiko utama', 'Bias model'],
+    ]);
+  });
+
+  describe('new-slide layout (UAT 2026-10-16: bullets landed in a centred Title Slide subtitle)', () => {
+    const LAYOUTS = [
+      {
+        id: 'L-title',
+        type: 'Title',
+        shapes: [
+          { text: '', type: 'Placeholder', placeholderType: 'CenterTitle' },
+          { text: '', type: 'Placeholder', placeholderType: 'Subtitle' },
+        ],
+      },
+      {
+        id: 'L-content',
+        type: 'Object',
+        shapes: [
+          { text: '', type: 'Placeholder', placeholderType: 'Title' },
+          { text: '', type: 'Placeholder', placeholderType: 'Body' },
+        ],
+      },
+      {
+        id: 'L-title-only',
+        type: 'TitleOnly',
+        shapes: [{ text: '', type: 'Placeholder', placeholderType: 'Title' }],
+      },
+    ] satisfies DeckSeed['layouts'];
+    const layoutDeck = (): DeckSeed => {
+      const d = deck([{ id: 's1', shapes: [{ text: 'Agenda' }] }], [0]);
+      d.layouts = structuredClone(LAYOUTS);
+      return d;
+    };
+
+    it('puts a slide with bullets on the Title and Content layout, not the first layout', async () => {
+      const d = layoutDeck();
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(
+        insertSlide({
+          slide: { title: 'Risiko utama', bullets: ['Bias model', 'Kebocoran data'] },
+        }),
+      );
+      expect(res.ok).toBe(true);
+      expect(d.addOptions).toEqual([{ layoutId: 'L-content' }]);
+      expect(d.slides[1]?.shapes.map((shape) => [shape.placeholderType, shape.text])).toEqual([
+        ['Title', 'Risiko utama'],
+        ['Body', 'Bias model\rKebocoran data'],
+      ]);
+    });
+
+    it('waits for a layout slide to settle so its text lands in the placeholders (PowerPoint web)', async () => {
+      const d = layoutDeck();
+      d.settleIdsAfterSyncs = 6;
+      d.layoutShapesOnSettle = true;
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(
+        insertSlide({ slide: { title: 'Monitoring', bullets: ['Drift model', 'Audit berkala'] } }),
+      );
+      expect(res).toMatchObject({ ok: true, location: 'slide:sim-slide-2' });
+      expect(d.slides[1]?.shapes.map((shape) => [shape.placeholderType, shape.text])).toEqual([
+        ['Title', 'Monitoring'],
+        ['Body', 'Drift model\rAudit berkala'],
+      ]);
+      expect(d.addedShapes).toEqual([]);
+    });
+
+    it('puts a title-only slide on the Title Only layout', async () => {
+      const d = layoutDeck();
+      installed = install(d);
+      await new PowerPointBridge().actuate(insertSlide({ slide: { title: 'Q&A', bullets: [] } }));
+      expect(d.addOptions).toEqual([{ layoutId: 'L-title-only' }]);
+    });
+
+    it('keeps the host default when the deck has no content layout', async () => {
+      const d = layoutDeck();
+      d.layouts = d.layouts?.filter((layout) => layout.type === 'Title');
+      installed = install(d);
+      const res = await new PowerPointBridge().actuate(
+        insertSlide({ slide: { title: 'T', bullets: ['B'] } }),
+      );
+      expect(res.ok).toBe(true);
+      expect(d.addOptions).toEqual([undefined]);
+    });
+
+    it('keeps the host default without layout types (before PowerPointApi 1.8)', async () => {
+      const d = layoutDeck();
+      installed = install(d, { requirements: { PowerPointApi: 1.5 } });
+      await new PowerPointBridge().actuate(insertSlide({ slide: { title: 'T', bullets: ['B'] } }));
+      expect(d.addOptions).toEqual([undefined]);
+    });
+  });
+
   it('includes the PowerPoint error code when a write is uncertain', async () => {
     const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
     d.newSlideShapes = [
@@ -1705,6 +1903,105 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
       );
     } finally {
       add.mockRestore();
+    }
+  });
+
+  it('fails closed, writing nothing, when a layout slide never finishes (PowerPoint web)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
+      d.layouts = [
+        {
+          id: 'L-content',
+          type: 'Object',
+          shapes: [
+            { text: '', type: 'Placeholder', placeholderType: 'Title' },
+            { text: '', type: 'Placeholder', placeholderType: 'Body' },
+          ],
+        },
+      ];
+      d.settleIdsAfterSyncs = 10_000;
+      d.layoutShapesOnSettle = true;
+      installed = install(d);
+      const pending = new PowerPointBridge().actuate(
+        insertSlide({ slide: { title: 'Monitoring', bullets: ['Drift'] } }),
+      );
+      await vi.runAllTimersAsync();
+      const res = await pending;
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe('outcome_unknown');
+      expect(res.error?.message).toContain('did not finish creating it');
+      expect(d.addedShapes).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fails closed when a co-author shifts the deck before the new slide is written', async () => {
+    // s1 has two shapes, so a write that shifted onto it would land silently — the dangerous case.
+    const d = deck([{ id: 's1', shapes: [{ text: 'Mine' }, { text: 'Also mine' }] }], [0]);
+    installed = install(d);
+    // The placeholder-type read runs after the identity check and before the text writes: a
+    // co-author's slide lands at the top right then, so position 1 is no longer our slide.
+    const real = Object.getOwnPropertyDescriptor(FakeShape.prototype, 'placeholderFormat')!;
+    let shifted = false;
+    const spy = vi
+      .spyOn(FakeShape.prototype, 'placeholderFormat', 'get')
+      .mockImplementation(function (this: FakeShape) {
+        if (!shifted && d.slides.length === 2) {
+          shifted = true;
+          d.slides.unshift({ id: 'coauthor-slide', shapes: [{ text: 'Theirs' }] });
+        }
+        return real.get!.call(this);
+      });
+    try {
+      const res = await new PowerPointBridge().actuate(
+        insertSlide({ slide: { title: 'Ours', bullets: ['B'] } }),
+      );
+      expect(shifted).toBe(true);
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe('outcome_unknown');
+      expect(res.error?.message).toContain('may have landed on another slide');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('fails closed when the new slide changes id a second time while it settles', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
+      // A layout whose shapes never show, so the bridge keeps probing after the id settles.
+      d.layouts = [
+        {
+          id: 'L-content',
+          type: 'Object',
+          shapes: [
+            { text: '', type: 'Placeholder', placeholderType: 'Title' },
+            { text: '', type: 'Placeholder', placeholderType: 'Body' },
+          ],
+        },
+      ];
+      d.settleIdsAfterSyncs = 3;
+      d.layoutShapesOnSettle = true;
+      // After the one provisional → real swap, our slide is deleted and another new one takes its
+      // place: same position, same count, one new id — but a second id change.
+      d.onSync = () => {
+        const slide = d.slides[1];
+        // Its shapes never show, so the bridge keeps probing after the id settles.
+        if (slide?.pendingShapes) slide.pendingShapes = [];
+        if (slide?.id === 'sim-slide-2') slide.id = 'someone-elses-slide';
+      };
+      installed = install(d);
+      const pending = new PowerPointBridge().actuate(
+        insertSlide({ slide: { title: 'Ours', bullets: ['B'] } }),
+      );
+      await vi.runAllTimersAsync();
+      const res = await pending;
+      expect(res.ok).toBe(false);
+      expect(res.error?.message).toContain('The deck changed while the slide was being added');
+    } finally {
+      vi.useRealTimers();
     }
   });
 

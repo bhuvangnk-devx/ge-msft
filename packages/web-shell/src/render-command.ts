@@ -39,6 +39,18 @@ export function renderCommandLine(request: ActuationRequest): string {
       const pairs = formatPairs(p.format);
       return `format ${range}${pairs ? ` ${pairs}` : ''}`;
     }
+    case 'insert-slide': {
+      // `slide "Title" "bullet" … [at=N]` — the composed slide, so the card shows what it will say.
+      // A request carrying a deck inserts that deck (the bridge prefers it), so never label it a slide.
+      if (!p.slide || p.deck?.base64 || p.ooxml) return labelFallback(request);
+      const at = p.target?.slideIndex;
+      return [
+        'slide',
+        quote(p.slide.title),
+        ...p.slide.bullets.map(quote),
+        ...(typeof at === 'number' ? [`at=${at + 1}`] : []),
+      ].join(' ');
+    }
     default:
       // Best-effort fallback for any kind without a dedicated renderer (e.g. compose-deck, reply).
       return labelFallback(request);

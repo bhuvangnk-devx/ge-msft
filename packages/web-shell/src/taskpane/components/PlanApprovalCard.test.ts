@@ -67,6 +67,36 @@ describe('PlanApprovalCard', () => {
     expect(container.textContent).not.toContain('set Sales!F2 =C2-D2');
   });
 
+  it('names each new slide by its title, and shows its title and bullets when opened', () => {
+    const slide = (id: string, title: string, bullets: string[]): PlanEffect => ({
+      command: '',
+      approvalClass: approvalClassOf('insert-slide'),
+      reversible: isReversibleKind('insert-slide'),
+      request: {
+        changeId: asChangeId(id),
+        kind: 'insert-slide',
+        surface: 'powerpoint',
+        params: { slide: { title, bullets } },
+      },
+    });
+    render({
+      effects: [
+        slide('s1', 'Latar belakang', ['Adopsi AI meningkat']),
+        slide('s2', 'Risiko utama', ['Bias model', 'Kebocoran data']),
+      ],
+      summary: '2 insert-slides',
+    });
+    const heads = [...container.querySelectorAll<HTMLButtonElement>('.plan-effect-head')];
+    expect(heads.map((head) => head.querySelector('.effect-change')?.textContent)).toEqual([
+      'Latar belakang',
+      'Risiko utama',
+    ]);
+    act(() => heads[1]?.click());
+    expect(container.querySelector('.plan-effect-detail .cmd')?.textContent).toBe(
+      'slide "Risiko utama" "Bias model" "Kebocoran data"',
+    );
+  });
+
   it('shows recipients and a Review badge on a high-impact change', () => {
     const recipients: PlanEffect = {
       command: '/set-recipients bcc=attacker@example.com',

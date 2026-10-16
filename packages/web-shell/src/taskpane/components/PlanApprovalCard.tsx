@@ -65,6 +65,8 @@ function effectChange(effect: PlanEffect): string | undefined {
   if (p.revisions)
     return [p.revisions.action, p.revisions.scope ?? 'revisions'].filter(Boolean).join(' ');
   if (p.text) return `→ ${p.text}`;
+  // A new slide: its title, so eight "New slide" rows are told apart before Apply.
+  if (p.slide?.title) return p.slide.title;
   const cell = p.cells?.[0]?.[0];
   if (cell !== undefined && cell !== null && String(cell) !== '') return `→ ${String(cell)}`;
   return undefined;
