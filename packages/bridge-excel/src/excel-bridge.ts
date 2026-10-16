@@ -517,7 +517,8 @@ export class ExcelBridge implements DocBridge {
     }
     const target = rangeForGrid(plan.address, plan.values.length, plan.values[0]!.length);
     // Use the same normalized grid for dimensions and host values. Explicit typed strings stay
-    // literal; only cellFormulas (or legacy `=` cells) may enter Excel's formula channel.
+    // literal; only cellFormulas (or legacy `=` cells) may enter Excel's formula channel. Legacy
+    // text that Excel would turn into a different value stays literal too.
     const explicit = req.params.cellValues !== undefined;
     const formulaCells = formulasForRequest(req);
     const grid = splitFormulaGrid(formulaCells);
@@ -525,7 +526,7 @@ export class ExcelBridge implements DocBridge {
       row.map((v, c) =>
         formulaCells[r]?.[c]?.startsWith('=')
           ? null
-          : explicit && typeof v === 'string' && v !== ''
+          : typeof v === 'string' && v !== '' && (explicit || EXCEL_CONVERTS.test(v))
             ? `'${v}`
             : (v ?? ''),
       ),
@@ -1143,6 +1144,14 @@ interface OfficeSettingsLike {
 }
 
 /** Normalize an Office `AsyncResult.status` to `'succeeded'`/`'failed'` (enum value or string). */
+/**
+ * Text Excel would store as a different value: a leading zero or plus (phone numbers, IDs), more
+ * than 15 digits (past Excel's precision), or a day/month date the locale can read with day and
+ * month swapped. CIMB UAT 2026-10-16: retyped leads lost the 0 and + of their phone numbers, and
+ * `02/06/2026` became 6 February.
+ */
+const EXCEL_CONVERTS = /^(?:0\d+|\+[\d\s-]+|\d{16,}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})$/;
+
 function asyncStatus(result: unknown): string {
   const status = (result as { status?: unknown } | undefined)?.status;
   return String(status ?? 'succeeded').toLowerCase();

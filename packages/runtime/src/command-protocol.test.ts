@@ -1238,6 +1238,9 @@ describe('renderGrammarPrompt', () => {
     expect(prompt).toContain('context [incremental|inline-preferred');
     expect(prompt).not.toContain('suggest "old text"');
     expect(prompt).toContain('```cmd');
+    // CIMB UAT 2026-10-16: adding one column must not retype the table it sits beside. The live
+    // pane sends the compact bootstrap (renderCommandHelp without a topic).
+    expect(renderCommandHelp(excelManifest)).toContain('Never retype or move existing cells.');
   });
 
   it('advertises chart only when insert-chart is present', () => {
@@ -1284,6 +1287,7 @@ describe('renderGrammarPrompt', () => {
     const prompt = renderGrammarPrompt(wordManifest);
     expect(prompt).toContain('suggest "old text" => "new text"');
     expect(prompt).not.toContain('set <A1');
+    expect(renderCommandHelp(wordManifest)).not.toContain('Never retype or move existing cells.');
   });
 
   it('advertises specialized slash operations only when the surface manifest includes them', () => {

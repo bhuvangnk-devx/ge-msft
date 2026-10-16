@@ -1165,6 +1165,12 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
       'Dependent analyze fields accept "$a" bindings; use help analyze for action schemas. JSON is data inside cmd, not a separate fence.',
     );
   }
+  if (allowed.has('grid')) {
+    // CIMB UAT 2026-10-16: "add a Gender column" retyped the whole leads table to move columns.
+    lines.push(
+      'To add a column, write only the new cells beside the data. Never retype or move existing cells.',
+    );
+  }
   if (allowed.has('read')) {
     const source = manifest.surface === 'excel' ? 'read Sales!A1:B9' : 'read';
     lines.push('Composition example (substitute observed sources and targets):');
