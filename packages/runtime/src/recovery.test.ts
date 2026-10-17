@@ -168,6 +168,20 @@ describe('unresolved write footprints', () => {
     },
   );
 
+  it('reports cells an unresolved write still blocks, so a new summary can go elsewhere', async () => {
+    const f = spatialFixture();
+    const recovery = new RecoveryCoordinator(f.bridge, 'owner');
+    const request = await recovery.prepare(f.request());
+    const cells = await f.bridge.captureCells!(request.params.target!.range!);
+    expect(await recovery.isBlocked(cells)).toBe(false);
+    await recovery.execute(request, async () => {
+      throw new Error('host disconnected');
+    });
+    expect(await recovery.isBlocked(cells)).toBe(true);
+    f.switchDocument('other-doc');
+    expect(await recovery.isBlocked(await f.bridge.captureCells!(cells.locator))).toBe(false);
+  });
+
   it('does not block the same address in a different document', async () => {
     const f = spatialFixture();
     const recovery = new RecoveryCoordinator(f.bridge, 'owner');

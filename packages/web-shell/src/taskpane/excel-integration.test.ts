@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { TriggerRegistry } from '@ge/triggers';
 import {
   installFakeExcel,
+  excelSeed,
   scriptedClient,
   mountStack,
   type ExcelSimulator,
@@ -386,6 +387,48 @@ describe('Excel full-stack integration', () => {
     expect(sales.values[1]?.[6]).toBe('=SUMPRODUCT(--($A$2:$A$7=G$1),--($B$2:$B$7=$F2),$C$2:$C$7)');
     const chart = sim.snapshot().charts.find((c) => c.title === 'Revenue');
     expect(chart?.source).toContain('F1:J7');
+  });
+
+  it('chart by= over month text keeps its labels as text, so the totals match (real Excel, 2026-10-17)', async () => {
+    sim = installFakeExcel(
+      excelSeed({
+        sheets: [
+          {
+            name: 'Branch',
+            origin: 'A1',
+            values: [
+              ['Branch', 'Month', 'Complaints'],
+              ['Jakarta', 'Jan 2026', '4'],
+              ['Jakarta', 'Feb 2026', '5'],
+              ['Medan', 'Jan 2026', '6'],
+              ['Medan', 'Feb 2026', '5'],
+            ],
+          },
+        ],
+      }),
+    );
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nchart line Branch!A1:C5 x=Month by=Branch value=Complaints\n```',
+        '```cmd\ndone "Charted."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('trend of complaints per branch');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+
+    const sheet = sim.snapshot().sheets.find((s) => s.name === 'Branch')!;
+    // Before the fix the simulated Excel stored these labels as date serials (46023), as real Excel did.
+    expect(sheet.values[1]?.[4]).toBe('Jan 2026');
+    expect(sheet.values[2]?.[4]).toBe('Feb 2026');
+    expect(sim.snapshot().charts).toHaveLength(1);
   });
 
   it('a retried chart by= rewrites its own summary block, never a second copy (live 2026-10-17)', async () => {

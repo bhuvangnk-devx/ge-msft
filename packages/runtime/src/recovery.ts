@@ -143,6 +143,13 @@ export class RecoveryCoordinator {
   private async save(): Promise<void> {
     await this.bridge.recoveryStorage?.save(this.owner, this.records);
   }
+  /** Whether a write to these cells would be refused for an unresolved earlier write. */
+  async isBlocked(cells: CellSnapshot): Promise<boolean> {
+    return this.locked(async () => {
+      await this.load();
+      return this.records.some((record) => isUnresolved(record) && overlaps(record.before, cells));
+    });
+  }
   private assertNoUnresolvedOverlap(before: CellSnapshot): void {
     const unresolved = this.records.find(
       (record) => isUnresolved(record) && overlaps(record.before, before),

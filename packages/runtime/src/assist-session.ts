@@ -2686,19 +2686,27 @@ export class AssistSession {
     for (let attempt = 0, offset = earlier ?? 0; attempt < 6; attempt++) {
       const plan = groupedChartPlan(entry.range, values, { x, by, value }, offset);
       if ('error' in plan) return plan;
-      let taken = attempt > 0 || earlier === undefined;
-      if (taken) {
-        try {
-          // A formula that shows "" is not empty: check formulas as well as values.
-          const snap = await capture(plan.range);
-          const filled = (cell: unknown): boolean =>
-            cell !== null && cell !== undefined && cell !== '';
-          taken =
-            snap.values.some((row) => row.some(filled)) ||
-            (snap.formulas ?? []).some((row) => row.some(filled));
-        } catch {
-          taken = true;
-        }
+      const reuse = attempt === 0 && earlier !== undefined;
+      let taken = true;
+      try {
+        // A formula that shows "" is not empty: check formulas as well as values. Cells an earlier
+        // write left unconfirmed are taken too: the pane refuses to write over them (live
+        // 2026-10-17, a cleared workbook still held the unconfirmed records of a failed chart).
+        const snap = await capture(plan.range);
+        const filled = (cell: unknown): boolean =>
+          cell !== null && cell !== undefined && cell !== '';
+        const blocked = await this.recovery.isBlocked(snap);
+        if (reuse && blocked)
+          return {
+            error: `chart ${entry.range}: the summary written at ${plan.range} by the earlier attempt is unconfirmed. Do not retry; tell the user to check those cells, then ask again.`,
+          };
+        taken =
+          blocked ||
+          (!reuse &&
+            (snap.values.some((row) => row.some(filled)) ||
+              (snap.formulas ?? []).some((row) => row.some(filled))));
+      } catch {
+        taken = true;
       }
       if (!taken) {
         this.groupedChartAt.set(key, offset);
