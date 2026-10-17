@@ -772,8 +772,14 @@ def parse_line(line: str):
         positional, props = _tokenize_args(rest)
         if len(positional) < 2:
             return {"error": usage}
+        # The source may put a space after a comma (`C1:C9, G1:G9`); rejoin the areas split there.
+        rng = positional[1]
+        i = 2
+        while rng.endswith(",") and i < len(positional):
+            rng += positional[i]
+            i += 1
         return {"verb": "chart", "chartType": positional[0].lower(),
-                "range": positional[1], "props": props}
+                "range": rng, "props": props}
 
     # ADR-0007 `cf <range> <rule>` — one conditional-format rule. Tolerant of an inline operator
     # (`>1000`), a bare mode (`databar`/`colorscale`), or `top=N`. Only collects props.
