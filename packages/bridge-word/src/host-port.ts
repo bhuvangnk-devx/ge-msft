@@ -1294,6 +1294,53 @@ function applyFont(range: Word.Range, font: TextFont | undefined): void {
  * so a grammar fix shows only the corrected words; otherwise replace the whole range as before.
  * The word ranges must line up with the text that was read, or the whole range is replaced.
  */
+/**
+ * Word-level edits of a multi-paragraph range against a new text with a different paragraph count.
+ * Each edit is applied to the words it covers; an edit that runs into the next paragraph keeps the
+ * paragraph mark: its text goes into the first paragraph and the later words are removed. False
+ * (nothing written) when the words do not line up or a word-level edit would not help.
+ */
+async function editAcrossParagraphs(
+  ctx: Word.RequestContext,
+  pieces: Word.Range[],
+  oldParagraphs: string[],
+  text: string,
+): Promise<boolean> {
+  const plainWords = (s: string) => s.split(/\s+/).filter(Boolean);
+  if (oldParagraphs.some((p) => /\t|\u00a0| {2}/.test(p.trim()))) return false;
+  const edits = wordEdits(oldParagraphs.join(' '), text.replace(/\s+/g, ' '));
+  if (!edits?.length) return false;
+  const words = pieces.map((piece) => {
+    const ranges = piece.getTextRanges([' '], true);
+    ranges.load('items/text');
+    return ranges;
+  });
+  await ctx.sync();
+  // Global word index → (paragraph, word range).
+  const at: Array<{ paragraph: number; range: Word.Range }> = [];
+  for (const [i, ranges] of words.entries()) {
+    const expected = plainWords(oldParagraphs[i]!);
+    if (
+      ranges.items.length !== expected.length ||
+      !ranges.items.every((word, j) => word.text.trim() === expected[j])
+    )
+      return false;
+    for (const range of ranges.items) at.push({ paragraph: i, range });
+  }
+  // Back to front, so an earlier edit never shifts a later word range.
+  for (const edit of [...edits].reverse()) {
+    const span = at.slice(edit.start, edit.end);
+    const first = span[0]!;
+    const head = span.filter((w) => w.paragraph === first.paragraph);
+    const target =
+      head.length === 1 ? first.range : first.range.expandTo(head[head.length - 1]!.range);
+    for (const rest of span.slice(head.length).reverse())
+      rest.range.insertText('', Word.InsertLocation.replace);
+    target.insertText(edit.text, Word.InsertLocation.replace);
+  }
+  return true;
+}
+
 /** A text's paragraphs, without a trailing empty one. */
 function paragraphsOf(text: string): string[] {
   const parts = text.split(/\r\n?|\n/);
@@ -1313,27 +1360,29 @@ async function replaceTracked(
   const oldParagraphs = paragraphsOf(oldText);
   if (oldParagraphs.length > 1 && isSet('WordApi', '1.3')) {
     const newParagraphs = paragraphsOf(text);
-    if (newParagraphs.length === oldParagraphs.length) {
-      try {
-        const pieces = range.split(['\r'], true, false);
-        pieces.load('items/text');
-        await ctx.sync();
-        const aligned =
-          pieces.items.length === oldParagraphs.length &&
-          pieces.items.every((piece, i) => piece.text.trim() === oldParagraphs[i]!.trim());
-        if (aligned) {
-          // Back to front, so an edit never shifts a later paragraph's range.
-          for (let i = pieces.items.length - 1; i >= 0; i--) {
-            const piece = pieces.items[i]!;
-            if (piece.text.trim() !== newParagraphs[i]!.trim())
-              await replaceTracked(ctx, piece, piece.text, newParagraphs[i]!.trim());
-          }
-          return;
+    try {
+      const pieces = range.split(['\r'], true, false);
+      pieces.load('items/text');
+      await ctx.sync();
+      const aligned =
+        pieces.items.length === oldParagraphs.length &&
+        pieces.items.every((piece, i) => piece.text.trim() === oldParagraphs[i]!.trim());
+      if (aligned && newParagraphs.length === oldParagraphs.length) {
+        // Back to front, so an edit never shifts a later paragraph's range.
+        for (let i = pieces.items.length - 1; i >= 0; i--) {
+          const piece = pieces.items[i]!;
+          if (piece.text.trim() !== newParagraphs[i]!.trim())
+            await replaceTracked(ctx, piece, piece.text, newParagraphs[i]!.trim());
         }
-      } catch {
-        // The split is a read: nothing was written. Track changes again (see below) and go on.
-        ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+        return;
       }
+      // The model joined or split paragraphs (it sees a selection as one line): diff the words of
+      // the whole selection and apply each change inside its own paragraph. Paragraph marks are
+      // never touched (real Word 2026-10-17, second run).
+      if (aligned && (await editAcrossParagraphs(ctx, pieces.items, oldParagraphs, text))) return;
+    } catch {
+      // The split and word reads write nothing. Track changes again (see below) and go on.
+      ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
     }
   }
   // Only plain single-spaced text: a run across a tab, line break or paragraph mark would be

@@ -619,6 +619,18 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
     expect(rec.inserts).toEqual([{ anchor: 'mengikuti', text: 'mematuhi', location: 'Replace' }]);
   });
 
+  it('keeps both paragraphs when the model returns them merged into one (real Word, 2026-10-17)', async () => {
+    const first = 'Solusi AI hanya boleh digunakan untuk keperluan kerja yang disetujui.';
+    const second = 'Seluruh pengembangan wajib mengikuti regulasi yang berlaku.';
+    const rec = setup({ selectionText: `${first}\r${second}\r` });
+    const out = await new OfficeWordHost().replaceSelection(
+      `${first} Seluruh pengembangan wajib mematuhi regulasi yang berlaku.`,
+    );
+    expect(out).toMatchObject({ status: 'applied' });
+    // Only the changed word; no paragraph is deleted and re-inserted.
+    expect(rec.inserts).toEqual([{ anchor: 'mengikuti', text: 'mematuhi', location: 'Replace' }]);
+  });
+
   it('degrades to drift (no write, no second sync) when there are zero hits', async () => {
     const rec = setup({ searchHits: { '99.5%': [] } });
     const out = await new OfficeWordHost().applyTrackedChange(
