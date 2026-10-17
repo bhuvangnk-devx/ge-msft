@@ -331,9 +331,8 @@ describe('command efficiency acceptance: actual WASM and simulated Office/model'
 
   it.each([
     '```cmd\nclosing',
-    'Narration before the program\n```cmd\nclosing\n```',
-    '```cmd\nclosing\n```\nNarration after the program',
     '```cmd\nclosing\n```\n```cmd\nset Results!A1 99\n```',
+    '```cmd\nclosing\n```\nSee ```closing``` above',
     'cmd\nclosing',
   ])(
     'requires strict original response framing when a macro hides verified completion: %j',

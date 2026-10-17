@@ -18,7 +18,7 @@ describe('Outlook snapshot says which writes the open item takes', () => {
     restore = () => sim.restore();
     const snap = await new OutlookBridge().captureDocState();
     const text = snap ? renderDocState(snap) : '';
-    expect(text).toContain('reply = mail; email to anyone else = compose');
+    expect(text).toContain('reply = mail (a file: attach=); email to anyone else = compose');
     expect(text).toContain('one completes it. set-* and add-attachment: drafts only');
     expect(text).not.toContain('&quot;');
   });

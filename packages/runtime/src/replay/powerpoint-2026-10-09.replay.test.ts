@@ -242,11 +242,20 @@ describe("a task's requests do not carry earlier tasks' write outcomes", () => {
 });
 
 describe('an unclosed finish when=verified program', () => {
-  it('is told how to fix it, then completes with done', async () => {
+  it('runs when its last line is the finish (nothing after it can be lost)', async () => {
     // Recorded live: the model ended its block after `finish when=verified` with no closing fence,
-    // three turns running, and the task ended incomplete.
+    // three turns running, and the task ended incomplete. The block is complete: it now runs.
     const unclosed = '```cmd\nslide "Summary Findings" "Revenue is 500"\nfinish when=verified\n';
-    const s = setup([unclosed, cmd('slide "Summary Findings" "Revenue is 500"\ndone')]);
+    const s = setup([unclosed, cmd('done')]);
+    await collect(s.session.runCommands(SUMMARY_PLAN, { approvePlan: () => true }));
+
+    expect(s.queries[1] ?? '').not.toContain('requires a closed cmd fence');
+    expect(s.bridge.applied.map((r) => r.kind)).toEqual(['insert-slide']);
+  });
+
+  it('is still told how to fix a block cut before the finish line ends', async () => {
+    const cut = '```cmd\nslide "Summary Findings" "Revenue is 500"\nfinish when=verif';
+    const s = setup([cut, cmd('slide "Summary Findings" "Revenue is 500"\ndone')]);
     const events = await collect(s.session.runCommands(SUMMARY_PLAN, { approvePlan: () => true }));
 
     expect(s.queries[1]).toContain(

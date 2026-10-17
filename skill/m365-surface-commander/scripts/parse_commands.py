@@ -397,12 +397,20 @@ def verified_frame_error(text: str):
     if not any(re.match(r"^finish(?:\s|$)", line.strip(), re.IGNORECASE)
                for line in text.splitlines()):
         return None
-    if not _FENCE.search(text):
+    # Mirrors the TS grammar: one cmd block and no other fence; prose around it is fine. An
+    # unclosed block counts only when its last line is the finish (nothing after it can be lost).
+    fences = [line.strip() for line in text.split("\n") if line.strip().startswith("```")]
+    embedded = text.count("```") != len(fences)
+    last = text.strip().split("\n")[-1].strip() if text.strip() else ""
+    opens_cmd = bool(fences) and re.fullmatch(r"```cmd", fences[0], re.IGNORECASE) is not None
+    closed = (not embedded and opens_cmd and (
+        (len(fences) == 2 and fences[1] == "```")
+        or (len(fences) == 1 and re.fullmatch(r"finish\s+when=verified", last, re.IGNORECASE))))
+    if closed:
+        return None
+    if len(fences) <= 1 and not embedded:
         return "finish when=verified requires a closed cmd fence"
-    match = re.fullmatch(r"```cmd[^\S\n]*\r?\n([\s\S]*?)\r?\n```", text.strip(), re.IGNORECASE)
-    if not match or "```" in match.group(1):
-        return "finish when=verified requires exactly one cmd fence with no surrounding text or embedded fences"
-    return None
+    return "finish when=verified requires exactly one cmd fence with no embedded fences"
 
 
 
@@ -1064,13 +1072,15 @@ done
     for tail in ("finish now", "finish when=verified\nread A1", "finish when=verified\nunknown"):
         records = parse_block("```cmd\nset A1 2\n" + tail + "\n```")["commands"]
         assert records and all("error" in rec for rec in records)
-    assert all("error" in rec for rec in parse_block("```cmd\nset A1 2\nfinish when=verified")["commands"])
+    assert all("error" in rec for rec in parse_block("```cmd\nset A1 2\nfinish when=verif")["commands"])
+    assert verified_frame_error("```cmd\nset A1 2\nfinish when=verified") is None
     assert not block_is_complete(parse_block("```cmd\nfinish when=verified\n```"))
     verified = "```cmd\nset S!A1 5\nfinish when=verified\n```"
     plain = "```cmd\nset S!A2 6\n```"
+    for response in ("Explanation\n" + verified, verified + "\nExplanation", verified + "\n# comment"):
+        assert verified_frame_error(response) is None
     for response in (verified + "\n" + plain, plain + "\n" + verified,
-                     "Explanation\n" + verified, verified + "\nExplanation",
-                     verified + "\n# comment", verified.replace("set S!A1 5", 'set S!A1 "```"')):
+                     verified.replace("set S!A1 5", 'set S!A1 "```"')):
         records = parse_block(response)["commands"]
         assert records and all("error" in rec for rec in records)
         assert verified_frame_error(response)

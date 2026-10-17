@@ -1733,13 +1733,28 @@ export function parseProgramBlock(
     options.requireCompleteFrame ||
     modelText.split('\n').some((line) => /^finish(?:\s|$)/i.test(line.trim()));
   if (requestsFinish) {
-    const closed = /^```cmd[^\S\n]*\r?\n[\s\S]*?^```[^\S\n]*(?:\r?\n|$)/im.test(modelText);
-    const singleFrame = /^```cmd[^\S\n]*\r?\n([\s\S]*?)\r?\n```$/i.exec(modelText.trim());
-    if (!closed) entries.push({ error: 'finish when=verified requires a closed cmd fence' });
-    else if (!singleFrame || singleFrame[1]!.includes('```'))
+    // One cmd block, and no other fence anywhere: prose around it cannot hide a second program.
+    // Live 2026-10-17, Gemini added a summary after the block, or left it unclosed, and every
+    // retry was refused until the run stopped. An unclosed block still counts only when its last
+    // line IS the finish: `finish` must be the final entry, so a stream cut there lost nothing.
+    const fences = modelText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('```'));
+    const lastLine = modelText.trim().split('\n').at(-1)?.trim() ?? '';
+    // Every ``` must be one of those fence lines: none inside a line (an embedded fence).
+    const embedded = modelText.split('```').length - 1 !== fences.length;
+    const opensCmd = /^```cmd$/i.test(fences[0] ?? '');
+    const closed =
+      !embedded &&
+      opensCmd &&
+      ((fences.length === 2 && fences[1] === '```') ||
+        (fences.length === 1 && /^finish\s+when=verified$/i.test(lastLine)));
+    if (fences.length <= 1 && !embedded && !closed)
+      entries.push({ error: 'finish when=verified requires a closed cmd fence' });
+    else if (!closed)
       entries.push({
-        error:
-          'finish when=verified requires exactly one cmd fence with no surrounding text or embedded fences',
+        error: 'finish when=verified requires exactly one cmd fence with no embedded fences',
       });
   }
   // Independent writes may survive ordinary corrective errors. A program requesting verified

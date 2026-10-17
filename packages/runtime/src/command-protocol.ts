@@ -220,6 +220,12 @@ export function compileCommand(
       } catch (error) {
         return { error: `set ${cmd.cell}: ${(error as Error).message}` };
       }
+      // Tab/line-separated values are a grid, not one value for every cell (live 2026-10-17:
+      // `set Summary!B2:C2 "18010\t13860"` would have put the same text in both cells).
+      if (cells.length * (cells[0]?.length ?? 0) > 1 && /\t|\n|\\[tn]/.test(cmd.value))
+        return {
+          error: `set ${cmd.cell}: set puts ONE value in every cell; for a different value per cell use grid ${cmd.cell} = "a\tb"`,
+        };
       return compileWrite(WRITE_VERB_TO_KIND.set, ctx, { target: { range: cmd.cell }, cells });
     }
     case 'grid':

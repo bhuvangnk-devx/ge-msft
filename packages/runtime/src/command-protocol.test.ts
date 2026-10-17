@@ -380,6 +380,21 @@ describe('compileCommand', () => {
     ).toMatchObject({ error: expect.stringContaining('mail attach= cannot build a .xlsx') });
   });
 
+  it('refuses tab-separated values on a multi-cell set and points to grid (live 2026-10-17)', () => {
+    const out = compileCommand(parseCommandLine('set Summary!B2:C2 "18010\\t13860"') as never, {
+      surface: 'excel',
+      mintChangeId: mint,
+    });
+    expect(out).toMatchObject({ error: expect.stringContaining('use grid Summary!B2:C2') });
+    // One cell keeps the text as written.
+    expect(
+      compileCommand(parseCommandLine('set Summary!B2 "a\\tb"') as never, {
+        surface: 'excel',
+        mintChangeId: mint,
+      }),
+    ).toHaveProperty('request');
+  });
+
   it('builds a real .docx for a text attachment named .docx; refuses .xlsx from text (CIMB UAT #22)', () => {
     const docx = compileCommand(
       parseCommandLine('/add-attachment name="hello arjuna.docx" text="test script 1"') as never,
