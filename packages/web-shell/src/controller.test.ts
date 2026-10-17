@@ -2028,6 +2028,32 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     );
   });
 
+  it('Change turns the plan into a question; the correction re-plans with the previous plan (CIMB UAT #23)', async () => {
+    const assist = new FakeAssist();
+    assist.plannedQueue = [
+      { plan: wordPlan, errors: [], needsClarification: false },
+      { plan: wordPlan, errors: [], needsClarification: false },
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('/rewrite the intro', undefined);
+    expect(c.getState().pendingCommandPlan).toBeDefined();
+
+    c.changeCommandPlan();
+    expect(c.getState().pendingCommandPlan).toBeUndefined();
+    expect(c.getState().pendingPlanClarification?.questions).toEqual([
+      'What should change in this plan?',
+    ]);
+    expect(assist.asked).toEqual([]); // nothing ran
+
+    c.answerPlanClarification('keep the first sentence');
+    await tick();
+    await tick();
+    expect(assist.planTasks[1]).toContain('/rewrite the intro');
+    expect(assist.planTasks[1]).toContain('Previous plan (the user wants it changed):\n1. ');
+    expect(assist.planTasks[1]).toContain('User correction:\nkeep the first sentence');
+    expect(c.getState().pendingCommandPlan?.plan).toEqual(wordPlan);
+  });
+
   it('shows a Planning… placeholder while the planner runs, then removes it', async () => {
     const assist = new FakeAssist();
     let release!: () => void;

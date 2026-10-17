@@ -729,6 +729,7 @@ export function App({
           ) : null}
 
           <PlanClarificationCard
+            language={state.language ?? 'en'}
             pending={state.pendingPlanClarification}
             disabled={state.busy}
             onAnswer={(answer) => controller.answerPlanClarification(answer)}
@@ -757,6 +758,7 @@ export function App({
               language={state.language ?? 'en'}
               pending={state.pendingCommandPlan}
               onConfirm={() => controller.confirmCommandPlan()}
+              onChange={() => controller.changeCommandPlan()}
               onCancel={() => controller.cancelCommandPlan()}
             />
 

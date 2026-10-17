@@ -54,7 +54,13 @@ import { ProvenanceStore, type ChangeRecord, type ShareRecord } from './provenan
 import { renderCommandLine } from './render-command.js';
 import { assertNever } from './assert-never.js';
 import { TurnQueue } from './turn-queue.js';
-import { blockerText, detectLanguage, kindLabel, type UiLanguage } from './ui-language.js';
+import {
+  blockerText,
+  detectLanguage,
+  kindLabel,
+  uiStrings,
+  type UiLanguage,
+} from './ui-language.js';
 import { documentHash, type InProgress } from './resume-store.js';
 import { ApprovalCoordinator } from './approval-coordinator.js';
 import { findContextRefForLocation, synthesizeLocationRef } from './host-location.js';
@@ -416,6 +422,10 @@ export interface PendingCommandPlan {
 export interface PendingPlanClarification {
   /** The planner request that produced the clarify question. */
   task: string;
+  /** The user asked to change a proposed plan: the answer is a correction to it. */
+  correction?: true;
+  /** The plan being changed, shown above the question so the user sees what they correct. */
+  previousSteps?: string[];
   questions: string[];
   grounding?: ResolvedGrounding;
 }
@@ -1291,7 +1301,7 @@ export class PanelController {
       void this.send(a);
       return;
     }
-    const task = `${pending.task}\n\nUser clarification:\n${a}`;
+    const task = `${pending.task}\n\n${pending.correction ? 'User correction' : 'User clarification'}:\n${a}`;
     this.set({ pendingPlanClarification: undefined });
     void this.proposePlan(task, pending.grounding, a);
   }
@@ -1310,6 +1320,27 @@ export class PanelController {
       p.grounding,
       renderConfirmedPlanDisplayText(p, this.state.language ?? 'en'),
     );
+  }
+
+  /**
+   * The user wants the proposed plan changed (CIMB UAT #23: only Go ahead or Cancel, so a small fix
+   * meant starting over). Nothing runs: the plan becomes a question, and what the user types next
+   * goes back to the planner with the original request and the previous plan's steps.
+   */
+  changeCommandPlan(): void {
+    const p = this.state.pendingCommandPlan;
+    if (!p) return;
+    const steps = p.plan.steps.map((step, i) => `${i + 1}. ${step}`).join('\n');
+    this.set({
+      pendingCommandPlan: undefined,
+      pendingPlanClarification: {
+        task: `${p.task}\n\nPrevious plan (the user wants it changed):\n${steps}`,
+        questions: [uiStrings(this.state.language ?? 'en').planChangeAsk],
+        ...(p.grounding ? { grounding: p.grounding } : {}),
+        correction: true,
+        previousSteps: p.plan.steps,
+      },
+    });
   }
 
   /** Discard the staged planner plan without running anything (fail-closed: nothing executes). */

@@ -2914,44 +2914,8 @@ button.cite:hover {
 }
 .command-plan-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s3);
-}
-.command-plan-confirm {
-  height: 32px;
-  padding: 0 16px;
-  border-radius: var(--r);
-  border: none;
-  background: var(--blue);
-  color: #ffffff;
-  font-size: var(--fz-lg);
-  font-weight: 500;
-  cursor: pointer;
-}
-.command-plan-confirm:hover {
-  background: var(--blue-hover);
-}
-.command-plan-confirm:active {
-  background: var(--blue-active);
-}
-/* cancel is a stop */
-.command-plan-cancel {
-  height: 32px;
-  padding: 0 16px;
-  border-radius: var(--r);
-  border: 0.5px solid var(--red);
-  background: transparent;
-  color: var(--red);
-  font-size: var(--fz-lg);
-  font-weight: 500;
-  cursor: pointer;
-}
-.command-plan-cancel:hover {
-  background: var(--red);
-  color: #ffffff;
-}
-.command-plan-cancel:active {
-  background: var(--red-active);
-  color: #ffffff;
 }
 .clarification-card {
   margin: 0 var(--s5) var(--s3);
@@ -2983,29 +2947,13 @@ button.cite:hover {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--s2);
 }
-.clarification-custom input {
-  min-width: 0;
-  height: 30px;
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r);
-  background: var(--paper);
-  color: var(--ink);
-  padding: 0 var(--s3);
-  font: inherit;
+.clarification-previous {
+  color: var(--ink-2);
 }
-.clarification-custom button {
-  height: 30px;
-  border: 0;
-  border-radius: var(--r);
-  background: var(--blue);
-  color: #ffffff;
-  padding: 0 12px;
-  font-size: var(--fz-sm);
-  cursor: pointer;
+.clarification-ask {
+  margin: 0;
 }
-.clarification-choice:disabled,
-.clarification-custom input:disabled,
-.clarification-custom button:disabled {
+.clarification-choice:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

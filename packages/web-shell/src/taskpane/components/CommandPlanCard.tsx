@@ -8,6 +8,8 @@ export interface CommandPlanCardProps {
   /** The planner's high-level plan awaiting confirm; absent → nothing rendered. */
   pending?: PendingCommandPlan;
   onConfirm: () => void;
+  /** Ask for a correction: the plan goes back to the planner with what the user types next. */
+  onChange?: () => void;
   onCancel: () => void;
 }
 
@@ -63,6 +65,7 @@ function LabelValue({ label, value }: { label: string; value: string }): JSX.Ele
 export function CommandPlanCard({
   pending,
   onConfirm,
+  onChange,
   onCancel,
   language = 'en',
 }: CommandPlanCardProps): JSX.Element | null {
@@ -109,15 +112,25 @@ export function CommandPlanCard({
       <div className="command-plan-actions">
         <button
           type="button"
-          className="command-plan-confirm"
+          className="btn pr"
           data-testid="command-plan-confirm"
           onClick={onConfirm}
         >
           {t.planGo}
         </button>
+        {onChange ? (
+          <button
+            type="button"
+            className="btn"
+            data-testid="command-plan-change"
+            onClick={onChange}
+          >
+            {t.planChange}
+          </button>
+        ) : null}
         <button
           type="button"
-          className="command-plan-cancel"
+          className="btn danger"
           data-testid="command-plan-cancel"
           onClick={onCancel}
         >
