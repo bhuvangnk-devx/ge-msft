@@ -951,7 +951,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-attachment',
     title: 'Outlook draft attachment',
     useWhen:
-      'attach a file to a draft without sending mail. A file the user describes ("a Word file titled X containing Y") is name="X.docx" text="Y": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned',
+      'attach a file to a draft being written, without sending mail (on a received message, reply with the file instead: mail "reply text" attach="name.docx" text="file text"). A file the user describes ("a Word file titled X containing Y") is name="X.docx" text="Y": the pane builds a real Word file (or a text file for .txt). Never write base64 yourself; base64= is only for a file the host returned',
     hostApis: [
       'Office.MessageCompose.addFileAttachmentAsync',
       'Office.MessageCompose.addItemAttachmentAsync',

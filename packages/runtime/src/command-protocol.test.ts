@@ -356,6 +356,30 @@ describe('compileCommand', () => {
     });
   });
 
+  it('compiles mail attach= into a reply that carries a real .docx (CIMB UAT #22b)', () => {
+    const out = compileCommand(
+      parseCommandLine(
+        'mail "See attached." attach="hello arjuna.docx" text="test script 1"',
+      ) as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    if (!('request' in out)) throw new Error('not a write');
+    expect(out.request).toMatchObject({
+      kind: 'reply-mail',
+      params: { mail: { body: 'See attached.' }, attachment: { name: 'hello arjuna.docx' } },
+    });
+    const bytes = Uint8Array.from(atob(out.request.params.attachment!.base64!), (c) =>
+      c.charCodeAt(0),
+    );
+    expect([...bytes.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    expect(
+      compileCommand(
+        parseCommandLine('mail "See attached." attach="data.xlsx" text="1,2"') as never,
+        { surface: 'outlook', mintChangeId: mint },
+      ),
+    ).toMatchObject({ error: expect.stringContaining('mail attach= cannot build a .xlsx') });
+  });
+
   it('builds a real .docx for a text attachment named .docx; refuses .xlsx from text (CIMB UAT #22)', () => {
     const docx = compileCommand(
       parseCommandLine('/add-attachment name="hello arjuna.docx" text="test script 1"') as never,

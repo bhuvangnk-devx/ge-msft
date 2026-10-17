@@ -269,12 +269,20 @@ export function compileCommand(
         target: { matchText: cmd.title },
         text: cmd.body,
       });
-    case 'mail':
+    case 'mail': {
       // ADR-0006 Outlook `reply-mail`: the bridge builds the draft from `params.mail.body`
-      // (falling back to `params.text`) — see bridge-outlook planReply.
+      // (falling back to `params.text`) — see bridge-outlook planReply. An `attach=` file opens
+      // with the reply form, built like `/add-attachment text=` (a .docx is a real Word file).
+      const file = cmd.attachment;
+      if (file) {
+        const unbuildable = textAttachmentError({ name: file.name, text: file.text });
+        if (unbuildable) return { error: unbuildable.replace('/add-attachment', 'mail attach=') };
+      }
       return compileWrite(WRITE_VERB_TO_KIND.mail, ctx, {
         mail: { body: cmd.body },
+        ...(file ? { attachment: { name: file.name, base64: textFileBase64(file) } } : {}),
       });
+    }
     case 'post':
       // ADR-0006 Teams `post-message`: the bridge stages a reviewable post from `params.text`
       // (never auto-sent) — see teams planPostMessage.
@@ -529,15 +537,9 @@ function paramsFromInvoke(
       // `text=`/`content=` is plain text for a text file; encode it here so the model never has to
       // produce base64 itself (it reliably writes the text, not the encoding).
       const text = props.text ?? props.content;
-      // A .docx is built as a real Word file (CIMB UAT 2026-10-16: plain text named .docx would
-      // not open); any other name gets the text as is.
       const base64 =
         props.base64 ??
-        (text === undefined
-          ? undefined
-          : /\.docx$/i.test(props.name ?? '')
-            ? bytesToBase64(textToDocx(text))
-            : utf8ToBase64(text));
+        (text === undefined ? undefined : textFileBase64({ name: props.name ?? '', text }));
       p.attachment = {
         ...(props.name ? { name: props.name } : {}),
         ...(base64 ? { base64 } : {}),
@@ -1250,6 +1252,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(`let $rows = ${source} | head 3`);
     lines.push(allowed.has('set') ? 'set Summary!B2 = ($rows | count)' : '$rows | count');
   }
+  // CIMB UAT 2026-10-16 #22: a reply with a file. A received message takes no add-attachment.
+  if (manifest.surface === 'outlook' && allowed.has('mail'))
+    lines.push(
+      'On a received message, a reply with a file is one command: mail "reply text" attach="name.docx" text="file text". /add-attachment only edits a draft being written.',
+    );
   // CIMB UAT 2026-10-16: an icon request drew a blue circle and called it done.
   if (manifest.surface === 'powerpoint')
     lines.push(
@@ -1488,7 +1495,16 @@ export function normalizeCommentId(raw: string): string {
   return id;
 }
 
-/** UTF-8 text → base64, without `Buffer` (this runs in the task pane). */
+/**
+ * A file's base64 from its text. A .docx is built as a real Word file (CIMB UAT 2026-10-16: plain
+ * text named .docx would not open); any other name gets the text as is.
+ */
+function textFileBase64(file: { name: string; text: string }): string {
+  return /\.docx$/i.test(file.name)
+    ? bytesToBase64(textToDocx(file.text))
+    : utf8ToBase64(file.text);
+}
+
 /** An Office or PDF file cannot be made from plain text here (only .docx and text files can). */
 function textAttachmentError(props: Record<string, string>): string | undefined {
   if (props.base64 !== undefined || (props.text ?? props.content) === undefined) return undefined;
@@ -1504,6 +1520,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/** UTF-8 text → base64, without `Buffer` (this runs in the task pane). */
 function utf8ToBase64(text: string): string {
   let binary = '';
   for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);

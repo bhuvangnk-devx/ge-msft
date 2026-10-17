@@ -202,7 +202,13 @@ export type ParsedCommand =
   // become bullets (`bulletsExpr`).
   | { verb: 'slide'; title: string; bullets: string[]; bulletsExpr?: ParsedExpr; at?: number }
   | { verb: 'page'; title: string; body: string; bodyExpr?: ParsedExpr }
-  | { verb: 'mail'; body: string; bodyExpr?: ParsedExpr }
+  | {
+      verb: 'mail';
+      body: string;
+      bodyExpr?: ParsedExpr;
+      /** A file opened with the reply: `attach="name.docx" text="file text"`. */
+      attachment?: { name: string; text: string };
+    }
   | { verb: 'post'; text: string; textExpr?: ParsedExpr }
   | { verb: 'compose'; subject: string; body: string; bodyExpr?: ParsedExpr }
   // ADR-0007 host-native Excel kinds — literal range + props (no free-text/expression slot in this
@@ -325,6 +331,7 @@ export const ParsedCommandSchema: z.ZodType<ParsedCommand> = z.discriminatedUnio
     verb: z.literal('mail'),
     body: z.string(),
     bodyExpr: z.lazy(() => ParsedExprSchema).optional(),
+    attachment: z.object({ name: z.string(), text: z.string() }).optional(),
   }),
   z.object({
     verb: z.literal('post'),
@@ -1420,7 +1427,23 @@ function parsePage(rest: string): ParsedCommand | CommandParseError {
  */
 function parseMail(rest: string): ParsedCommand | CommandParseError {
   const usage =
-    'mail needs a quoted body or an expression — usage: mail "reply body text"  OR  mail ($draft | ...)';
+    'mail needs a quoted body or an expression — usage: mail "reply body text" [attach="name.docx" text="file text"]  OR  mail ($draft | ...)';
+  // A quoted body may be followed by a file to attach when the reply opens (UAT 2026-10-16 #22).
+  const lead = scanLeadingQuoted(rest);
+  if (lead && lead.tail.trim() !== '') {
+    const { positional, props } = tokenizeArgs(lead.tail);
+    const keys = Object.keys(props);
+    if (
+      positional.length > 0 ||
+      keys.some((k) => k !== 'attach' && k !== 'text') ||
+      props.attach === undefined ||
+      props.text === undefined
+    )
+      return { error: usage };
+    if (lead.value === '') return { error: 'mail body cannot be empty' };
+    if (props.attach.trim() === '') return { error: 'mail attach= needs a file name' };
+    return { verb: 'mail', body: lead.value, attachment: { name: props.attach, text: props.text } };
+  }
   const arg = parseBodyArg(rest, usage);
   if ('error' in arg) return arg;
   if ('expr' in arg) return { verb: 'mail', body: '', bodyExpr: arg.expr };
@@ -2062,8 +2085,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
     case 'mail':
       return {
         verb: 'mail',
-        usage: 'mail "body"  OR  mail (<expr>)',
-        hint: 'stage a reviewable reply; body may compose, e.g. mail ($draft | head 1)',
+        usage: 'mail "body" [attach="name.docx" text="file text"]  OR  mail (<expr>)',
+        hint: 'stage a reviewable reply (with a file when attach= is given); body may compose, e.g. mail ($draft | head 1)',
       };
     case 'post':
       return {

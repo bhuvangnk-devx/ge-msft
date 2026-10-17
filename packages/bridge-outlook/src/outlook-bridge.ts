@@ -254,9 +254,32 @@ export class OutlookBridge implements DocBridge {
         error: { code: 'no_body', message: 'reply-mail needs params.mail.body or params.text' },
       };
     }
+    // A file opened with the reply (`mail … attach=`): a received message cannot take
+    // add-attachment, but its reply form can carry a base64 file (Mailbox 1.15).
+    const file = req.params.attachment;
+    const attachments =
+      file?.name && file.base64
+        ? [{ type: 'base64', name: file.name, base64file: file.base64 }]
+        : undefined;
+    if (attachments && !Office.context.requirements?.isSetSupported?.('Mailbox', '1.15')) {
+      return actuationError(
+        req,
+        'unsupported',
+        'This Outlook version cannot open a reply with a file attached (needs Mailbox 1.15). ' +
+          'Nothing was opened. Reply without attach= and tell the user to attach the file themselves.',
+      );
+    }
     // Open a reviewable reply form rather than sending — the user confirms before it leaves.
-    item.displayReplyForm({ htmlBody: plan.body });
-    return { ok: true, changeId: req.changeId, kind: req.kind, location: 'reply-form' };
+    item.displayReplyForm({
+      htmlBody: plan.body,
+      ...(attachments ? { attachments: attachments as Office.ReplyFormAttachment[] } : {}),
+    });
+    return {
+      ok: true,
+      changeId: req.changeId,
+      kind: req.kind,
+      location: attachments ? 'reply-form+attachment' : 'reply-form',
+    };
   }
 
   /**
@@ -317,7 +340,8 @@ export class OutlookBridge implements DocBridge {
               'set-body, set-recipients and add-attachment cannot run here. A draft opened in its ' +
               'own window cannot be edited from this pane: do not open a reply or a new message ' +
               'instead; emit done and tell the user to make the change in that draft window, or ' +
-              'to open this add-in from it. Only if the user asked to reply: mail "reply text". ' +
+              'to open this add-in from it. Only if the user asked to reply: mail "reply text" (with a ' +
+              'file: mail "reply text" attach="name.docx" text="file text"). ' +
               'Only if they asked for a new email: compose "Subject" "body".',
           ),
         };

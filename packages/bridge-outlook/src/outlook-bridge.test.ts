@@ -32,6 +32,7 @@ import { HANDLED_ACTUATIONS, OutlookBridge } from './outlook-bridge.js';
 
 interface ReplyFormCall {
   htmlBody?: string;
+  attachments?: Array<{ type: string; name: string; base64file?: string }>;
 }
 interface NewMessageFormCall {
   subject?: string;
@@ -118,6 +119,8 @@ function installOutlook(
     noNewMessageForm?: boolean;
     throwOnAdd?: boolean;
     throwOnRemove?: boolean;
+    /** The newest Mailbox requirement set the host supports (default 1.15). */
+    mailboxVersion?: number;
   } = {},
 ): Installed {
   const replyForms: ReplyFormCall[] = [];
@@ -273,8 +276,15 @@ function installOutlook(
         },
       };
 
+  const mailboxVersion = opts.mailboxVersion ?? 1.15;
   const office = {
-    context: { mailbox },
+    context: {
+      mailbox,
+      requirements: {
+        isSetSupported: (name: string, version?: string) =>
+          name === 'Mailbox' && Number(version ?? '1.1') <= mailboxVersion,
+      },
+    },
     CoercionType: { Html: 'html', Text: 'text' },
     AsyncResultStatus: { Succeeded: 'succeeded', Failed: 'failed' },
     EventType: { ItemChanged: 'olkItemSelectedChanged' },
@@ -522,6 +532,36 @@ describe('OutlookBridge.actuate reply-mail (reviewable reply form)', () => {
       location: 'reply-form',
     });
     expect(active.replyForms).toEqual([{ htmlBody: '<p>We can raise availability to 99.9%.</p>' }]);
+  });
+
+  it('opens the reply form with a base64 file when the reply carries one (UAT #22b)', async () => {
+    active = installOutlook(readMail());
+    const res = await new OutlookBridge().actuate(
+      reply({
+        mail: { body: 'See attached.' },
+        attachment: { name: 'a.docx', base64: 'UEsDBA==' },
+      }),
+    );
+    expect(res).toMatchObject({ ok: true, location: 'reply-form+attachment' });
+    expect(active.replyForms).toEqual([
+      {
+        htmlBody: '<p>See attached.</p>',
+        attachments: [{ type: 'base64', name: 'a.docx', base64file: 'UEsDBA==' }],
+      },
+    ]);
+  });
+
+  it('opens nothing and says so when Outlook is older than Mailbox 1.15', async () => {
+    active = installOutlook(readMail(), { mailboxVersion: 1.14 });
+    const res = await new OutlookBridge().actuate(
+      reply({
+        mail: { body: 'See attached.' },
+        attachment: { name: 'a.docx', base64: 'UEsDBA==' },
+      }),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: 'unsupported' } });
+    expect(res.error?.message).toContain('Nothing was opened');
+    expect(active.replyForms).toEqual([]);
   });
 
   it('rejects with no_item when there is no active mail to reply to (no form opened)', async () => {

@@ -504,6 +504,16 @@ describe('command-grammar — ADR-0005 Phase 2 effect-arg expressions', () => {
       text: '',
       textExpr: { kind: 'pipeline', source: { src: 'var', name: 'summary' } },
     });
+    expect(
+      parseCommandLine('mail "See attached." attach="hello arjuna.docx" text="test script 1"'),
+    ).toEqual({
+      verb: 'mail',
+      body: 'See attached.',
+      attachment: { name: 'hello arjuna.docx', text: 'test script 1' },
+    });
+    expect(parseCommandLine('mail "See attached." attach="a.docx"')).toMatchObject({
+      error: expect.stringContaining('attach='),
+    });
     // A quoted body stays literal (no *Expr).
     expect(parseCommandLine('mail "Thanks — confirming."')).toEqual({
       verb: 'mail',

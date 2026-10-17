@@ -725,7 +725,15 @@ def parse_line(line: str):
         if not q:
             return {"error": f'{verb} needs a quoted body/text'}
         slot = "body" if verb == "mail" else "text"
-        return {"verb": verb, slot: q[0]}
+        out = {"verb": verb, slot: q[0]}
+        # mail "reply" attach="name.docx" text="file text": a file opened with the reply.
+        if verb == "mail":
+            _, props = _tokenize_args(q[1])
+            if "attach" in props or "text" in props:
+                if not props.get("attach", "").strip() or "text" not in props:
+                    return {"error": 'mail attach= needs a file name and text="file text"'}
+                out["attachment"] = {"name": props["attach"], "text": props["text"]}
+        return out
 
     if verb == "slide":
         at = None
@@ -939,6 +947,12 @@ done
         failures.append("tail with a non-numeric n did not error")
     if parse_line('open "Sales!A1:C9"') != {"verb": "open", "selector": "Sales!A1:C9"}:
         failures.append("open selector did not parse")
+    if parse_line('mail "See attached" attach="a.docx" text="Hi"') != {
+        "verb": "mail", "body": "See attached", "attachment": {"name": "a.docx", "text": "Hi"}
+    }:
+        failures.append("mail with attach= did not parse")
+    if "error" not in (parse_line('mail "See attached" attach="a.docx"') or {}):
+        failures.append("mail attach= without text= did not error")
     if parse_line("list comments") != {"verb": "list", "kind": "comment"}:
         failures.append("plural list kind did not parse")
     if "error" not in (parse_line("list monster") or {}):

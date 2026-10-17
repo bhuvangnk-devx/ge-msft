@@ -15,8 +15,9 @@ export const OUTLOOK_CAPABILITIES: CapabilityManifest = {
   // is separate and not a read verb.
   reads: ['read', 'search'],
   // `substitutes` on the draft edits: what can stand in when the pane is on a received message. A
-  // reply form takes only a body; a new message built from a command takes a subject and a body
-  // (never recipients: it is left for the user to address); neither attaches.
+  // reply form takes a body (and a file only through `mail … attach=`, never as a stand-in for a
+  // refused add-attachment); a new message built from a command takes a subject and a body (never
+  // recipients: it is left for the user to address).
   actuations: [
     {
       kind: 'reply-mail',

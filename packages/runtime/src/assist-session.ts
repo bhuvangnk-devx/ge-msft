@@ -4330,7 +4330,11 @@ function renderCommandLine(
     }
     case 'mail': {
       const body = command.bodyExpr ? renderExprArg(command.bodyExpr) : `"${command.body}"`;
-      return `mail ${body}`;
+      // The approval card shows the attached file and the text that goes into it.
+      const file = command.attachment
+        ? ` attach=${JSON.stringify(command.attachment.name)} text=${JSON.stringify(command.attachment.text)}`
+        : '';
+      return `mail ${body}${file}`;
     }
     case 'post': {
       const text = command.textExpr ? renderExprArg(command.textExpr) : `"${command.text}"`;
