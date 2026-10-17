@@ -338,6 +338,10 @@ class FakeBody {
 
 class FakeSelection {
   constructor(private readonly seed: WordSeed) {}
+  /** WordApi 1.3: the selection's words; a word's write replaces that span in the body. */
+  getTextRanges(delimiters: string[], trim: boolean): { items: FakeSearchResult[]; load(): void } {
+    return new FakeSearchResult(this.seed, this.seed.selectionText).getTextRanges(delimiters, trim);
+  }
   get text(): string {
     return this.seed.selectionText;
   }
