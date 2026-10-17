@@ -322,6 +322,30 @@ describe('AssistSession.runCommands — surface effect-arg expressions resolve a
       readRange: () => Promise.resolve(gfmTable()),
     });
 
+  it('counts a "3x3" table as a header + 3 data rows before approval (real PowerPoint, 2026-10-17)', async () => {
+    const bridge = new FlexBridge('powerpoint', {
+      actuations: [
+        { kind: 'add-table-slide', surface: 'powerpoint', title: 'Table', reversible: true },
+      ],
+    });
+    const short = '/add-table-slide slide=4 rows="No\\tDimensi\\tCatatan\\n1\\tA\\ta\\n2\\tB\\tb"';
+    const right =
+      '/add-table-slide slide=4 rows="No\\tDimensi\\tCatatan\\n1\\tA\\ta\\n2\\tB\\tb\\n3\\tC\\tc"';
+    const { fetch, bodies } = scriptedFetch([
+      '```cmd\n' + short + '\n```',
+      '```cmd\n' + right + '\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    await collectLoop(
+      session.runCommands('pada slide no 4 ini, generate table 3x3', { approvePlan: () => true }),
+    );
+    expect(JSON.stringify(bodies[1])).toContain('a header row plus 3 data rows');
+    expect(bridge.applied).toHaveLength(1);
+    expect(bridge.applied[0]!.params.tableGrid!.rows).toHaveLength(4);
+  });
+
   it('keeps writes that leave the document (Teams posts) at 8 per turn under the 30 cap', async () => {
     const bridge = composeBridge();
     const posts = Array.from({ length: 9 }, (_, i) => `post "update ${i}"`).join('\n');

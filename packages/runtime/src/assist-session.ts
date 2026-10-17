@@ -975,6 +975,8 @@ export class AssistSession {
    * never mentions email: a new mail window is then not what the user confirmed.
    */
   private answerOnlyIntent: string | undefined;
+  /** A table size the user named ("3x3"): header + N data rows, M columns (UAT #16 decision). */
+  private tableSizeAsked: { rows: number; columns: number } | undefined;
   private readonly citations: SourceRef[] = [];
   private readonly compaction: Required<CompactionOptions>;
   /**
@@ -1585,6 +1587,7 @@ export class AssistSession {
       task.includes(CONFIRMED_PLAN_OPEN) &&
       planDescribesChange({ steps: commandIntentText(task).split('\n') });
     this.answerOnlyIntent = answerOnlyIntent(task);
+    this.tableSizeAsked = tableSizeAsked(commandIntentText(task));
 
     let query = await this.renderCommandContext(capabilities);
     let answer = '';
@@ -2589,6 +2592,17 @@ export class AssistSession {
             ),
           };
     if ('unsupported' in effect) plan.unsupported ??= effect.unsupported;
+    // A table of the size the user named, counted before the approval card: the model counted the
+    // header as one of the "3" rows in real PowerPoint (2026-10-17), against the prompt rule.
+    const sizeError =
+      'error' in resolved || !this.tableSizeAsked
+        ? undefined
+        : tableSizeError(this.tableSizeAsked, resolved.request);
+    if (sizeError) {
+      plan.results[slotIndex] = { error: sizeError };
+      yield { type: 'command', turn, command, compiled: { error: sizeError } };
+      return;
+    }
     if ('error' in resolved) {
       // A type error / unbound-$var / failed compile → a corrective result for THIS effect; the
       // valid rest still form the plan (never a partially executed malformed effect).
@@ -4763,6 +4777,39 @@ function answerOnlyIntent(task: string): string | undefined {
   const start = block.indexOf('original_request:');
   const request = start < 0 ? '' : block.slice(start, last.index);
   return MAIL_REQUEST_RE.test(request) ? undefined : intent;
+}
+
+/**
+ * The table size a request names: "3x3", "3×3", "tabel 4 x 2", "a 3 by 3 table". Only next to the
+ * word table/tabel, so "1920x1080" or "2x faster" never counts.
+ */
+export function tableSizeAsked(request: string): { rows: number; columns: number } | undefined {
+  const size = String.raw`(\d{1,2})\s*(?:x|×|by)\s*(\d{1,2})`;
+  const m =
+    new RegExp(String.raw`\b(?:table|tabel)\s+(?:\w+\s+){0,2}?${size}\b`, 'i').exec(request) ??
+    new RegExp(String.raw`\b${size}\s+(?:\w+\s+)?(?:table|tabel)\b`, 'i').exec(request);
+  if (!m) return undefined;
+  const rows = Number(m[1]);
+  const columns = Number(m[2]);
+  return rows > 0 && columns > 0 ? { rows, columns } : undefined;
+}
+
+/** Why a table write does not have the size the user named, or undefined when it does. */
+function tableSizeError(
+  asked: { rows: number; columns: number },
+  request: ActuationRequest,
+): string | undefined {
+  const grid = request.params.tableGrid;
+  if (!grid || grid.rows.length === 0) return undefined;
+  const dataRows = grid.rows.length - (grid.hasHeaders ? 1 : 0);
+  const columns = Math.max(...grid.rows.map((row) => row.length));
+  if (dataRows === asked.rows && columns === asked.columns) return undefined;
+  return (
+    `table size: the user asked for ${asked.rows}x${asked.columns}, which is a header row plus ` +
+    `${asked.rows} data rows and ${asked.columns} columns (${asked.rows + 1} rows in rows=). This table ` +
+    `has ${dataRows} data row${dataRows === 1 ? '' : 's'} and ${columns} column${columns === 1 ? '' : 's'}. ` +
+    'Send it again with the right size.'
+  );
 }
 
 /** A PowerPoint table's header row takes the brand colour unless the model chose one. */
