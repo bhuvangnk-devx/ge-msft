@@ -584,6 +584,20 @@ describe('command-grammar — ADR-0007 host-native verbs (table / chart / cf)', 
     });
   });
 
+  it('keeps a multi-area chart range on a quoted sheet name whole (UAT 2026-10)', () => {
+    // From PR #3 by Gautam Rana: the model put a space after the comma between two areas.
+    const months = `'Branch Performance'!C1:C55`;
+    const growth = `'Branch Performance'!I1:I55`;
+    for (const line of [`chart line ${months},${growth}`, `chart line ${months}, ${growth}`]) {
+      expect(parseCommandLine(`${line} title="MoM"`)).toEqual({
+        verb: 'chart',
+        chartType: 'line',
+        range: `${months},${growth}`,
+        props: { title: 'MoM' },
+      });
+    }
+  });
+
   // Live 2026-10-15 (mx-xl-chart-11/12/15/20): a second quoted area was cut at its space.
   it('keeps several quoted areas (and a quoted prop value) as one token', () => {
     const areas = `'Branch Performance'!A1:A21,'Branch Performance'!C1:D21`;

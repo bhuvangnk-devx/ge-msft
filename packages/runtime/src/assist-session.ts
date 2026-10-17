@@ -236,12 +236,16 @@ const WRONG_TARGET_CODES = new Set([
   'no_find_replace',
   'empty_slide',
   'empty_synthesis',
+  // PowerPoint: a text box over empty layout placeholders, refused before writing (write into them)
+  'use_placeholders',
   'no_attachment',
   // not `invalid_attachment`: it also rejects non-https links (a scheme rule, not a typo).
 ]);
 
 /**
- * Host reads (`context:*`: snapshot, list, resolve) give up after this long. A host call can stall
+ * Host reads give up after this long: `context:*` (snapshot, list, resolve) and the command
+ * route's `read <selector>`, `search` and `inspect` (live 2026-10-16: a `read slide:2`
+ * waited ~24 min on a stalled PowerPoint for the web). A host call can stall
  * without settling (live 2026-10-02: PowerPoint for the web after adding a slide) and would freeze
  * the whole task. Writes are never raced: an Office write cannot be abandoned safely.
  */
@@ -3613,7 +3617,10 @@ export class AssistSession {
               result: { error: 'addressable read not supported here' },
             };
           }
-          const reads = await this.bridge.readRange(intent.selector);
+          const readRange = this.bridge.readRange.bind(this.bridge);
+          const reads = await withHostReadTimeout(`read ${intent.selector}`, () =>
+            readRange(intent.selector),
+          );
           return { label: `read ${intent.selector}`, result: readsToData(reads) };
         }
         case 'search': {
@@ -3622,7 +3629,10 @@ export class AssistSession {
               label: `search ${intent.text}`,
               result: { error: 'search not supported here' },
             };
-          const reads = await this.bridge.searchDocument(intent.text);
+          const searchDocument = this.bridge.searchDocument.bind(this.bridge);
+          const reads = await withHostReadTimeout(`search ${intent.text}`, () =>
+            searchDocument(intent.text),
+          );
           return { label: `search ${intent.text}`, result: readsToData(reads) };
         }
         case 'ls': {
@@ -3662,7 +3672,9 @@ export class AssistSession {
             return { label: `inspect ${intent.selector}`, result: observed };
           const found = await this.findContextRef(intent.selector);
           if (found?.found) {
-            const reads = await this.bridge.resolveContext(found.ref);
+            const reads = await withHostReadTimeout(`inspect ${intent.selector}`, () =>
+              this.bridge.resolveContext(found.ref),
+            );
             return { label: `inspect ${intent.selector}`, result: readsToData(reads) };
           }
           const fallback = await this.readSelectorFallback(intent.selector);
@@ -3732,6 +3744,9 @@ export class AssistSession {
               },
             };
           }
+          // Not raced with the read timeout: an abandoned reveal still moves the selection when a
+          // stalled host recovers, and a later selection-based write would then hit a range the
+          // model was told was never opened.
           await this.bridge.revealContext(found.ref);
           return {
             label: `open ${intent.selector}`,
@@ -3771,11 +3786,13 @@ export class AssistSession {
 
   private async readSelectorFallback(selector: string): Promise<unknown> {
     if (this.bridge.readRange) {
-      const reads = await this.bridge.readRange(selector);
+      const readRange = this.bridge.readRange.bind(this.bridge);
+      const reads = await withHostReadTimeout(`read ${selector}`, () => readRange(selector));
       if (reads.length > 0) return readsToData(reads);
     }
     if (this.bridge.searchDocument) {
-      const reads = await this.bridge.searchDocument(selector);
+      const searchDocument = this.bridge.searchDocument.bind(this.bridge);
+      const reads = await withHostReadTimeout(`search ${selector}`, () => searchDocument(selector));
       if (reads.length > 0) return readsToData(reads);
     }
     return { error: `inspect could not resolve "${selector}"` };

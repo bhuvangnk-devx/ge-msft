@@ -1233,6 +1233,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(
       `Write neighbouring cells in ONE write, never one set per cell: values as one ${allowed.has('grid') ? 'grid' : 'spill'}${fill ? '; one formula down a column as set Sheet!I2:I57 =IF(A2=A1,(F2-F1)/F1,"") (references shift per row); set Sheet!I2 "" clears a cell' : ''}.`,
     );
+  // CIMB UAT 2026-10-16 (PR #6): "add a Gender column" retyped the whole leads table to move columns.
+  if (allowed.has('grid'))
+    lines.push(
+      'To add a column, write only the new cells beside the data. Never retype or move existing cells.',
+    );
   if (allowed.has('analyze')) {
     lines.push(
       'analyze <JSON action>; let $a = analyze {"kind":"capture","range":"Sheet1!A1:B9","headers":true}.',

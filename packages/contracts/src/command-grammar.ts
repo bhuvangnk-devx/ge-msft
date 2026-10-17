@@ -1139,8 +1139,10 @@ function parseChart(rest: string): ParsedCommand | CommandParseError {
     'chart needs a type and a range — usage: chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns] [x=<col> by=<col> value=<col>]';
   const { positional, props } = tokenizeArgs(rest);
   const chartType = positional[0];
-  const range = positional[1];
+  let range = positional[1];
   if (chartType === undefined || range === undefined) return { error: usage };
+  // The source may put a space after a comma (`C1:C9, G1:G9`); rejoin the areas split there.
+  for (let i = 2; range.endsWith(',') && positional[i] !== undefined; i++) range += positional[i];
   return { verb: 'chart', chartType: chartType.toLowerCase(), range, props };
 }
 

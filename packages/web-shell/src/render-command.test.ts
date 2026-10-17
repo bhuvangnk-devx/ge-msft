@@ -86,6 +86,24 @@ describe('renderCommandLine', () => {
     expect(renderCommandLine(req('insert-slide', {}))).toBe('insert-slide');
   });
 
+  it('renders insert-slide as the slide command, with at= 1-based', () => {
+    expect(
+      renderCommandLine(
+        req('insert-slide', {
+          slide: { title: 'Roadmap', bullets: ['Q4 2026: pilot'] },
+          target: { slideIndex: 2 },
+        }),
+      ),
+    ).toBe('slide "Roadmap" "Q4 2026: pilot" at=3');
+  });
+
+  it('never labels a deck insert as a single slide, even with slide params', () => {
+    const line = renderCommandLine(
+      req('insert-slide', { slide: { title: 'Decoy', bullets: [] }, ooxml: 'UEsDB...' }),
+    );
+    expect(line).not.toContain('slide "Decoy"');
+  });
+
   it('uses placeholders for a write-cells with no target/value', () => {
     expect(renderCommandLine(req('write-cells', {}))).toBe('set <range>');
   });

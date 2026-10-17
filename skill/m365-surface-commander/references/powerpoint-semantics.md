@@ -33,6 +33,11 @@ Positions (`left`/`top`/`width`/`height`, in points) must stay inside the slide;
 position fails with the slide's size.
 To put a title and bullets on a new slide, use `slide "Title" "bullet" …` alone: it writes into the
 layout's title/body placeholders, or adds text boxes when the layout has none.
+To fill an **existing** slide whose title/body placeholders are empty (a blank "Title and Content"
+slide, "Click to add title / text"), write into those placeholders — `shape pp:shape:<n>:title
+"Daftar Isi"` and `shape pp:shape:<n>:<bodyId> "1. Latar belakang\n2. Roadmap"` (one item per
+line; each line becomes its own paragraph). Never add a text box over empty placeholders: it sits
+on top of them, and the bridge refuses it.
 
 **Progressive disclosure:** specialized PowerPoint writes are live capability-gated. Use only slash
 commands advertised by the grammar/help for the turn, after `list`/`properties`/`open`/`inspect`

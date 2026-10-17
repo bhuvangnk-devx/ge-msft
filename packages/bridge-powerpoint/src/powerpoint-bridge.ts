@@ -295,7 +295,7 @@ export class PowerPointBridge implements DocBridge {
   private async applySetShapeText(req: ActuationRequest): Promise<ActuationResult> {
     const slideId = req.params.target?.slideId;
     const shapeId = req.params.target?.shapeId;
-    const text = lineBreaks(req.params.text);
+    const text = paragraphs(req.params.text);
     if (!slideId || !shapeId) {
       return {
         ok: false,
@@ -359,7 +359,7 @@ export class PowerPointBridge implements DocBridge {
         await ctx.sync();
         const priorText = range.text ?? '';
         mutationQueued = true;
-        range.text = text;
+        writeParagraphs(range, text);
         await ctx.sync();
         return {
           ok: true,
@@ -441,19 +441,28 @@ export class PowerPointBridge implements DocBridge {
       };
     }
     let newIndex: number | undefined;
+    let knownIds: ReadonlySet<string> | undefined;
     const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
       try {
-        const added = await appendSlide(ctx);
+        const added = await appendSlide(
+          ctx,
+          plan.bullets.length > 0 ? CONTENT_LAYOUTS : TITLE_ONLY_LAYOUTS,
+        );
         if ('error' in added) return unknownActuationResult(req, added.error);
-        const { index, provisionalId, shapes } = added;
+        const { index, slideId, shapes, existingIds } = added;
         await writeComposedSlide(ctx, index, shapes, plan.title, plan.bullets);
+        const wrote = queueNewSlideCheck(ctx, index, existingIds);
         await ctx.sync();
+        if (!wrote()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
         newIndex = index;
+        knownIds = existingIds;
         // A position past the end means "append": the slide is already there.
         if (plan.targetIndex !== undefined && plan.targetIndex < index) {
           try {
             ctx.presentation.slides.getItemAt(index).moveTo(plan.targetIndex);
+            const moved = queueNewSlideCheck(ctx, plan.targetIndex, existingIds);
             await ctx.sync();
+            if (!moved()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
             newIndex = plan.targetIndex;
           } catch (error) {
             // The slide and its text landed at the end; only the move is unconfirmed.
@@ -461,7 +470,7 @@ export class PowerPointBridge implements DocBridge {
               ok: true,
               changeId: req.changeId,
               kind: req.kind,
-              location: `slide:${provisionalId}`,
+              location: `slide:${slideId}`,
               error: {
                 code: 'not_moved',
                 message:
@@ -476,7 +485,7 @@ export class PowerPointBridge implements DocBridge {
           ok: true,
           changeId: req.changeId,
           kind: req.kind,
-          location: `slide:${provisionalId}`,
+          location: `slide:${slideId}`,
         };
       } catch (error) {
         // The slide may already be in the deck; never report an unconfirmed write as success.
@@ -487,9 +496,9 @@ export class PowerPointBridge implements DocBridge {
         );
       }
     });
-    if (!result.ok || newIndex === undefined) return result;
+    if (!result.ok || newIndex === undefined || knownIds === undefined) return result;
     // Best effort: report the slide's settled id (the one `outline` and later commands will see).
-    const settledId = await readSlideIdAt(newIndex);
+    const settledId = await readNewSlideIdAt(newIndex, knownIds);
     return settledId ? { ...result, location: `slide:${settledId}` } : result;
   }
 
@@ -522,6 +531,19 @@ export class PowerPointBridge implements DocBridge {
         if (unplaced) return slideNotFound(req, unplaced);
         const offSlide = offSlideMessage(size, op);
         if (offSlide) return slideNotFound(req, offSlide);
+        if (op.type === 'textBox') {
+          const overPlaceholders = await emptyPlaceholderMessage(ctx, target.slideId, op.slideId);
+          if (overPlaceholders) {
+            // Nothing written; a later `shape` write into the placeholders settles the task.
+            return {
+              ok: false,
+              changeId: req.changeId,
+              kind: req.kind,
+              degraded: true,
+              error: { code: 'use_placeholders', message: overPlaceholders },
+            };
+          }
+        }
         const slide = ctx.presentation.slides.getItem(target.slideId);
         const options: PowerPoint.ShapeAddOptions = {};
         if (op.left !== undefined) options.left = op.left;
@@ -766,6 +788,7 @@ export class PowerPointBridge implements DocBridge {
 
     let mutationQueued = false;
     let newSlideIndex: number | undefined;
+    let knownIds: ReadonlySet<string> | undefined;
     try {
       const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
         const offSlide = offSlideMessage(await knownSlideSize(ctx), grid);
@@ -779,10 +802,12 @@ export class PowerPointBridge implements DocBridge {
           // through a fresh position proxy (see appendSlide — PowerPoint web rejects writes addressed
           // by a just-added slide's provisional id), and report the settled id afterwards.
           mutationQueued = true;
-          const added = await appendSlide(ctx);
+          // Title Only: the table goes below the title, not into a content placeholder.
+          const added = await appendSlide(ctx, TITLE_ONLY_LAYOUTS);
           if ('error' in added) return unknownActuationResult(req, added.error);
           newSlideIndex = added.index;
-          slideLocation = added.provisionalId;
+          knownIds = added.existingIds;
+          slideLocation = added.slideId;
           const title = req.params.slide?.title?.trim();
           // The title goes into the layout's title placeholder when there is one, else a text box
           // (same rules as insert-slide).
@@ -845,7 +870,12 @@ export class PowerPointBridge implements DocBridge {
           });
         });
         added.load('id');
+        const wrote =
+          newSlideIndex !== undefined && knownIds
+            ? queueNewSlideCheck(ctx, newSlideIndex, knownIds)
+            : undefined;
         await ctx.sync();
+        if (wrote && !wrote()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
         const mintedId = added.id;
         const landed: ActuationResult = {
           ok: true,
@@ -863,7 +893,9 @@ export class PowerPointBridge implements DocBridge {
         ) {
           try {
             ctx.presentation.slides.getItemAt(newSlideIndex).moveTo(targetIndex);
+            const moved = knownIds ? queueNewSlideCheck(ctx, targetIndex, knownIds) : undefined;
             await ctx.sync();
+            if (moved && !moved()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
             newSlideIndex = targetIndex;
           } catch (error) {
             return {
@@ -880,8 +912,9 @@ export class PowerPointBridge implements DocBridge {
         }
         return landed;
       });
-      if (!result.ok || newSlideIndex === undefined) return result;
-      const settledId = await readSlideIdAt(newSlideIndex);
+      if (!result.ok || newSlideIndex === undefined || knownIds === undefined) return result;
+      // The undo deletes this slide, so only the verified new slide's id is accepted here.
+      const settledId = await readNewSlideIdAt(newSlideIndex, knownIds);
       if (!settledId) return result;
       // The command created the slide: undoing it means deleting the slide (and the table with it).
       return {
@@ -1053,7 +1086,7 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
           'text="Draft" left=72 top=330 width=400 height=40',
       };
     }
-    return { ok: true, op: { ...base, type: 'textBox', text: lineBreaks(shape.text) ?? '' } };
+    return { ok: true, op: { ...base, type: 'textBox', text: paragraphs(shape.text) ?? '' } };
   }
   if (shape.shapeType === 'line') {
     return {
@@ -1074,7 +1107,7 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
       message: `add-shape geometry "${shape.geometryType ?? ''}" is not supported.`,
     };
   }
-  const text = lineBreaks(shape.text?.trim());
+  const text = paragraphs(shape.text?.trim());
   return { ok: true, op: { ...base, type: 'geometric', geometry, ...(text ? { text } : {}) } };
 }
 
@@ -1084,6 +1117,39 @@ function resolveAddShape(req: ActuationRequest): AddShapeResolution {
  */
 function lineBreaks<T extends string | undefined>(text: T): T {
   return (text?.replace(/(?:\\r)?\\n/g, '\n') ?? text) as T;
+}
+
+/**
+ * Text for a whole shape (shape text, text boxes, shapes with text): every line — a literal `\n`
+ * the model wrote or a real newline — becomes its own paragraph (`\r`). A `\n` is only a line
+ * break inside ONE paragraph, so a typed list rendered as a single run-on paragraph with no list
+ * formatting (UAT 2026-10-16, "daftar isi" on a slide). Line breaks inside a title or a single
+ * bullet stay {@link lineBreaks}.
+ */
+function paragraphs<T extends string | undefined>(text: T): T {
+  return (lineBreaks(text)?.replace(/\r?\n/g, PARAGRAPH_BREAK) ?? text) as T;
+}
+
+/**
+ * Lines that carry their own list markers ("1. Latar belakang", "a) …", "- …"): at least two, and
+ * every non-empty one starts with one. A body placeholder adds its bullet in front of each, giving
+ * "• 1. Latar belakang" (UAT 2026-10-16) — so for these the layout's bullet is hidden.
+ */
+function hasOwnListMarkers(lines: readonly string[]): boolean {
+  const filled = lines.filter((line) => line.trim() !== '');
+  return filled.length >= 2 && filled.every((line) => OWN_LIST_MARKER.test(line));
+}
+const OWN_LIST_MARKER = /^\s*(?:(?:\d{1,3}|[a-z]|[ivxlc]{1,6})[.)]|[•\-–*])\s/i;
+
+/**
+ * Write `text` into a shape's text range, one paragraph per line; when the lines number
+ * themselves, hide the bullet the placeholder would add (`bulletFormat`, PowerPointApi 1.4).
+ */
+function writeParagraphs(range: PowerPoint.TextRange, text: string): void {
+  range.text = text;
+  if (hasOwnListMarkers(text.split(PARAGRAPH_BREAK)) && isSet('PowerPointApi', '1.4')) {
+    range.paragraphFormat.bulletFormat.visible = false;
+  }
 }
 
 async function deckInsertOptions(
@@ -1334,6 +1400,13 @@ const TITLE_PLACEHOLDERS: readonly string[] = ['Title', 'CenterTitle', 'Vertical
 const BODY_PLACEHOLDERS: readonly string[] = ['Body', 'Content', 'VerticalBody'];
 
 /**
+ * Separates bullets: `\r` is a paragraph break (what PowerPoint reads back for typed paragraphs),
+ * `\n` only a line break inside one paragraph — joined with `\n`, every bullet after the first
+ * rendered as a continuation of the first, with no bullet of its own (live 2026-10-16).
+ */
+const PARAGRAPH_BREAK = '\r';
+
+/**
  * Slide size used for fallback text boxes when the host can't report it (`pageSetup` is
  * PowerPointApi 1.10). 720 × 405 pt is the smallest standard slide (10" × 5.625"), so boxes laid
  * out for it stay on-slide on 16:9 widescreen (960 × 540) and 4:3 (720 × 540) decks too.
@@ -1370,8 +1443,10 @@ async function writeComposedSlide(
   const width = size.width - margin * 2;
   const freshShapes = (): PowerPoint.ShapeCollection =>
     ctx.presentation.slides.getItemAt(slideIndex).shapes;
+  const rangeOf = (shape: PowerPoint.Shape): PowerPoint.TextRange =>
+    freshShapes().getItemAt(shapes.indexOf(shape)).textFrame.textRange;
   const writeInto = (shape: PowerPoint.Shape, text: string): void => {
-    freshShapes().getItemAt(shapes.indexOf(shape)).textFrame.textRange.text = text;
+    rangeOf(shape).text = text;
   };
 
   if (title) {
@@ -1390,15 +1465,19 @@ async function writeComposedSlide(
   }
   if (bullets.length > 0) {
     if (bodyShape) {
-      // A body placeholder brings the layout's own bullet style.
-      writeInto(bodyShape, bullets.join('\n'));
+      // A body placeholder brings the layout's own bullet style — one paragraph per bullet.
+      writeParagraphs(rangeOf(bodyShape), bullets.join(PARAGRAPH_BREAK));
     } else {
-      const box = freshShapes().addTextBox(bullets.map((bullet) => `• ${bullet}`).join('\n'), {
-        left: margin,
-        top: Math.round(size.height * 0.28),
-        width,
-        height: Math.round(size.height * 0.62),
-      });
+      const numbered = hasOwnListMarkers(bullets);
+      const box = freshShapes().addTextBox(
+        bullets.map((bullet) => (numbered ? bullet : `• ${bullet}`)).join(PARAGRAPH_BREAK),
+        {
+          left: margin,
+          top: Math.round(size.height * 0.28),
+          width,
+          height: Math.round(size.height * 0.62),
+        },
+      );
       box.textFrame.textRange.font.size = 18;
     }
   }
@@ -1495,65 +1574,6 @@ const SLIDE_TARGET_HINT =
   'Pass slide= a slide id from the outline, a slide number, or last. To create a new slide with a title and ' +
   'bullets, use the slide command instead: slide "Title" "bullet" "bullet".';
 
-/** The chosen title-and-content layout per deck layout set, so later slides skip the shape reads. */
-const contentLayouts = new Map<string, PowerPoint.AddSlideOptions | null>();
-
-/**
- * A layout of the first slide master with a title and a body placeholder, so a new slide's bullets
- * get the template's list style. `slides.add()` alone uses the master's default layout, which in
- * the CIMB template is a cover (title + subtitle). Undefined when the host can't say (then the
- * default layout is used, as before); never throws.
- */
-async function contentLayout(
-  ctx: PowerPoint.RequestContext,
-): Promise<PowerPoint.AddSlideOptions | undefined> {
-  if (!isSet('PowerPointApi', '1.8')) return undefined;
-  try {
-    const masters = ctx.presentation.slideMasters;
-    masters.load('items/id');
-    await ctx.sync();
-    const master = masters.items[0];
-    if (!master) return undefined;
-    const layouts = master.layouts;
-    layouts.load('items/id,items/name');
-    await ctx.sync();
-    // Keyed by the deck's own layout ids: ids alone repeat across presentations.
-    const key = [master.id, ...layouts.items.map((layout) => layout.id)].join('|');
-    const cached = contentLayouts.get(key);
-    if (cached !== undefined) return cached ?? undefined;
-    const shapeLists = layouts.items.map((layout) => {
-      const shapes = layout.shapes;
-      shapes.load('items/type');
-      return shapes;
-    });
-    await ctx.sync();
-    const formats = shapeLists.map((shapes) =>
-      shapes.items
-        .filter((shape) => shape.type === 'Placeholder')
-        .map((shape) => {
-          const format = shape.placeholderFormat;
-          format.load('type');
-          return format;
-        }),
-    );
-    await ctx.sync();
-    const fits = layouts.items.flatMap((layout, i) => {
-      const types = new Set(formats[i]?.map((format) => String(format.type)));
-      const titled = TITLE_PLACEHOLDERS.some((type) => types.has(type));
-      const body = BODY_PLACEHOLDERS.some((type) => types.has(type));
-      return titled && body ? [layout] : [];
-    });
-    // Prefer the template's own "Title and Content" by name (English or Indonesian Office).
-    const named = fits.find((layout) => /title.*content|judul.*(konten|isi)/i.test(layout.name));
-    const chosen = named ?? fits[0];
-    const options = chosen ? { layoutId: chosen.id, slideMasterId: master.id } : null;
-    contentLayouts.set(key, options);
-    return options ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * Append a slide and identify it. Finds the new slide's POSITION by the one id that is new (never a
  * pre-computed index — a co-author's concurrent add must not redirect later writes), then reads its
@@ -1564,16 +1584,23 @@ async function contentLayout(
  */
 async function appendSlide(
   ctx: PowerPoint.RequestContext,
+  layoutTypes: readonly string[],
 ): Promise<
-  { index: number; provisionalId: string; shapes: PowerPoint.Shape[] } | { error: string }
+  | {
+      index: number;
+      slideId: string;
+      shapes: PowerPoint.Shape[];
+      /** The slide ids before the add — what later checks prove "still the new slide" against. */
+      existingIds: ReadonlySet<string>;
+    }
+  | { error: string }
 > {
   const slides = ctx.presentation.slides;
   slides.load('items/id');
   await ctx.sync();
   const existingIds = new Set(slides.items.map((item) => item.id));
-  const layout = await contentLayout(ctx);
-  if (layout) slides.add(layout);
-  else slides.add();
+  const layoutId = await findLayoutId(ctx, existingIds.size, layoutTypes);
+  slides.add(layoutId ? { layoutId } : undefined);
   await ctx.sync();
   const after = ctx.presentation.slides;
   after.load('items/id');
@@ -1589,18 +1616,162 @@ async function appendSlide(
         'PowerPoint added a slide but it could not be identified. Inspect the deck before trying again.',
     };
   }
-  const probe = ctx.presentation.slides.getItemAt(index);
-  probe.load('id');
-  const shapes = probe.shapes;
-  shapes.load('items/id,items/type');
-  await ctx.sync();
-  if (probe.id !== provisionalId) {
-    return {
-      error:
-        'The deck changed while the slide was being added. Inspect the deck before trying again.',
-    };
+  // PowerPoint for the web finishes a new slide asynchronously (live 2026-10-16): for about a second
+  // it keeps a provisional id, and a slide added with a layout has NO shapes yet — text written then
+  // falls back to text boxes, or is lost. So when a layout was asked for (it has placeholders), wait
+  // for its shapes. Desktop hosts have them at once and never wait.
+  //
+  // Each probe re-reads every id too. The new slide is "the one id that wasn't there before"; its id
+  // may swap from provisional to real ONCE (and then stay put). Anything else — a slide gone, a
+  // second new one, a second id change — is a concurrent change.
+  let realId: string | undefined;
+  for (let attempt = 0; ; attempt++) {
+    const probe = ctx.presentation.slides.getItemAt(index);
+    probe.load('id');
+    const shapes = probe.shapes;
+    shapes.load('items/id,items/type');
+    const check = queueNewSlideCheck(ctx, index, existingIds);
+    await ctx.sync();
+    const id = check();
+    if (id !== probe.id || (id !== provisionalId && realId !== undefined && id !== realId)) {
+      return {
+        error:
+          'The deck changed while the slide was being added. Inspect the deck before trying again.',
+      };
+    }
+    if (id !== provisionalId) realId = id;
+    if (!layoutId || shapes.items.length > 0) {
+      return { index, slideId: id, shapes: shapes.items, existingIds };
+    }
+    if (attempt >= NEW_SLIDE_SETTLE_ATTEMPTS) {
+      // The slide is in the deck but PowerPoint never finished it: writing now could be lost.
+      return {
+        error:
+          'PowerPoint added the slide but did not finish creating it in time, so its text was not ' +
+          'written. Inspect the deck before trying again.',
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, NEW_SLIDE_SETTLE_POLL_MS));
   }
-  return { index, provisionalId, shapes: shapes.items };
+}
+
+/**
+ * Queue a read that confirms the slide at `index` is still the ONE slide that was not in the deck
+ * before the add — in the same batch as the writes it guards, so the writes provably hit that
+ * slide (a batch runs in order). After the sync, the returned function gives that slide's id, or
+ * undefined if a co-author added, removed or moved a slide in between.
+ */
+function queueNewSlideCheck(
+  ctx: PowerPoint.RequestContext,
+  index: number,
+  existingIds: ReadonlySet<string>,
+): () => string | undefined {
+  const slide = ctx.presentation.slides.getItemAt(index);
+  slide.load('id');
+  const all = ctx.presentation.slides;
+  all.load('items/id');
+  return () => {
+    const ids = all.items.map((item) => item.id);
+    const fresh = ids.filter((id) => !existingIds.has(id));
+    return ids.length === existingIds.size + 1 && fresh.length === 1 && fresh[0] === slide.id
+      ? slide.id
+      : undefined;
+  };
+}
+
+/** How long {@link appendSlide} waits for a new layout slide's shapes: 20 × 200 ms = 4 s. */
+const NEW_SLIDE_SETTLE_ATTEMPTS = 20;
+const NEW_SLIDE_SETTLE_POLL_MS = 200;
+
+const SHIFTED_WHILE_WRITING =
+  'The deck changed while the new slide was being written, so the text may have landed on another ' +
+  'slide. Inspect the deck before trying again.';
+
+/**
+ * Layouts a new slide asks for, by `SlideLayout.type` in preference order. With no layout,
+ * `slides.add()` takes the master's FIRST layout — "Title Slide" in most decks — and the bullets
+ * land in its centred 24 pt subtitle (UAT 2026-10-16). Types, not names: layout names are
+ * localised ("Judul dan Konten") and renamed by templates.
+ */
+const CONTENT_LAYOUTS: readonly string[] = ['Object', 'Text'];
+const TITLE_ONLY_LAYOUTS: readonly string[] = ['TitleOnly'];
+
+/** The layout chosen per slide kind and deck layout set, so later slides skip the shape reads. */
+const chosenLayouts = new Map<string, string | null>();
+
+/**
+ * The id of the layout a new slide should use, or undefined (then the host's default applies, as
+ * before). An appended slide takes the previous slide's master, so the layout comes from the last
+ * slide's master (the first master for an empty deck) — another master's layout is ignored by
+ * PowerPoint for the web (seen live: it silently adds the default layout).
+ *
+ * A layout fits by its placeholders: a content slide needs a title and a body placeholder; a
+ * title-only slide a `Title` placeholder and no body or subtitle (so never the cover). Among the
+ * fits, `types` (`SlideLayout.type`, in preference order) wins, then the template's own name
+ * (English or Indonesian Office), then the first fit.
+ *
+ * Read through position proxies only: PowerPoint for the web re-addresses a loaded proxy by id,
+ * and master/layout lookup by id fails (5010 "InvalidParam passed to GetItem(id)", live
+ * 2026-10-16). Read-only and best effort — a failed read never blocks the slide.
+ */
+async function findLayoutId(
+  ctx: PowerPoint.RequestContext,
+  slideCount: number,
+  types: readonly string[],
+): Promise<string | undefined> {
+  if (types.length === 0 || !isSet('PowerPointApi', '1.8')) return undefined;
+  const master = (): PowerPoint.SlideMaster =>
+    slideCount > 0
+      ? ctx.presentation.slides.getItemAt(slideCount - 1).slideMaster
+      : ctx.presentation.slideMasters.getItemAt(0);
+  const titleOnly = types === TITLE_ONLY_LAYOUTS;
+  try {
+    const layouts = master().layouts;
+    layouts.load('items/id,items/name');
+    await ctx.sync();
+    // Keyed by the deck's own layout ids: ids alone repeat across presentations.
+    const key = [types.join(','), ...layouts.items.map((layout) => layout.id)].join('|');
+    const cached = chosenLayouts.get(key);
+    if (cached !== undefined) return cached ?? undefined;
+    const typed = layouts.items.map((_, i) => {
+      const layout = master().layouts.getItemAt(i);
+      layout.load('type');
+      const shapes = layout.shapes;
+      shapes.load('items/type');
+      return { layout, shapes };
+    });
+    await ctx.sync();
+    const formats = typed.map(({ shapes }, i) =>
+      shapes.items.flatMap((shape, j) => {
+        if (shape.type !== 'Placeholder') return [];
+        const format = master().layouts.getItemAt(i).shapes.getItemAt(j).placeholderFormat;
+        format.load('type');
+        return [format];
+      }),
+    );
+    await ctx.sync();
+    const fits = typed.flatMap(({ layout }, i) => {
+      const kinds = new Set(formats[i]?.map((format) => String(format.type)));
+      const body = BODY_PLACEHOLDERS.some((type) => kinds.has(type));
+      const fit = titleOnly
+        ? kinds.has('Title') && !body && !kinds.has('Subtitle')
+        : TITLE_PLACEHOLDERS.some((type) => kinds.has(type)) && body;
+      const id = layouts.items[i]?.id;
+      return fit && id
+        ? [{ id, type: String(layout.type), name: layouts.items[i]?.name ?? '' }]
+        : [];
+    });
+    const named = titleOnly ? /title\s*only|hanya\s*judul/i : /title.*content|judul.*(konten|isi)/i;
+    const chosen =
+      types.map((type) => fits.find((fit) => fit.type === type)).find(Boolean) ??
+      fits.find((fit) => named.test(fit.name)) ??
+      fits[0];
+    chosenLayouts.set(key, chosen?.id ?? null);
+    return chosen?.id;
+  } catch {
+    // Fall through to the host's default layout.
+  }
+  return undefined;
 }
 
 /**
@@ -1652,6 +1823,54 @@ async function resolveShapeTarget(
  * deck whose first shape was a decorative line, it wrote the title into the line. Shape text is
  * document content: quoted, single-line and clipped, like the read listing. Read-only.
  */
+/**
+ * A text box on a slide whose title/body placeholders are still empty lands ON TOP of them: the
+ * "Click to add title / text" prompts stay behind it and the slide reads as unstructured (UAT
+ * 2026-10-16, a "daftar isi" written as one text box over a blank Title and Content slide). Refuse
+ * it before anything is written and name the placeholders to write into instead. Read-only; needs
+ * placeholder types (PowerPointApi 1.8), else no check.
+ */
+async function emptyPlaceholderMessage(
+  ctx: PowerPoint.RequestContext,
+  slideId: string,
+  slideRef: string,
+): Promise<string | undefined> {
+  if (!isSet('PowerPointApi', '1.8')) return undefined;
+  const shapes = ctx.presentation.slides.getItem(slideId).shapes;
+  shapes.load('items/id,items/type');
+  await ctx.sync();
+  const placeholders = shapes.items
+    .filter((shape) => shape.type === 'Placeholder')
+    .map((shape) => {
+      const format = shape.placeholderFormat;
+      format.load('type');
+      const range = shape.textFrame.textRange;
+      range.load('text');
+      return { id: shape.id, format, range };
+    });
+  if (placeholders.length === 0) return undefined;
+  try {
+    await ctx.sync();
+  } catch {
+    return undefined; // A placeholder without text (picture, chart): no check rather than a block.
+  }
+  const empty = placeholders.filter(({ range }) => (range.text ?? '').trim() === '');
+  const title = empty.find(({ format }) => TITLE_PLACEHOLDERS.includes(format.type));
+  const body = empty.find(({ format }) => BODY_PLACEHOLDERS.includes(format.type));
+  if (!title && !body) return undefined;
+  const slide = slideRef.trim().replace(/^(?:pp:)?slide:/i, '');
+  const targets = [
+    ...(title ? [`the title: shape pp:shape:${slide}:title "…"`] : []),
+    ...(body
+      ? [`the body (one line per item): shape pp:shape:${slide}:${body.id} "line 1\\nline 2"`]
+      : []),
+  ];
+  return (
+    'This slide has empty layout placeholders; a text box would sit on top of them. Write into ' +
+    `them instead — ${targets.join('; ')}. Not applied.`
+  );
+}
+
 async function describeShapes(
   ctx: PowerPoint.RequestContext,
   shapes: PowerPoint.Shape[],
@@ -1818,13 +2037,16 @@ function shapeSummary(slideKey: string, shapes: ShapeElement[]): string | undefi
 }
 
 /** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
-async function readSlideIdAt(index: number): Promise<string | undefined> {
+async function readNewSlideIdAt(
+  index: number,
+  existingIds: ReadonlySet<string>,
+): Promise<string | undefined> {
   try {
     return await PowerPoint.run(async (ctx) => {
-      const slide = ctx.presentation.slides.getItemAt(index);
-      slide.load('id');
+      // Only the new slide's id: if the deck shifted since, keep the id the write verified.
+      const check = queueNewSlideCheck(ctx, index, existingIds);
       await ctx.sync();
-      return slide.id;
+      return check();
     });
   } catch {
     return undefined;

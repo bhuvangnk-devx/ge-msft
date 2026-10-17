@@ -1522,6 +1522,27 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
     }
   });
 
+  it('keeps set/grid text that Excel would convert as text (CIMB UAT 2026-10-16)', async () => {
+    // UAT row 11: a retyped leads table lost the 0 and + of phone numbers, and 02/06/2026 became
+    // 6 February. Plain numbers still go in as numbers so formulas over them keep working.
+    active = installExcel(salesSeed());
+    const writes = vi.spyOn(FakeRange.prototype, 'values', 'set');
+    try {
+      const res = await new ExcelBridge().actuate(
+        writeCells({
+          target: { range: 'Sales!A2' },
+          cells: [['081234567807', '+6281234567801', '02/06/2026', '4111111111111111', '100']],
+        }),
+      );
+      expect(res).toMatchObject({ ok: true, verification: { status: 'verified' } });
+      expect(writes).toHaveBeenCalledWith([
+        ["'081234567807", "'+6281234567801", "'02/06/2026", "'4111111111111111", '100'],
+      ]);
+    } finally {
+      writes.mockRestore();
+    }
+  });
+
   it('still refuses unsafe explicit formulas before touching the host', async () => {
     active = installExcel(salesSeed());
     const before = structuredClone(active.seed.sheets);
