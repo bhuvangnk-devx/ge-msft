@@ -1173,13 +1173,24 @@ interface OfficeSettingsLike {
   saveAsync(callback?: (result: unknown) => void): void;
 }
 
+/** English and Bahasa month names and their short forms. */
+const MONTH =
+  '(?:jan(?:uary|uari)?|feb(?:ruary|ruari)?|mar(?:ch|et)?|apr(?:il)?|may|mei|june?|juni|july?|juli|' +
+  'aug(?:ust)?|agu(?:stus)?|ags|sep(?:t|tember)?|o[ck]t(?:ober)?|nov(?:ember)?|de[cs](?:ember)?)';
+
 /**
  * Text Excel would store as a different value: a leading zero or plus (phone numbers, IDs), more
  * than 15 digits (past Excel's precision), or a day/month date the locale can read with day and
  * month swapped. CIMB UAT 2026-10-16: retyped leads lost the 0 and + of their phone numbers, and
  * `02/06/2026` became 6 February.
  */
-const EXCEL_CONVERTS = /^(?:0\d+|\+[\d\s-]+|\d{16,}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})$/;
+const EXCEL_CONVERTS = new RegExp(
+  '^(?:0\\d+|\\+[\\d\\s-]+|\\d{16,}|\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}' +
+    // A month name with a year or a day: Excel on the web stores "Jan 2026" as a date (live
+    // 2026-10-17: a summary labelled "Jan 2026" no longer matched the data's text, every total was 0).
+    `|${MONTH}[\\s./,-]+\\d{1,4}|\\d{1,2}[\\s./-]+${MONTH}(?:[\\s./,-]+\\d{2,4})?)$`,
+  'i',
+);
 
 /**
  * Text Excel may evaluate like a typed formula: a leading `+`, `-` or `@` (`+cmd|' /C calc'!A0`,

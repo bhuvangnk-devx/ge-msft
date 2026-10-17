@@ -959,6 +959,11 @@ export class AssistSession {
    */
   private shareCountThisTask = 0;
   /**
+   * Where this task put each `chart … by=` summary. A retry rewrites that block: live 2026-10-17, a
+   * retried chart found the earlier summary "taken" and wrote a second and a third copy beside it.
+   */
+  private readonly groupedChartAt = new Map<string, number>();
+  /**
    * The task is a confirmed plan that asks for a change and has not yet had its first `done`
    * without any write refused. Cleared once that refusal is given, so a second `done` stands.
    */
@@ -1745,6 +1750,7 @@ export class AssistSession {
 
   private resetCommandState(task?: string): void {
     this.analysisBindings.clear();
+    this.groupedChartAt.clear();
     this.lastCommandDocState = undefined;
     if (this.task)
       this.task.metrics = {
@@ -2675,22 +2681,27 @@ export class AssistSession {
       return { error: `chart ${entry.range}: could not read the source range; read it and retry.` };
     }
     const { x, by, value, ...rest } = entry.props;
-    for (let attempt = 0, offset = 0; attempt < 6; attempt++) {
+    const key = JSON.stringify([rangeKey(entry.range), x, by, value]);
+    const earlier = this.groupedChartAt.get(key);
+    for (let attempt = 0, offset = earlier ?? 0; attempt < 6; attempt++) {
       const plan = groupedChartPlan(entry.range, values, { x, by, value }, offset);
       if ('error' in plan) return plan;
-      let taken = true;
-      try {
-        // A formula that shows "" is not empty: check formulas as well as values.
-        const snap = await capture(plan.range);
-        const filled = (cell: unknown): boolean =>
-          cell !== null && cell !== undefined && cell !== '';
-        taken =
-          snap.values.some((row) => row.some(filled)) ||
-          (snap.formulas ?? []).some((row) => row.some(filled));
-      } catch {
-        taken = true;
+      let taken = attempt > 0 || earlier === undefined;
+      if (taken) {
+        try {
+          // A formula that shows "" is not empty: check formulas as well as values.
+          const snap = await capture(plan.range);
+          const filled = (cell: unknown): boolean =>
+            cell !== null && cell !== undefined && cell !== '';
+          taken =
+            snap.values.some((row) => row.some(filled)) ||
+            (snap.formulas ?? []).some((row) => row.some(filled));
+        } catch {
+          taken = true;
+        }
       }
-      if (!taken)
+      if (!taken) {
+        this.groupedChartAt.set(key, offset);
         return {
           commands: [
             { verb: 'grid', range: plan.range, cells: plan.cells },
@@ -2702,6 +2713,7 @@ export class AssistSession {
             },
           ],
         };
+      }
       offset += (plan.cells[0]?.length ?? 1) + 1;
     }
     return { error: `chart ${entry.range}: no empty space to the right for the summary table.` };

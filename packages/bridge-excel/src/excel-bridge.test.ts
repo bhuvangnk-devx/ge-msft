@@ -1540,6 +1540,24 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
     }
   });
 
+  it('keeps month-name dates as text, so labels still match the data (live 2026-10-17)', async () => {
+    active = installExcel(salesSeed());
+    const writes = vi.spyOn(FakeRange.prototype, 'values', 'set');
+    try {
+      await new ExcelBridge().actuate(
+        writeCells({
+          target: { range: 'Sales!A2' },
+          cells: [['Jan 2026', 'Mar-26', '1 Januari 2026', 'Jakarta', 'March']],
+        }),
+      );
+      expect(writes).toHaveBeenCalledWith([
+        ["'Jan 2026", "'Mar-26", "'1 Januari 2026", 'Jakarta', 'March'],
+      ]);
+    } finally {
+      writes.mockRestore();
+    }
+  });
+
   it('keeps set/grid text that Excel would convert as text (CIMB UAT 2026-10-16)', async () => {
     // UAT row 11: a retyped leads table lost the 0 and + of phone numbers, and 02/06/2026 became
     // 6 February. Plain numbers still go in as numbers so formulas over them keep working.

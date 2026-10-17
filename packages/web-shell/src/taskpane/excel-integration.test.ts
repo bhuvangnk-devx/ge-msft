@@ -387,4 +387,31 @@ describe('Excel full-stack integration', () => {
     const chart = sim.snapshot().charts.find((c) => c.title === 'Revenue');
     expect(chart?.source).toContain('F1:J7');
   });
+
+  it('a retried chart by= rewrites its own summary block, never a second copy (live 2026-10-17)', async () => {
+    sim = installFakeExcel();
+    const chart =
+      '```cmd\nchart column Sales!A1:D7 x=rep by=region value=revenue title="Revenue"\n```';
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([chart, chart, '```cmd\ndone "Charted."\n```']),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('chart revenue per region by rep');
+    });
+    for (let i = 0; i < 2; i++) {
+      await ui!.waitFor((s) => s.pendingPlan !== undefined || !s.busy);
+      if (!ui!.controller.getState().pendingPlan) break;
+      await ui!.act(() => ui!.controller.approvePlan());
+    }
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+
+    const sales = sim.snapshot().sheets.find((s) => s.name === 'Sales')!;
+    expect(sales.values[0]?.slice(5, 10)).toEqual(['rep', 'East', 'West', 'North', 'South']);
+    // Nothing beside it: the retry did not find "its" block taken and move on.
+    expect(sales.values.every((row) => (row[11] ?? '') === '')).toBe(true);
+  });
 });
