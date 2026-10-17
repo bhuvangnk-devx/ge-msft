@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { fillRange, shiftFormula } from './cells.js';
+import type { ActuationRequest } from './capability.js';
+import type { CellSnapshot } from './analysis.js';
+import { cellsMatchRequest, excelInputValue, fillRange, shiftFormula } from './cells.js';
 
 describe('shiftFormula', () => {
   it('shifts relative references and keeps absolute ones', () => {
@@ -75,5 +77,57 @@ describe('fillRange', () => {
     expect(() => fillRange('A1:B2', '=XFD1')).toThrow(/off the worksheet/);
     // A `#REF!` already in the text does not hide one the fill would add.
     expect(() => fillRange('A1:B2', '=IF(XFD1=0,"#REF!",1)')).toThrow(/off the worksheet/);
+  });
+});
+
+describe('excelInputValue', () => {
+  it('marks conversions that change meaning (CIMB UAT 2026-10-16)', () => {
+    for (const [text, stored] of [
+      ['081234567807', 81234567807],
+      ['+6281234567801', 6281234567801],
+      ['4111111111111111', 4111111111111110],
+      ['2E5', 200000],
+      ['02/06/2026', 46059], // read month-first: 6 February 2026
+      // Month labels lose their text as dates (live 2026-10-17), so they stay text.
+      ['Jan 2026', 46023],
+      ['Juni 2026', 46174],
+      ['2 Agustus 2026', 46236],
+    ] as const)
+      expect(excelInputValue(text)).toEqual({ stored, keepsMeaning: false });
+    expect(excelInputValue('3/4').keepsMeaning).toBe(false);
+  });
+
+  it('keeps conversions that keep meaning', () => {
+    for (const [text, stored] of [
+      ['100', 100],
+      ['-12.5', -12.5],
+      ['50%', 0.5],
+      ['$1,234.50', 1234.5],
+      ['TRUE', true],
+      ['2026-06-24', 46197],
+    ] as const)
+      expect(excelInputValue(text)).toEqual({ stored, keepsMeaning: true });
+    expect(excelInputValue('08:00 AM').stored).toBeCloseTo(8 / 24, 12);
+  });
+
+  it('leaves text Excel does not convert as text', () => {
+    for (const text of ['Thamrin', '14/06/2026', '+62 812-3456', 'A1', ''])
+      expect(excelInputValue(text)).toEqual({ stored: text, keepsMeaning: true });
+  });
+});
+
+describe('cellsMatchRequest', () => {
+  const request = (cells: string[][]) =>
+    ({ params: { target: { range: 'A1' }, cells } }) as unknown as ActuationRequest;
+  const snapshot = (values: unknown[][]) => ({ values, formulas: [] }) as unknown as CellSnapshot;
+
+  it("accepts Excel's own conversion of the typed text, and nothing else", () => {
+    expect(
+      cellsMatchRequest(snapshot([[100, 0.5, 46197]]), request([['100', '50%', '2026-06-24']])),
+    ).toBe(true);
+    expect(cellsMatchRequest(snapshot([[8 / 24]]), request([['08:00 AM']]))).toBe(true);
+    // A changed meaning is a real mismatch.
+    expect(cellsMatchRequest(snapshot([[81234567807]]), request([['081234567807']]))).toBe(false);
+    expect(cellsMatchRequest(snapshot([['']]), request([['0']]))).toBe(false);
   });
 });

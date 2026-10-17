@@ -224,7 +224,8 @@ set 'Daily schedule'!G12 "Wrap Up & Planning"
     expect(sheet.values[1]?.[1]).toBe('Time');
     expect(sheet.values[1]?.[2]).toBe('Monday');
     expect(sheet.values[1]?.[8]).toBe('Sunday');
-    expect(sheet.values[2]?.[1]).toBe('08:00 AM');
+    // Excel stores a typed time as a day fraction (8:00 AM = 8/24), shown as 8:00 AM.
+    expect(Number(sheet.values[2]?.[1])).toBeCloseTo(8 / 24, 9);
     expect(sheet.values[11]?.[6]).toBe('Wrap Up & Planning');
   });
 });

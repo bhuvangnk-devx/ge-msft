@@ -35,6 +35,7 @@ export * from './release-profile.js';
 export * from './docfs.js';
 
 export * from './analysis.js';
+export * from './address.js';
 export * from './cells.js';
 export * from './analysis-actions.js';
 export * from './analysis-program-schema.js';

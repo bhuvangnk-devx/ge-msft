@@ -232,6 +232,8 @@ describe('renderPlanPrompt', () => {
   it('advertises context hints without granting execution authority', () => {
     const prompt = renderPlanPrompt('excel', ['ask', 'draft']);
     expect(prompt).toContain('context  <incremental|inline-preferred');
+    // Nothing here runs code, so the planner is not offered code execution (CIMB scenario 2026-10-17).
+    expect(prompt).not.toContain('code-execution-preferred');
     expect(prompt).toContain('context is only a context-construction hint');
     expect(prompt).toContain('never grants upload/code/write authority');
     expect(prompt).toContain('intent   <ask | draft>');

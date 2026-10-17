@@ -21,6 +21,7 @@ import {
 import { PlanContextHintSchema, type PlanContextHint } from './command-plan.js';
 import { ContextKindSchema, type ContextKind, type Surface } from './context.js';
 import { registryEntryForKindAndSurface } from './capability-registry.js';
+import { normalizeSelector, scanAddress } from './address.js';
 
 /**
  * ADR-0004 — the command-line protocol grammar (the single source of truth).
@@ -464,7 +465,7 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'read': {
       // Excel: an A1/NamedRange selector. Word: whole-doc (no selector) — empty string is fine,
       // the runtime read-intent treats an empty selector as "whole document".
-      return { verb: 'read', selector: rest };
+      return { verb: 'read', selector: normalizeSelector(rest) };
     }
 
     case 'ls': {
@@ -591,15 +592,19 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
       return parseShare(rest);
 
     case 'set': {
-      const split = splitFirstArg(rest);
+      const split = splitAddressArg(rest);
       if (!split) {
         return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
       const cell = split.arg;
       const raw = split.tail.trim();
-      const value = unquoteSetValue(raw);
+      let value = unquoteSetValue(raw);
       // `set I2 ""` clears the cell (the model writes it for a first month with no previous one).
       if (raw === '""' && cell !== '') return { verb: 'set', cell, value: '' };
+      // `set A1 = "text"` and `set A1 = "=SUM(B1:B9)"`: assigning one quoted value is that value
+      // (CIMB scenario run 2026-10-17 wrote `= "=IF(…)"`, and every cell got a text formula).
+      const assigned = /^=\s*"/.test(value) ? scanQuoted(value, value.indexOf('"')) : undefined;
+      if (assigned && value.slice(assigned.end).trim() === '') value = assigned.value;
       if (cell === '' || value === '') {
         return { error: 'set needs a cell and a value — usage: set <A1|A1:A50> <value|=formula>' };
       }
@@ -668,7 +673,7 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
  */
 function parseGrid(rest: string): ParsedCommand | CommandParseError {
   const usage = 'grid needs a range and quoted TSV — usage: grid <range> = "a\\tb\\nc\\td"';
-  const split = splitFirstArg(rest);
+  const split = splitAddressArg(rest);
   if (!split) return { error: usage };
   const range = split.arg;
   let tail = split.tail.trim();
@@ -715,7 +720,7 @@ function parseSave(rest: string): ParsedCommand | CommandParseError {
     return {
       verb: 'save',
       name,
-      source: { src: 'read', selector: tail.replace(/^read\s*/i, '').trim() },
+      source: { src: 'read', selector: normalizeSelector(tail.replace(/^read\s*/i, '')) },
     };
   }
   if (/^search\s+/i.test(tail)) {
@@ -757,7 +762,7 @@ function parseShare(rest: string): ParsedCommand | CommandParseError {
     return {
       verb: 'share',
       name,
-      source: { src: 'read', selector: tail.replace(/^read\s*/i, '').trim() },
+      source: { src: 'read', selector: normalizeSelector(tail.replace(/^read\s*/i, '')) },
     };
   }
   if (/^search\s+/i.test(tail)) {
@@ -1003,12 +1008,10 @@ function parseFormat(rest: string): ParsedCommand | CommandParseError {
         `fill=#1F4E79 align=center. Keys: ${FORMAT_KEYS_USAGE}`,
     };
   }
-  const { positional, props } = tokenizeArgs(rest);
-  if (positional.length === 0) return { error: usage };
-
-  const range = positional[0]!;
-  if (positional.length > 1) {
-    const bad = positional[1]!;
+  const { address: range, positional, props } = addressAndArgs(rest);
+  if (range === undefined) return { error: usage };
+  if (positional.length > 0) {
+    const bad = positional[0]!;
     return {
       error: `format expects key=value pairs — got "${bad}" (usage: format <range> k=v)`,
     };
@@ -1035,8 +1038,9 @@ function parseJsonFormat(rest: string, usage: string): ParsedCommand | CommandPa
     return { error: usage };
   }
   const obj = parsed as Record<string, unknown>;
-  const range =
-    rest.slice(0, brace).trim() || (typeof obj.range === 'string' ? obj.range.trim() : '');
+  const range = normalizeSelector(
+    rest.slice(0, brace).trim() || (typeof obj.range === 'string' ? obj.range.trim() : ''),
+  );
   if (!range || /\s/.test(range)) return { error: usage };
   const styleValue = obj.style ?? obj.format;
   const style = (
@@ -1090,6 +1094,23 @@ function splitFirstArg(rest: string): { arg: string; tail: string } | undefined 
  */
 const QUOTED_SHEET_TOKEN = `'(?:[^']|'')*'(?:[^\\s']+|'(?:[^']|'')*')*`;
 
+/** The leading address argument in Excel's spelling ('Q3 Sales'!A1), then the rest of the line. */
+function splitAddressArg(rest: string): { arg: string; tail: string } | undefined {
+  const scanned = scanAddress(rest);
+  return scanned ? { arg: scanned.address, tail: scanned.rest } : undefined;
+}
+
+/** The leading address (unless the line starts with a `key=value` prop), then the remaining args. */
+function addressAndArgs(rest: string): {
+  address?: string;
+  positional: string[];
+  props: Record<string, string>;
+} {
+  const scanned = scanAddress(rest);
+  if (!scanned || /^\w[\w-]*=/.test(scanned.address)) return tokenizeArgs(rest);
+  return { address: scanned.address, ...tokenizeArgs(scanned.rest) };
+}
+
 /** `set A1 "hello world"` is a scalar cell value, not a request to include quote characters. */
 function unquoteSetValue(value: string): string {
   // A double-quoted value honours `\"` and `\\` (CIMB UAT 2026-10-16: the model wrote
@@ -1130,13 +1151,12 @@ function tokenizeArgs(rest: string): { positional: string[]; props: Record<strin
 
 /** ADR-0007 `table <range> [headers] [name=...]` — promote a range to a native Table. */
 function parseTable(rest: string): ParsedCommand | CommandParseError {
-  const { positional, props } = tokenizeArgs(rest);
-  const range = positional[0];
+  const { address: range, positional, props } = addressAndArgs(rest);
   if (range === undefined) {
     return { error: 'table needs a range — usage: table <range> [headers] [name=...]' };
   }
   // A bare `headers` flag is sugar for headers=true (the common case).
-  if (positional.slice(1).includes('headers')) props.headers = 'true';
+  if (positional.includes('headers')) props.headers = 'true';
   return { verb: 'table', range, props };
 }
 
@@ -1144,12 +1164,12 @@ function parseTable(rest: string): ParsedCommand | CommandParseError {
 function parseChart(rest: string): ParsedCommand | CommandParseError {
   const usage =
     'chart needs a type and a range — usage: chart <column|bar|line|pie|scatter|area> <range> [title="…"] [series=rows|columns] [x=<col> by=<col> value=<col>]';
-  const { positional, props } = tokenizeArgs(rest);
-  const chartType = positional[0];
-  let range = positional[1];
-  if (chartType === undefined || range === undefined) return { error: usage };
-  // The source may put a space after a comma (`C1:C9, G1:G9`); rejoin the areas split there.
-  for (let i = 2; range.endsWith(',') && positional[i] !== undefined; i++) range += positional[i];
+  const typeMatch = /^\s*(\S+)/.exec(rest);
+  const chartType = typeMatch?.[1];
+  if (chartType === undefined || chartType.includes('=')) return { error: usage };
+  // The range may be several areas, with or without a space after each comma (C1:C9, G1:G9).
+  const { address: range, props } = addressAndArgs(rest.slice(typeMatch![0].length));
+  if (range === undefined) return { error: usage };
   return { verb: 'chart', chartType: chartType.toLowerCase(), range, props };
 }
 
@@ -1159,15 +1179,14 @@ function parseChart(rest: string): ParsedCommand | CommandParseError {
  * or `top=N`. The parser only collects props; `compileCommand` interprets them into a typed rule.
  */
 function parseCf(rest: string): ParsedCommand | CommandParseError {
-  const { positional, props } = tokenizeArgs(rest);
-  const range = positional[0];
+  const { address: range, positional, props } = addressAndArgs(rest);
   if (range === undefined) {
     return {
       error:
         'cf needs a range and a rule — usage: cf <range> >VALUE [fill=#hex] | cf <range> databar|colorscale | cf <range> top=N',
     };
   }
-  for (const tok of positional.slice(1)) {
+  for (const tok of positional) {
     const opMatch = /^(>=|<=|!=|>|<|=)(.+)$/.exec(tok);
     if (opMatch) {
       props.op = opMatch[1]!;
@@ -1213,10 +1232,10 @@ function parseShape(rest: string): ParsedCommand | CommandParseError {
  */
 function parseSpill(rest: string): ParsedCommand | CommandParseError {
   const usage = 'spill needs a range and a table expression — usage: spill <range> = ($rows)';
-  const sp = rest.search(/\s/);
-  if (sp === -1) return { error: usage };
-  const range = rest.slice(0, sp);
-  const value = rest.slice(sp + 1).trim();
+  const split = splitAddressArg(rest);
+  if (!split) return { error: usage };
+  const range = split.arg;
+  const value = split.tail.trim();
   if (range === '' || value === '') return { error: usage };
   const expr = parseEffectArg(value);
   if (expr === undefined) {

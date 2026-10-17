@@ -1979,6 +1979,23 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     expect(assist.runTasks[0]).toContain('exclude: the indemnity clause');
   });
 
+  it('does not hand the executor a code-execution hint nothing can honor (CIMB scenario 2026-10-17)', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, context: ['analytical', 'code-execution-preferred'] },
+      errors: [],
+      needsClarification: false,
+    };
+    assist.commandScript = [{ plan: [planEffect('w1')] }];
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('/rewrite the SLA', undefined);
+    c.confirmCommandPlan();
+    await tick();
+    await tick();
+    expect(assist.runTasks[0]).toContain('context: analytical');
+    expect(assist.runTasks[0]).not.toContain('code-execution-preferred');
+  });
+
   it('stages a chat-labelled plan whose steps change the document as an edit (fix G)', async () => {
     // Live 2026-09-30, REQ#563: the planner answered "In G12 put a formula that totals G2:G11" with
     // `intent ask` and the step below; chat then claimed "The formula … has been placed in G12".

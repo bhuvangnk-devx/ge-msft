@@ -45,7 +45,8 @@ export interface CommandContextRenderInput {
  * provider's conversation. Those responsibilities remain with AssistSession.
  */
 export class CommandContextSession {
-  private readonly results = new CommandResultStore({ inlineBytes: 4096 });
+  // Half the 16 KB turn budget: a CIMB-sized read (55 rows × 8 columns) arrives as rows, not a ref.
+  private readonly results = new CommandResultStore({ inlineBytes: 8 * 1024 });
   private history?: CommandCapsule | ExecutionState;
   private latest?: CommandCapsuleTurn;
   private task?: string;

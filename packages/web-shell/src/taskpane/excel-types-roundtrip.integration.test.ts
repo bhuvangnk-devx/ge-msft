@@ -142,10 +142,10 @@ describe('Excel typed write roundtrip (full-stack interplay: bridge-excel + runt
     expect(b3).toBe('12');
     expect(String(b3).startsWith('=')).toBe(false);
 
-    // Out!B4 = a DATE literal: routed to `.values` distinctly from the formula path, kept verbatim
-    // (a date string is data, not a formula) — it must not be mistaken for active content.
+    // Out!B4 = a DATE literal: routed to `.values` distinctly from the formula path. Excel stores an
+    // ISO date as its date serial (46197 = 2026-06-24), and it must not be mistaken for a formula.
     const b4 = out?.values[3]?.[1];
-    expect(b4).toBe('2026-06-24');
+    expect(b4).toBe('46197');
     expect(String(b4).startsWith('=')).toBe(false);
 
     // The seeded inputs the formula references are untouched by the write (no clobber of the source).

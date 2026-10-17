@@ -27,11 +27,158 @@ export function cellsMatchRequest(snapshot: CellSnapshot, request: ActuationRequ
       const wantedFormula = formulas[r]?.[c] ?? '';
       const actualFormula = snapshot.formulas?.[r]?.[c] ?? '';
       if (wantedFormula.startsWith('=')) return actualFormula === wantedFormula;
-      return (
-        !actualFormula.startsWith('=') && String(snapshot.values[r]?.[c] ?? '') === String(v ?? '')
-      );
+      const actual = String(snapshot.values[r]?.[c] ?? '');
+      if (actualFormula.startsWith('=')) return false;
+      if (actual === String(v ?? '') || typeof v !== 'string') return actual === String(v ?? '');
+      // Excel's own conversion of the typed text (100 → 100, 50% → 0.5, an ISO date → its serial)
+      // is the approved value, not a mismatch; a conversion that changes meaning stays one. Fractions
+      // compare within float noise.
+      const { stored, keepsMeaning } = excelInputValue(v);
+      if (!keepsMeaning) return false;
+      return typeof stored === 'number'
+        ? actual !== '' && Math.abs(Number(actual) - stored) <= 1e-9 * Math.max(1, Math.abs(stored))
+        : actual === String(stored);
     }),
   );
+}
+
+/** What Excel stores for typed text, and whether that value still means what was typed. */
+export interface ExcelInput {
+  /** The value `Range.values` returns afterwards, parsed as en-US Excel does. */
+  stored: string | number | boolean;
+  /**
+   * False when the stored value means something else: a lost leading 0 or +, digits past Excel's
+   * 15, an exponent read into a code, or a numeric date whose day/month order the locale decides.
+   * Such text must be written as text.
+   */
+  keepsMeaning: boolean;
+}
+
+/** English and Bahasa month names and short forms → month number. */
+const MONTHS: Record<string, number> = {
+  jan: 1,
+  january: 1,
+  januari: 1,
+  feb: 2,
+  february: 2,
+  februari: 2,
+  mar: 3,
+  march: 3,
+  maret: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  mei: 5,
+  jun: 6,
+  june: 6,
+  juni: 6,
+  jul: 7,
+  july: 7,
+  juli: 7,
+  aug: 8,
+  august: 8,
+  agu: 8,
+  ags: 8,
+  agustus: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  okt: 10,
+  october: 10,
+  oktober: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  des: 12,
+  december: 12,
+  desember: 12,
+};
+
+/** Excel's day serial (1900 date system), or undefined for an invalid date. */
+function dateSerial(year: number, month: number, day: number): number | undefined {
+  const time = Date.UTC(year, month - 1, day);
+  if (new Date(time).getUTCDate() !== day || month < 1 || month > 12) return undefined;
+  return (time - Date.UTC(1899, 11, 30)) / 86_400_000;
+}
+
+const fullYear = (y: string): number =>
+  y.length === 4 ? Number(y) : Number(y) + (Number(y) < 30 ? 2000 : 1900);
+const monthOf = (name: string): number =>
+  Object.hasOwn(MONTHS, name.toLowerCase()) ? MONTHS[name.toLowerCase()]! : 0;
+
+/**
+ * Model of how Excel converts text typed into a cell (CIMB UAT 2026-10-16: `081…` lost its 0,
+ * `+62…` became 6.28123E+12, and `02/06/2026` became 6 February). Text Excel leaves alone, and the
+ * forms not modelled here (fractions, locale decimals), come back as the text itself.
+ */
+export function excelInputValue(text: string): ExcelInput {
+  const t = text.trim();
+  const keep = (stored: string | number | boolean): ExcelInput => ({ stored, keepsMeaning: true });
+  const change = (stored: string | number | boolean): ExcelInput => ({
+    stored,
+    keepsMeaning: false,
+  });
+  if (t === '') return keep(text);
+  if (/^(true|false)$/i.test(t)) return keep(t.toLowerCase() === 'true');
+  let m = /^([+-]?)(\d+(?:\.\d*)?|\.\d+)(?:e([+-]?\d+))?$/i.exec(t);
+  if (m) {
+    const stored = Number(Number(t).toPrecision(15));
+    const digits = (m[2]!.replace('.', '').replace(/^0+/, '') || '0').length;
+    // A + before bare digits is a phone number (+6281…), and an exponent on a whole number is a code
+    // (2E5); a signed decimal (+1.5e3) is still a number.
+    const plusDigits = m[1] === '+' && /^\d+$/.test(m[2]!) && m[3] === undefined;
+    const code = m[3] !== undefined && !m[2]!.includes('.');
+    const lost = plusDigits || /^0\d/.test(m[2]!) || code || digits > 15;
+    return lost ? change(stored) : keep(stored);
+  }
+  // Currency and thousands separators (en-US): $1,234.50 → 1234.5.
+  if (/^\$?[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(t) && /[$,]/.test(t))
+    return keep(Number(t.replace(/[$,]/g, '')));
+  if ((m = /^([+-]?(?:\d+(?:\.\d*)?|\.\d+))%$/.exec(t))) return keep(Number(m[1]) / 100);
+  if ((m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])m)?$/i.exec(t))) {
+    const half = m[4]?.toLowerCase();
+    const h = half ? (Number(m[1]) % 12) + (half === 'p' ? 12 : 0) : Number(m[1]);
+    const min = Number(m[2]);
+    const sec = Number(m[3] ?? 0);
+    if (h < 24 && min < 60 && sec < 60) return keep((h * 3600 + min * 60 + sec) / 86_400);
+  }
+  // A numeric date reads month-first here and day-first in other locales, so it never keeps meaning.
+  if ((m = /^(\d{1,2})([/.-])(\d{1,2})(?:\2(\d{2}|\d{4}))?$/.exec(t))) {
+    const year = m[4] ? fullYear(m[4]) : new Date().getUTCFullYear();
+    const serial = dateSerial(year, Number(m[1]), Number(m[3]));
+    if (serial !== undefined) return change(serial);
+  }
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t))) {
+    const serial = dateSerial(Number(m[1]), Number(m[2]), Number(m[3]));
+    if (serial !== undefined) return keep(serial);
+  }
+  // Month names (English or Bahasa) become dates, which loses the label: a summary labelled
+  // "Jan 2026" stopped matching the data's text (live 2026-10-17), so these stay text.
+  // "Jan 2026", "Juni 2026", "Agu-26" (a 2-digit number after a month is a year), "Jan 5".
+  if ((m = /^([a-z]{3,9})\.?[\s./,-]+(\d{1,4})$/i.exec(t)) && monthOf(m[1]!) > 0) {
+    const n = m[2]!;
+    const serial =
+      n.length === 1
+        ? dateSerial(new Date().getUTCFullYear(), monthOf(m[1]!), Number(n))
+        : dateSerial(n.length === 2 ? 2000 + Number(n) : Number(n), monthOf(m[1]!), 1);
+    if (serial !== undefined) return change(serial);
+  }
+  // "2 Jun 2026", "2 Agustus", "2-Jun-26".
+  if (
+    (m = /^(\d{1,2})[\s./-]+([a-z]{3,9})\.?(?:[\s./,-]+(\d{2}|\d{4}))?$/i.exec(t)) &&
+    monthOf(m[2]!) > 0
+  ) {
+    const year = m[3] ? fullYear(m[3]) : new Date().getUTCFullYear();
+    const serial = dateSerial(year, monthOf(m[2]!), Number(m[1]));
+    if (serial !== undefined) return change(serial);
+  }
+  // "Jun 2, 2026".
+  if ((m = /^([a-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/i.exec(t)) && monthOf(m[1]!) > 0) {
+    const serial = dateSerial(Number(m[3]), monthOf(m[1]!), Number(m[2]));
+    if (serial !== undefined) return change(serial);
+  }
+  return keep(text);
 }
 export function hasFormulaErrors(snapshot: CellSnapshot): boolean {
   return snapshot.values.some((row, r) =>

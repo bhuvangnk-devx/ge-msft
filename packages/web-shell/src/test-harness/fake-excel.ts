@@ -39,6 +39,7 @@
  *     by the runtime over the SEEDED values, not by Excel, so this does not affect those tests.
  */
 
+import { excelInputValue } from '@ge/contracts';
 import { parseA1, addressOf, cellRef, indexToCol, type Grid } from './a1.js';
 import { installGlobal, composeRestores } from './globals.js';
 import {
@@ -375,9 +376,14 @@ class FakeRange {
     return this._pendingValues ?? (this._valuesCache ??= this.computeValues());
   }
   set values(grid: unknown[][]) {
+    // Like Excel: a leading ' keeps text; other typed text converts (081… → 81…, a date → its serial).
     this._pendingValues = grid.map((row) =>
       row.map((v) =>
-        typeof v !== 'string' ? v : v.startsWith("'") ? v.slice(1) : (asTypedDate(v) ?? v),
+        typeof v !== 'string'
+          ? v
+          : v.startsWith("'")
+            ? v.slice(1)
+            : String(excelInputValue(v).stored),
       ),
     ) as string[][];
   }
@@ -793,21 +799,6 @@ class EventSink<A> {
   fire(args: A): void {
     for (const h of [...this.handlers]) void h(args);
   }
-}
-
-/**
- * Real Excel reads text written through `values` like typed input: "Jan 2026" becomes a date
- * (stored as its serial number) unless it starts with `'`. Modelled so the simulator catches what
- * real Excel did on 2026-10-17 (a summary's month labels stopped matching the data's text).
- */
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-function asTypedDate(text: string): string | undefined {
-  const m = /^([A-Za-z]{3})[a-z]*[\s-](\d{2}|\d{4})$/.exec(text.trim());
-  const month = m ? MONTHS.indexOf(m[1]!.toLowerCase()) : -1;
-  if (!m || month < 0) return undefined;
-  const year = m[2]!.length === 2 ? 2000 + Number(m[2]) : Number(m[2]);
-  const serial = (Date.UTC(year, month, 1) - Date.UTC(1899, 11, 30)) / 86_400_000;
-  return String(serial);
 }
 
 class FakeWorksheetCollection {

@@ -152,11 +152,28 @@ describe('command context lifecycle', () => {
     expect(collectState).not.toHaveBeenCalled();
   });
 
+  it('shows the rows the last program read, not only a ref (CIMB scenario 2026-10-17)', () => {
+    // A 55-row × 8-column read came back as a ref, and the model re-read it for 12 turns.
+    const context = new CommandContextSession();
+    context.begin(task);
+    const table = Array.from({ length: 55 }, (_, i) => `| Branch ${i} | Jan 2026 | ${i} |`).join(
+      '\n',
+    );
+    context.record({ program: "read 'Branch Performance'!A1:H55", results: [{ text: table }] });
+    const execution = JSON.parse(
+      /<execution_state[^>]*>\n([\s\S]*?)\n<\/execution_state>/.exec(
+        context.render({ capabilities }),
+      )![1]!,
+    ) as { latest: { results: Array<{ text?: string }> } };
+    expect(execution.latest.results[0]?.text).toBe(table);
+  });
+
   it('encodes one result batch once and expires both namespaces together on begin/clear', () => {
     const context = new CommandContextSession();
     const counters = metrics();
     context.begin(task);
-    context.record({ program: 'read Data!A1', results: [{ text: 'x'.repeat(5000) }] }, counters);
+    // Over the 8 KB inline limit, so the result is kept by reference.
+    context.record({ program: 'read Data!A1', results: [{ text: 'x'.repeat(9000) }] }, counters);
     const rendered = context.render({ capabilities });
     const resultRef = (
       JSON.parse(/```result\n([\s\S]*?)\n```/.exec(rendered)![1]!) as Array<{ ref: string }>

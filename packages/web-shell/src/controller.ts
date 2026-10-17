@@ -28,6 +28,7 @@ import {
   asChangeId,
   assessActuationResult,
   CONFIRMED_PLAN_CLOSE,
+  OFFERED_PLAN_CONTEXT_HINTS,
   CONFIRMED_PLAN_OPEN,
   deriveOutput,
   editIntentFor,
@@ -449,7 +450,8 @@ function renderConfirmedPlanTask(pending: PendingCommandPlan): string {
   for (const ground of plan.ground) {
     lines.push(`ground: ${ground.ref ? `${ground.kind} ${ground.ref}` : ground.kind}`);
   }
-  for (const hint of plan.context) lines.push(`context: ${hint}`);
+  for (const hint of plan.context)
+    if (OFFERED_PLAN_CONTEXT_HINTS.includes(hint)) lines.push(`context: ${hint}`);
   for (const [i, step] of plan.steps.entries()) lines.push(`step ${i + 1}: ${step}`);
   for (const exclude of plan.excludes) lines.push(`exclude: ${exclude}`);
   if (plan.confidence) lines.push(`confidence: ${plan.confidence}`);
