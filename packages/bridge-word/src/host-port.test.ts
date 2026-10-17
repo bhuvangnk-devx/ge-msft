@@ -312,8 +312,8 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     get changeTrackingMode(): string {
       return this._ctm;
     },
-    getSelection(): { text: string; load(): unknown } {
-      return { text: opts.selectionText ?? '', load: () => undefined };
+    getSelection(): FakeResult {
+      return new FakeResult(opts.selectionText ?? '');
     },
     customXmlParts: {
       add(xml: string): { id: string } {
@@ -578,6 +578,19 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
     expect(out).toEqual({ status: 'applied', location: 'tracked-change' });
     expect(rec.inserts).toEqual([
       { anchor: 'tidak terbatas pada', text: 'termasuk', location: 'Replace' },
+    ]);
+  });
+
+  it('/replace-selection also tracks only the changed words (CIMB UAT #17 regression)', async () => {
+    const sentence = 'Kami akan mengikuti regulasi yang berlaku melalui PADK 1';
+    const rec = setup({ selectionText: sentence });
+    const out = await new OfficeWordHost().replaceSelection(
+      'Kami akan mematuhi regulasi yang berlaku melalui PADK No. 1',
+    );
+    expect(out).toMatchObject({ status: 'applied', priorText: sentence });
+    expect(rec.inserts).toEqual([
+      { anchor: '1', text: 'No. 1', location: 'Replace' },
+      { anchor: 'mengikuti', text: 'mematuhi', location: 'Replace' },
     ]);
   });
 

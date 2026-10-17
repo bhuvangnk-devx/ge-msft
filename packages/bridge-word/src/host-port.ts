@@ -755,7 +755,9 @@ export class OfficeWordHost implements WordHost {
       await ctx.sync();
       const priorText = sel.text;
       if (priorText.length === 0) return { status: 'empty' };
-      sel.insertText(text, Word.InsertLocation.replace);
+      // Word-level edits, as a suggest: a grammar fix by /replace-selection marked the whole
+      // sentence deleted and re-inserted (CIMB UAT #17, regression run 2026-10-17).
+      await replaceTracked(ctx, sel, priorText, text);
       await ctx.sync();
       return { status: 'applied', location: 'selection', priorText };
     });
