@@ -8,7 +8,7 @@ import {
 } from '@ge/contracts';
 import type { HostEvent } from '@ge/triggers';
 import { renderDocState } from '@ge/content';
-import { MAX_READ_SLIDES, PowerPointBridge } from './powerpoint-bridge.js';
+import { MAX_READ_SLIDES, PowerPointBridge, tableHeight } from './powerpoint-bridge.js';
 
 /**
  * Behavioural tests for the {@link PowerPointBridge} host wiring — the file that touches the
@@ -52,6 +52,12 @@ interface ShapeSeed {
   zOrderCalls?: string[];
   /** Simulated `Shape.top` in points. */
   top?: number;
+  /** Simulated `Shape.left` / `.width` / `.height` in points. */
+  left?: number;
+  width?: number;
+  height?: number;
+  /** Set when the bridge sets `textFrame.autoSizeSetting`. */
+  autoSize?: string;
   /** Set when the bridge hides the paragraphs' bullets (`bulletFormat.visible = false`). */
   bulletsVisible?: boolean;
   /** Font size of the text's first character (`textRange.getSubstring(i, 1).font.size`). */
@@ -304,14 +310,32 @@ class FakeShape {
   get top(): number | undefined {
     return this.shape.top;
   }
-  get textFrame(): { textRange: FakeTextRange } {
+  get left(): number {
+    return this.shape.left ?? 0;
+  }
+  get width(): number {
+    return this.shape.width ?? 0;
+  }
+  get height(): number {
+    return this.shape.height ?? 0;
+  }
+  set height(value: number) {
+    this.shape.height = value;
+  }
+  get textFrame(): { textRange: FakeTextRange; autoSizeSetting?: string } {
     const contained = this.shape.containedType;
     const refuses =
       this.shape.refuseText === true ||
       !FAKE_TEXT_SHAPE_TYPES.has(this.type) ||
       (this.type === 'Placeholder' && contained != null && !FAKE_TEXT_SHAPE_TYPES.has(contained));
     if (refuses) pendingHostError = `InvalidArgument: ${this.type} ${this.id} has no TextFrame`;
-    return this.frame;
+    const shape = this.shape;
+    return {
+      textRange: this.frame.textRange,
+      set autoSizeSetting(value: string) {
+        shape.autoSize = value;
+      },
+    };
   }
   get placeholderFormat(): {
     containedType: string | null;
@@ -2228,11 +2252,78 @@ describe('PowerPointBridge shape and slide references (tests 48–51)', () => {
     const options = d.addedShapes.at(-1)?.options as PowerPoint.TableAddOptions;
     expect(options.specificCellProperties).toEqual([
       [
-        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true } },
-        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true } },
+        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true, size: 14 } },
+        { fill: { color: '#C8102E' }, font: { color: '#FFFFFF', bold: true, size: 14 } },
       ],
       [{}, {}],
     ]);
+  });
+
+  it('puts a table below the bullets of a full slide, inside the slide (real PowerPoint, 2026-10-17)', async () => {
+    const d = deck(
+      [
+        {
+          id: 's4',
+          shapes: [
+            {
+              text: 'Analisa',
+              type: 'Placeholder',
+              placeholderType: 'Title',
+              left: 48,
+              top: 20,
+              width: 624,
+              height: 60,
+            },
+            {
+              text: 'Bank perlu…\nMendapat pengakuan…\nPemilihan Cloud Provider…',
+              type: 'Placeholder',
+              placeholderType: 'Body',
+              left: 48,
+              top: 96,
+              width: 624,
+              height: 280,
+            },
+          ],
+        },
+      ],
+      [0],
+    );
+    installed = install(d);
+    const res = await new PowerPointBridge().actuate(
+      addTableSlide({
+        target: { slideId: 's4' },
+        // The position the model copied from the example: on top of the bullets.
+        tableGrid: {
+          hasHeaders: true,
+          rows: [
+            ['No', 'Dimensi', 'Deskripsi'],
+            ['1', 'Keamanan', 'Keamanan data tingkat tinggi'],
+            ['2', 'Integrasi', 'Integrasi mudah dengan sistem internal'],
+            ['3', 'Kepatuhan', 'Sesuai regulasi OJK'],
+          ],
+          left: 72,
+          top: 110,
+          width: 560,
+          height: 200,
+        },
+      }),
+    );
+    expect(res.ok).toBe(true);
+    const options = d.addedShapes.at(-1)?.options as PowerPoint.TableAddOptions;
+    const body = d.slides[0]!.shapes[1]!;
+    // Below the (shortened) bullets, never on them; the whole table inside the 405 pt slide.
+    expect(options.top!).toBeGreaterThanOrEqual(body.top! + body.height!);
+    expect(body.autoSize).toBe('AutoSizeTextToFitShape');
+    const widths = options.columns!.map((c) => c.columnWidth!);
+    expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(options.width!, 3);
+    expect(widths[0]).toBeLessThan(widths[2]!); // a narrow "No" column
+    const rows = [
+      ['No', 'Dimensi', 'Deskripsi'],
+      ['1', 'Keamanan', 'Keamanan data tingkat tinggi'],
+      ['2', 'Integrasi', 'Integrasi mudah dengan sistem internal'],
+      ['3', 'Kepatuhan', 'Sesuai regulasi OJK'],
+    ];
+    expect(options.top! + tableHeight(rows, widths)).toBeLessThanOrEqual(405);
   });
 
   it('rejects title= on an existing slide instead of silently ignoring it', async () => {
@@ -3100,12 +3191,15 @@ describe('PowerPointBridge.actuate add-table-slide', () => {
   it('reports uncertainty when a table landed but its identifying receipt could not be read', async () => {
     const d = deck(SAMPLE_SLIDES, [0]);
     installed = install(d);
+    const realSync = FakeContext.prototype.sync;
     const sync = vi
       .spyOn(FakeContext.prototype, 'sync')
-      // The read-only slide-size and slide lookups succeed; the sync that carries the write fails.
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValue(new Error('Office disconnected'));
+      // The read-only lookups succeed; the sync that carries the table write fails.
+      .mockImplementation(function (this: FakeContext) {
+        return d.addedShapes.some((shape) => shape.kind === 'table')
+          ? Promise.reject(new Error('Office disconnected'))
+          : realSync.call(this);
+      });
     try {
       const result = await new PowerPointBridge().actuate(
         addTableSlide({

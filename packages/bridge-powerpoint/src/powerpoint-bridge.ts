@@ -797,6 +797,8 @@ export class PowerPointBridge implements DocBridge {
         let slideLocation: string;
         /** Where a table goes when the command gave no position: below a title this command wrote. */
         let belowTitle: { left: number; top: number; width: number } | undefined;
+        /** On an existing slide: the place worked out from what is already on it. */
+        let fitted: TableLayout | undefined;
         if (/^new$/i.test(slideId.trim())) {
           // `slide=new`: this command's name promises a slide, so create one for the table. Write
           // through a fresh position proxy (see appendSlide — PowerPoint web rejects writes addressed
@@ -842,20 +844,48 @@ export class PowerPointBridge implements DocBridge {
           if ('error' in target) return slideNotFound(req, target.error, target.reason);
           slideLocation = target.slideId;
           shapes = ctx.presentation.slides.getItem(target.slideId).shapes;
+          // A slide that already has content: the table goes below it, never on top of it, and
+          // fits on the slide (real PowerPoint, 2026-10-17: a table copied the example's position
+          // and covered the bullets, its last row off the slide). A position the command gave
+          // is kept only when it is on the slide and clear of every shape.
+          fitted = await layoutTableOnSlide(ctx, shapes, grid.rows, columnCount, grid);
+          const shrink = fitted?.shrinkBody;
+          if (shrink) {
+            mutationQueued = true;
+            shrink.shape.height = shrink.height;
+            await ctx.sync();
+            try {
+              // The bullets keep their size where they fit; PowerPoint shrinks them where not.
+              shrink.shape.textFrame.autoSizeSetting = 'AutoSizeTextToFitShape';
+              await ctx.sync();
+            } catch {
+              // Older hosts: the box is smaller and its text may run under the table.
+            }
+          }
         }
-        const options: PowerPoint.TableAddOptions = {};
-        if (grid.left !== undefined) options.left = grid.left;
-        else if (belowTitle) options.left = belowTitle.left;
-        if (grid.top !== undefined) options.top = grid.top;
-        else if (belowTitle) options.top = belowTitle.top;
-        if (grid.width !== undefined) options.width = grid.width;
-        else if (belowTitle) options.width = belowTitle.width;
-        if (grid.height !== undefined) options.height = grid.height;
+        const options: PowerPoint.TableAddOptions = fitted
+          ? {
+              left: fitted.left,
+              top: fitted.top,
+              width: fitted.width,
+              columns: fitted.columns.map((columnWidth) => ({ columnWidth })),
+              uniformCellProperties: { font: { size: TABLE_FONT_SIZE } },
+            }
+          : {};
+        if (!fitted) {
+          if (grid.left !== undefined) options.left = grid.left;
+          else if (belowTitle) options.left = belowTitle.left;
+          if (grid.top !== undefined) options.top = grid.top;
+          else if (belowTitle) options.top = belowTitle.top;
+          if (grid.width !== undefined) options.width = grid.width;
+          else if (belowTitle) options.width = belowTitle.width;
+          if (grid.height !== undefined) options.height = grid.height;
+        }
         // The deck's colour on the header row, not the theme's default (CIMB UAT 2026-10-16: purple).
         if (grid.hasHeaders && grid.headerFill) {
           const header = {
             fill: { color: grid.headerFill },
-            font: { color: '#FFFFFF', bold: true },
+            font: { color: '#FFFFFF', bold: true, ...(fitted ? { size: TABLE_FONT_SIZE } : {}) },
           };
           options.specificCellProperties = grid.rows.map((_, r) =>
             Array.from({ length: columnCount }, () => (r === 0 ? header : {})),
@@ -1510,6 +1540,125 @@ async function findTextPlaceholders(
   const titleShape = firstOf(TITLE_PLACEHOLDERS);
   const bodyShape = firstOf(BODY_PLACEHOLDERS);
   return { ...(titleShape ? { titleShape } : {}), ...(bodyShape ? { bodyShape } : {}) };
+}
+
+/** Cell text size for a table placed on a slide that already has content. */
+const TABLE_FONT_SIZE = 14;
+
+/** Where a table goes on a slide that already has content. */
+interface TableLayout {
+  left: number;
+  top: number;
+  width: number;
+  columns: number[];
+  /** The body placeholder made shorter so the table fits below it. */
+  shrinkBody?: { shape: PowerPoint.Shape; height: number };
+}
+
+/**
+ * Column widths that add up to `width`: a short column ("No", "#") gets just enough room, the
+ * others share the rest by their longest text.
+ */
+export function tableColumnWidths(rows: string[][], columnCount: number, width: number): number[] {
+  const longest = Array.from({ length: columnCount }, (_, c) =>
+    Math.min(60, Math.max(2, ...rows.map((row) => (row[c] ?? '').length))),
+  );
+  const narrow = longest.map((n) => n <= 4);
+  const narrowWidth = Math.min(56, width / columnCount);
+  const flexible = width - narrowWidth * narrow.filter(Boolean).length;
+  const flexTotal = longest.reduce((sum, n, c) => sum + (narrow[c] ? 0 : n), 0);
+  return longest.map((n, c) =>
+    narrow[c] ? narrowWidth : flexTotal > 0 ? (flexible * n) / flexTotal : flexible,
+  );
+}
+
+/** Rough table height at {@link TABLE_FONT_SIZE}: each row as tall as its most wrapped cell. */
+export function tableHeight(rows: string[][], widths: number[]): number {
+  const charWidth = TABLE_FONT_SIZE * 0.5;
+  const lineHeight = TABLE_FONT_SIZE * 1.2;
+  return rows.reduce((height, row) => {
+    const lines = Math.max(
+      1,
+      ...row.map((text, c) =>
+        Math.ceil((text.length * charWidth) / Math.max(20, (widths[c] ?? 100) - 14.4)),
+      ),
+    );
+    return height + 7.2 + lineHeight * lines;
+  }, 0);
+}
+
+/**
+ * Lay a table out below what a slide already holds: under the title, under the body (made shorter
+ * when the table would not fit beneath it, never below a third of the room), and under any other
+ * shape. Full content width, slide margins kept.
+ */
+async function layoutTableOnSlide(
+  ctx: PowerPoint.RequestContext,
+  shapes: PowerPoint.ShapeCollection,
+  rows: string[][],
+  columnCount: number,
+  asked: { left?: number; top?: number; width?: number; height?: number },
+): Promise<TableLayout | undefined> {
+  shapes.load('items/id,items/type,items/left,items/top,items/width,items/height');
+  await ctx.sync();
+  const size = await slideSize(ctx);
+  const box = (shape: PowerPoint.Shape) => {
+    const n = (v: number | undefined) => (Number.isFinite(v) ? (v as number) : 0);
+    return {
+      left: n(shape.left),
+      top: n(shape.top),
+      width: n(shape.width),
+      height: n(shape.height),
+    };
+  };
+  const margin = Math.round(size.width * 0.067);
+  const width = size.width - margin * 2;
+  const columns = tableColumnWidths(rows, columnCount, width);
+  const needed = tableHeight(rows, columns);
+  // A position the command gave is kept when it is on the slide and clear of every shape.
+  if (asked.left !== undefined && asked.top !== undefined) {
+    const mine = {
+      left: asked.left,
+      top: asked.top,
+      width: asked.width ?? width,
+      height: asked.height ?? needed,
+    };
+    const clear = shapes.items.every((shape) => {
+      const b = box(shape);
+      return (
+        b.left + b.width <= mine.left ||
+        mine.left + mine.width <= b.left ||
+        b.top + b.height <= mine.top ||
+        mine.top + mine.height <= b.top
+      );
+    });
+    if (clear && mine.left + mine.width <= size.width && mine.top + mine.height <= size.height)
+      return undefined;
+  }
+  const { titleShape, bodyShape } = await findTextPlaceholders(ctx, shapes.items);
+  const bottom = size.height - Math.round(margin / 2);
+  let top = titleShape ? box(titleShape).top + box(titleShape).height + 12 : margin;
+  let shrinkBody: TableLayout['shrinkBody'];
+  if (bodyShape) {
+    const body = box(bodyShape);
+    const bodyTop = Math.max(body.top, top - 12);
+    const room = bottom - bodyTop;
+    const height = Math.min(body.height, Math.max(room / 3, room - needed - 12));
+    if (height < body.height) shrinkBody = { shape: bodyShape, height: Math.round(height) };
+    top = bodyTop + height + 12;
+  }
+  for (const shape of shapes.items) {
+    if (shape === titleShape || shape === bodyShape) continue;
+    const b = box(shape);
+    top = Math.max(top, b.top + b.height + 12);
+  }
+  return {
+    left: margin,
+    top: Math.round(top),
+    width,
+    columns,
+    ...(shrinkBody ? { shrinkBody } : {}),
+  };
 }
 
 /** The deck's slide size in points, or {@link FALLBACK_SLIDE_SIZE} if the host can't report it. */
