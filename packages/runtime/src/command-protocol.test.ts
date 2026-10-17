@@ -2349,6 +2349,41 @@ describe('AssistSession.runCommands — the bounded command loop', () => {
     expect(loopEvents(events).some((e) => e.type === 'capped')).toBe(true);
   });
 
+  it('applies up to 30 writes in one block by default; the 31st is capped', async () => {
+    const bridge = new FakeExcelBridge();
+    const sets = Array.from({ length: 31 }, (_, i) => `set A${i + 1} ${i + 1}`).join('\n');
+    const { client } = fakeClient(['```cmd\n' + sets + '\n```', '```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, client, { unit });
+    const events = await collect(
+      session.runCommands('write 31 cells', { approveWrite: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(30);
+    expect(loopEvents(events).find((e) => e.type === 'capped')).toMatchObject({
+      reason: 'write cap 30/turn',
+    });
+  });
+
+  it('keeps the share cap at 8 per task when the write cap is the default 30', async () => {
+    const bridge = new FakeExcelBridge();
+    const { sharedStore, shared } = fakeSharedStore();
+    const shares = Array.from({ length: 9 }, (_, i) => `share s${i}.txt = read Sales!C2:C7`).join(
+      '\n',
+    );
+    const { client } = fakeClient(['```cmd\n' + shares + '\n```', '```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, client, {
+      unit,
+      sharedStore,
+      estateWritesEnabled: true,
+    });
+    const events = await collect(
+      session.runCommands('Publish data cross-surface', { approveShare: () => true }),
+    );
+    expect(shared.size).toBe(16); // 8 shares, each with its provenance file
+    expect(loopEvents(events).find((e) => e.type === 'capped')).toMatchObject({
+      reason: 'share cap 8/task',
+    });
+  });
+
   it('suggest → tracked-change with target.matchText (Word)', async () => {
     const bridge = new FakeWordBridge();
     const wordUnit = { connectors: [], surfaceContext: { kind: 'word' as const } };

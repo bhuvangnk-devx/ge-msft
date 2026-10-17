@@ -185,7 +185,16 @@ const MAX_REPAIR_TURNS = 2;
 const MAX_SAME_PROGRAM = 3;
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
-const DEFAULT_MAX_WRITES_PER_TURN = 8;
+/**
+ * In-document writes per turn. Every write still goes on the one approval card. At 8, an 8-slide
+ * deck or a 4-shape design with text spilled into extra turns (UAT Plug IN #2, #12).
+ */
+const DEFAULT_MAX_WRITES_PER_TURN = 30;
+/**
+ * `share` sends content out of the document, so its cap stays small and does not follow the
+ * in-document write cap.
+ */
+const MAX_SHARES_PER_TASK = 8;
 /**
  * Clean host rejections (nothing was written) that a different-kind write landing in a LATER turn,
  * followed by a finish, may excuse: the model read the corrective and recovered another way.
@@ -928,8 +937,8 @@ export class AssistSession {
    * turn — `share` never reaches `plan.planSlots` (it isn't a `PlanEffect`), so it needs its own
    * counter. Deliberately task-scoped rather than per-turn: a per-turn counter would let a single
    * task rack up `maxWritesPerTurn × maxTurns` approval prompts by spanning many turns (a security
-   * review finding) — this bounds the whole task by `maxWritesPerTurn` once, matching the stakes of
-   * an estate-class write.
+   * review finding) — this bounds the whole task by `MAX_SHARES_PER_TASK` (or a lower
+   * `maxWritesPerTurn`) once, matching the stakes of an estate-class write.
    */
   private shareCountThisTask = 0;
   /**
@@ -2480,13 +2489,14 @@ export class AssistSession {
       // a multi-turn task can't rack up `maxWritesPerTurn × maxTurns` approval prompts (a security
       // review finding closed before enabling live use).
       if (compiled.intent.workspace === 'share') {
-        if (this.shareCountThisTask >= plan.maxWrites) {
+        const shareCap = Math.min(plan.maxWrites, MAX_SHARES_PER_TASK);
+        if (this.shareCountThisTask >= shareCap) {
           const result: WorkspaceResult = {
             workspace: 'error',
-            error: `share cap (${plan.maxWrites}/task) reached`,
+            error: `share cap (${shareCap}/task) reached`,
           };
           plan.results.push(advisory(result));
-          yield { type: 'capped', turn, reason: `share cap ${plan.maxWrites}/task` };
+          yield { type: 'capped', turn, reason: `share cap ${shareCap}/task` };
           return;
         }
         this.shareCountThisTask += 1;
