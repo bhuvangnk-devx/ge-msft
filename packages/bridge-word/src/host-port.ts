@@ -1294,12 +1294,48 @@ function applyFont(range: Word.Range, font: TextFont | undefined): void {
  * so a grammar fix shows only the corrected words; otherwise replace the whole range as before.
  * The word ranges must line up with the text that was read, or the whole range is replaced.
  */
+/** A text's paragraphs, without a trailing empty one. */
+function paragraphsOf(text: string): string[] {
+  const parts = text.split(/\r\n?|\n/);
+  while (parts.length > 1 && parts.at(-1)!.trim() === '') parts.pop();
+  return parts;
+}
+
 async function replaceTracked(
   ctx: Word.RequestContext,
   range: Word.Range,
   oldText: string,
   text: string,
 ): Promise<void> {
+  // Several paragraphs: edit each one against the model's matching paragraph, so only the changed
+  // words are tracked and the paragraph marks stay (real Word 2026-10-17: a two-paragraph
+  // selection was deleted whole and re-inserted as one paragraph).
+  const oldParagraphs = paragraphsOf(oldText);
+  if (oldParagraphs.length > 1 && isSet('WordApi', '1.3')) {
+    const newParagraphs = paragraphsOf(text);
+    if (newParagraphs.length === oldParagraphs.length) {
+      try {
+        const pieces = range.split(['\r'], true, false);
+        pieces.load('items/text');
+        await ctx.sync();
+        const aligned =
+          pieces.items.length === oldParagraphs.length &&
+          pieces.items.every((piece, i) => piece.text.trim() === oldParagraphs[i]!.trim());
+        if (aligned) {
+          // Back to front, so an edit never shifts a later paragraph's range.
+          for (let i = pieces.items.length - 1; i >= 0; i--) {
+            const piece = pieces.items[i]!;
+            if (piece.text.trim() !== newParagraphs[i]!.trim())
+              await replaceTracked(ctx, piece, piece.text, newParagraphs[i]!.trim());
+          }
+          return;
+        }
+      } catch {
+        // The split is a read: nothing was written. Track changes again (see below) and go on.
+        ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+      }
+    }
+  }
   // Only plain single-spaced text: a run across a tab, line break or paragraph mark would be
   // rejoined with one space.
   const plain = !/[\t\n\r\u00a0]| {2}/.test(oldText) && !oldText.includes(String.fromCharCode(11));

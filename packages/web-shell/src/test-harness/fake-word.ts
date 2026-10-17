@@ -155,6 +155,19 @@ class FakeSearchResult {
   expandTo(other: FakeSearchResult): FakeSearchResult {
     return new FakeSearchResult(this.seed, this.words.slice(this.index, other.index + 1).join(' '));
   }
+  /** WordApi 1.3: the range cut at its paragraph marks (`\r`), the marks trimmed. */
+  split(
+    _delimiters: string[],
+    _trim: boolean,
+    _trimSpacing: boolean,
+  ): { items: FakeSearchResult[]; load(): void } {
+    const parts = this.text.split('\r');
+    while (parts.length > 1 && parts.at(-1) === '') parts.pop();
+    return {
+      items: parts.map((part) => new FakeSearchResult(this.seed, part)),
+      load: () => undefined,
+    };
+  }
   /** WordApi 1.6 `Range.getTrackedChanges` — the simulated body holds no tracked deletions. */
   getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
     return { items: [], load: () => undefined };

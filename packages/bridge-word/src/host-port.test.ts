@@ -165,6 +165,19 @@ function install(opts: InstallOpts = {}): { rec: Recorder; restore: () => void }
     expandTo(other: FakeResult): FakeResult {
       return new FakeResult(this.all.slice(this.index, other.index + 1).join(' '));
     }
+    /** WordApi 1.3: the range cut at its paragraph marks (`\r`), the marks trimmed. */
+    split(
+      _delimiters: string[],
+      _trim: boolean,
+      _trimSpacing: boolean,
+    ): {
+      items: FakeResult[];
+      load(): void;
+    } {
+      const parts = this.text.split('\r');
+      while (parts.length > 1 && parts.at(-1) === '') parts.pop();
+      return { items: parts.map((part) => new FakeResult(part)), load: () => undefined };
+    }
     insertComment(text: string): void {
       rec.trace.push('insertComment');
       rec.addedComments.push({ anchor: this.text, text });
@@ -592,6 +605,18 @@ describe('OfficeWordHost.applyTrackedChange (search→choose→insert batch)', (
       { anchor: '1', text: 'No. 1', location: 'Replace' },
       { anchor: 'mengikuti', text: 'mematuhi', location: 'Replace' },
     ]);
+  });
+
+  it('tracks only the changed words of each paragraph in a two-paragraph selection (real Word, 2026-10-17)', async () => {
+    const first = 'Solusi AI hanya boleh digunakan untuk keperluan kerja yang disetujui.';
+    const second = 'Seluruh pengembangan wajib mengikuti regulasi yang berlaku.';
+    const rec = setup({ selectionText: `${first}\r${second}\r` });
+    const out = await new OfficeWordHost().replaceSelection(
+      `${first}\nSeluruh pengembangan wajib mematuhi regulasi yang berlaku.`,
+    );
+    expect(out).toMatchObject({ status: 'applied' });
+    // One word in the second paragraph; the first paragraph and both paragraph marks untouched.
+    expect(rec.inserts).toEqual([{ anchor: 'mengikuti', text: 'mematuhi', location: 'Replace' }]);
   });
 
   it('degrades to drift (no write, no second sync) when there are zero hits', async () => {

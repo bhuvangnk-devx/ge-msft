@@ -1261,6 +1261,11 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     lines.push(`let $rows = ${source} | head 3`);
     lines.push(allowed.has('set') ? 'set Summary!B2 = ($rows | count)' : '$rows | count');
   }
+  // Real Word 2026-10-17: "fix the grammar" of two paragraphs came back as one rephrased paragraph.
+  if (manifest.surface === 'word')
+    lines.push(
+      'A grammar or spelling fix changes only the wrong words: keep every other word, the order and the paragraphs (one line per paragraph, same count). Rephrase only when the user asks.',
+    );
   // CIMB UAT 2026-10-16 #22: a reply with a file. A received message takes no add-attachment.
   if (manifest.surface === 'outlook' && allowed.has('mail'))
     lines.push(
