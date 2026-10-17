@@ -4694,7 +4694,6 @@ function answerOnlyIntent(task: string): string | undefined {
   return MAIL_REQUEST_RE.test(request) ? undefined : intent;
 }
 
-/** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 /** A PowerPoint table's header row takes the brand colour unless the model chose one. */
 function withTableHeaderFill(
   request: ActuationRequest,
@@ -4706,6 +4705,7 @@ function withTableHeaderFill(
   return { ...request, params: { ...request.params, tableGrid: { ...grid, headerFill: fill } } };
 }
 
+/** A write's identity for duplicate detection: what it does, not its per-attempt change id. */
 function effectKey(request: ActuationRequest): string {
   const range = request.params.target?.range;
   // One spelling per range: the recorded write drops the sheet quotes, the model may or may not
