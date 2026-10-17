@@ -73,5 +73,7 @@ describe('fillRange', () => {
     expect(() => fillRange('R57:R2', '=F2')).toThrow(/top-left/);
     expect(() => fillRange('A1:A100001', '=B1')).toThrow(/budget/);
     expect(() => fillRange('A1:B2', '=XFD1')).toThrow(/off the worksheet/);
+    // A `#REF!` already in the text does not hide one the fill would add.
+    expect(() => fillRange('A1:B2', '=IF(XFD1=0,"#REF!",1)')).toThrow(/off the worksheet/);
   });
 });

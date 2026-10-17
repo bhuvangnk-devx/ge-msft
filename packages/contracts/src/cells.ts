@@ -206,7 +206,9 @@ export function fillRange(address: string, value: string): string[][] | undefine
     Array.from({ length: columns }, (_, c) => shiftFormula(value, r, c)),
   );
   // Excel would write #REF! here; a fill the model chose should not break the formula, so refuse.
-  if (!value.includes('#REF!') && cells.some((row) => row.some((v) => v.includes('#REF!'))))
+  // Counted, so a `#REF!` already in the formula (even inside quoted text) cannot hide a new one.
+  const refs = (text: string) => text.split('#REF!').length - 1;
+  if (cells.some((row) => row.some((v) => refs(v) > refs(value))))
     throw new Error('The fill moves a reference off the worksheet; choose a smaller range.');
   return cells;
 }
