@@ -1980,14 +1980,15 @@ export class AssistSession {
     // A model-authored program is all-or-nothing at dry-run. When any line failed to parse, compile
     // or read, none of its writes run and a trailing `done` is ignored; the errors go back to the
     // model for a bounded repair turn. Live 2026-09-30: an invalid line followed by `done` ended the
-    // task before the model ever saw its error. A verified program keeps its own stop rule below,
-    // and a direct or SDK program has no model to repair it.
+    // task before the model ever saw its error. A verified program gets the same repair turn: no
+    // operation of it has run, so all-or-nothing holds (live 2026-10-17: a refused `set` in a
+    // verified block stopped the task with no chance to correct it). A direct or SDK program has
+    // no model to repair it.
     const dryRunErrors = plan.results.filter(isValidationFailure).length;
     if (
       dryRunErrors > 0 &&
       this.task?.mode === 'command' &&
-      !plan.finishVerified &&
-      (plan.planSlots.length > 0 || plan.done || plan.doneIgnored === true)
+      (plan.finishVerified || plan.planSlots.length > 0 || plan.done || plan.doneIgnored === true)
     ) {
       const withheldWrites = plan.planSlots.length;
       const alreadyApplied = [...plan.landedInline];

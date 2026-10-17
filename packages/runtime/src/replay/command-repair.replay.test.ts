@@ -305,12 +305,12 @@ describe('D — an invalid program is sent back for repair instead of ending the
     expect(queries).toHaveLength(3);
   });
 
-  it('leaves a verified program on its own stop rule', async () => {
+  it('sends a verified program back for repair too, applying none of it', async () => {
     const { bridge, events } = await run([
       cmd('set Sheet2!L1 "x"\nanalyze {"action":"chart"}\nfinish when=verified'),
       cmd('done'),
     ]);
-    expect(ofType(events, 'repair')).toHaveLength(0);
+    expect(ofType(events, 'repair')).toHaveLength(1);
     expect(bridge.applied).toHaveLength(0);
   });
 
