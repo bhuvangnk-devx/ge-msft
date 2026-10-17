@@ -846,7 +846,7 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     command: '/add-table-slide',
     title: 'PowerPoint native slide table',
     useWhen:
-      'add a native table (rows and columns) to a new slide (slide=new title="…", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text. A "3x3" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide\'s topic (number a No column 1..N); leave cells empty only when the user asks for empty rows. headerFill=#RRGGBB only when the user names a colour; otherwise the pane colours the header row in the brand colour. On an existing slide give no position: the pane places the table below what is already there',
+      'add a native table (rows and columns) to a new slide (slide=new title="…", at=N to make it slide N) or an existing slide (slide=<number from the snapshot> or slide=last), instead of flattening the rows into bullet text. A "3x3" (N×M) table is N rows in total, the header row included, and M columns; a header on top of N rows only when the user says so ("3 data rows"). Fill every cell from the slide\'s topic (number the No column from 1); leave cells empty only when the user asks for empty rows. headerFill=#RRGGBB only when the user names a colour; otherwise the pane colours the header row in the brand colour. On an existing slide give no position: the pane places the table below what is already there',
     hostApis: ['PowerPoint.ShapeCollection.addTable'],
     requirementSets: [{ name: 'PowerPointApi', minVersion: '1.8' }],
     contextKinds: ['slide', 'table'],

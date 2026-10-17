@@ -1279,7 +1279,7 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
   // CIMB UAT 2026-10-16: "table 3x3" came back as a header and 2 empty rows.
   if (manifest.actuations.some((a) => a.kind === 'add-table-slide'))
     lines.push(
-      'A "3x3" (N×M) table is a header row plus N data rows and M columns. Fill every cell from the slide\'s topic; empty cells only when the user asks for empty rows.',
+      'A "3x3" (N×M) table is N rows in total, the header row included, and M columns; a header on top of N rows only when the user says so ("3 data rows"). Fill every cell from the slide\'s topic; empty cells only when the user asks for empty rows.',
     );
   // CIMB UAT 2026-10-16: "trend per branch" on one-row-per-branch-per-month data charted raw columns.
   if (allowed.has('chart') && manifest.surface === 'excel')

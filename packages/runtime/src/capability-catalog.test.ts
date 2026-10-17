@@ -214,7 +214,9 @@ describe('command discovery', () => {
         { kind: 'add-table-slide', surface: 'powerpoint', title: 'Table', reversible: true },
       ],
     };
-    expect(renderCommandBootstrap(withTables)).toContain('a header row plus N data rows');
+    expect(renderCommandBootstrap(withTables)).toContain(
+      'N rows in total, the header row included',
+    );
     const withSlides: CapabilityManifest = {
       ...ppt,
       actuations: [

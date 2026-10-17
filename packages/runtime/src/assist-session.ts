@@ -975,8 +975,11 @@ export class AssistSession {
    * never mentions email: a new mail window is then not what the user confirmed.
    */
   private answerOnlyIntent: string | undefined;
-  /** A table size the user named ("3x3"): header + N data rows, M columns (UAT #16 decision). */
-  private tableSizeAsked: { rows: number; columns: number } | undefined;
+  /**
+   * A table size the user named ("3x3"): N rows in total including the header, M columns; a header
+   * on top of N rows only when the user says so (user decision 2026-10-17).
+   */
+  private tableSizeAsked: TableSize | undefined;
   private readonly citations: SourceRef[] = [];
   private readonly compaction: Required<CompactionOptions>;
   /**
@@ -4783,7 +4786,18 @@ function answerOnlyIntent(task: string): string | undefined {
  * The table size a request names: "3x3", "3×3", "tabel 4 x 2", "a 3 by 3 table". Only next to the
  * word table/tabel, so "1920x1080" or "2x faster" never counts.
  */
-export function tableSizeAsked(request: string): { rows: number; columns: number } | undefined {
+interface TableSize {
+  rows: number;
+  columns: number;
+  /** The user asked for N rows besides the header ("3 data rows", "di bawah header"). */
+  headerExtra: boolean;
+}
+
+/** "N data rows", "rows below the header", "baris data", "di bawah header", "tidak termasuk header". */
+const HEADER_EXTRA =
+  /\bdata rows?\b|\brows? (?:below|under) the header\b|\bexcluding the header\b|\bbaris data\b|\bdi bawah (?:table |tabel )?header\b|\bselain header\b|\btidak termasuk header\b/i;
+
+export function tableSizeAsked(request: string): TableSize | undefined {
   const size = String.raw`(\d{1,2})\s*(?:x|×|by)\s*(\d{1,2})`;
   const m =
     new RegExp(String.raw`\b(?:table|tabel)\s+(?:\w+\s+){0,2}?${size}\b`, 'i').exec(request) ??
@@ -4791,24 +4805,25 @@ export function tableSizeAsked(request: string): { rows: number; columns: number
   if (!m) return undefined;
   const rows = Number(m[1]);
   const columns = Number(m[2]);
-  return rows > 0 && columns > 0 ? { rows, columns } : undefined;
+  return rows > 0 && columns > 0
+    ? { rows, columns, headerExtra: HEADER_EXTRA.test(request) }
+    : undefined;
 }
 
 /** Why a table write does not have the size the user named, or undefined when it does. */
-function tableSizeError(
-  asked: { rows: number; columns: number },
-  request: ActuationRequest,
-): string | undefined {
+function tableSizeError(asked: TableSize, request: ActuationRequest): string | undefined {
   const grid = request.params.tableGrid;
   if (!grid || grid.rows.length === 0) return undefined;
-  const dataRows = grid.rows.length - (grid.hasHeaders ? 1 : 0);
+  const total = asked.rows + (asked.headerExtra && grid.hasHeaders ? 1 : 0);
   const columns = Math.max(...grid.rows.map((row) => row.length));
-  if (dataRows === asked.rows && columns === asked.columns) return undefined;
+  if (grid.rows.length === total && columns === asked.columns) return undefined;
+  const meaning = asked.headerExtra
+    ? `a header row plus ${asked.rows} rows`
+    : `${asked.rows} rows in total, the header row included`;
   return (
-    `table size: the user asked for ${asked.rows}x${asked.columns}, which is a header row plus ` +
-    `${asked.rows} data rows and ${asked.columns} columns (${asked.rows + 1} rows in rows=). This table ` +
-    `has ${dataRows} data row${dataRows === 1 ? '' : 's'} and ${columns} column${columns === 1 ? '' : 's'}. ` +
-    'Send it again with the right size.'
+    `table size: the user asked for ${asked.rows}x${asked.columns}: ${meaning}, ${asked.columns} ` +
+    `columns (${total} lines in rows=). This table has ${grid.rows.length} rows and ${columns} ` +
+    `column${columns === 1 ? '' : 's'}. Send it again with the right size.`
   );
 }
 
