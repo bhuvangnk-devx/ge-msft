@@ -22,8 +22,9 @@ export const OUTLOOK_CAPABILITIES: CapabilityManifest = {
     {
       kind: 'reply-mail',
       surface: 'outlook',
-      title: 'Draft grounded reply',
-      description: 'Open a reply form pre-filled with a grounded, reviewable draft.',
+      title: 'Draft grounded reply (can carry a Word or text file)',
+      description:
+        'Open a reply form pre-filled with a grounded, reviewable draft, with a Word or text file attached when asked.',
       reversible: true,
       appliesTo: ['mail-item'],
     },

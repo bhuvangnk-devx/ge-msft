@@ -45,8 +45,8 @@ import { composeEvent, receivedEvent } from './events.js';
 // At most 240 characters (the snapshot renderer clips a summary there); the sender comes first so a
 // request to someone else reads as a new email, not a reply (live 2026-10-09).
 const receivedNote = (from: string | undefined): string =>
-  `received message${plainAddress(from) ? ` from ${plainAddress(from)}` : ''}: reply = mail; email to anyone else = compose. ` +
-  'Each opens a window the user reviews and addresses (no later edits): one completes it. set-* and add-attachment: drafts only';
+  `received message${plainAddress(from) ? ` from ${plainAddress(from)}` : ''}: reply = mail (a file: attach=); email to anyone else = compose. ` +
+  'Each opens a window the user reviews (no later edits): one completes it. set-* and add-attachment: drafts only';
 
 /** The sender only when it is a plain address: a quoted local part could carry `)` or `;`. */
 function plainAddress(from: string | undefined): string | undefined {
