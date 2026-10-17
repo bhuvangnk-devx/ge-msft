@@ -768,8 +768,11 @@ export class AssistSession {
       // Waiting on the user is not a failure when nothing changed: every effect is the refusal or
       // a dependent of it. Anything landed, uncertain or failed otherwise keeps "incomplete" and its
       // "may already have applied" warning, so asking again cannot repeat a landed write.
+      // A share that went out lives outside task.effects: it is a change too (security review).
+      const sharedOut = this.shareCountThisTask > 0;
       if (
         needsUser &&
+        !sharedOut &&
         task.status !== 'blocked' &&
         deferred.size === 0 &&
         task.effects.every((result) =>
@@ -784,6 +787,7 @@ export class AssistSession {
       // #4: "change the subject" with a received mail open ended on the error card).
       else if (
         task.status === 'incomplete' &&
+        !sharedOut &&
         doneMessage(completion) !== undefined &&
         deferred.size === 0 &&
         task.effects.length > 0 &&
@@ -1644,7 +1648,11 @@ export class AssistSession {
       // passing run, so it cannot cut a task that was making progress.
       // A failing program has its own bound (the repair budget below). A turn that lands a change
       // is progress, so the count starts again (read → write → read must never trip it).
-      if ((this.task?.effects.length ?? 0) > effectsBefore) repeatedPrograms.clear();
+      // Only a change that landed counts as progress; a refused or capped write does not.
+      const landedNow = (this.task?.effects ?? [])
+        .slice(effectsBefore)
+        .some((result) => ['verified', 'unverified'].includes(assessActuationResult(result)));
+      if (landedNow) repeatedPrograms.clear();
       else if (!failed) {
         const program = turnText.replace(/\s+/g, ' ').trim();
         const seen = (repeatedPrograms.get(program) ?? 0) + 1;
