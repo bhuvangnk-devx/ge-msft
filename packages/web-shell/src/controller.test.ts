@@ -402,6 +402,15 @@ describe('PanelController — context tray', () => {
     expect(c.getState().chips[0]?.notice).toBe('Your selection is too large to read.');
   });
 
+  it('keeps a failed background context refresh out of the pane, in diagnostics only (live 2026-10-17)', async () => {
+    const c = new PanelController(new FakeAssist(), {
+      listContext: () => Promise.reject(new Error('GeneralException')),
+    });
+    await c.refreshContext();
+    expect(c.getState().error).toBeUndefined();
+    expect(c.diagnostics({ surface: 'powerpoint' })).toContain('context_refresh');
+  });
+
   it('loads chips and attaches/detaches a specific ref', async () => {
     const assist = new FakeAssist();
     const c = new PanelController(assist, lister([ref('word:selection', 'Selection')]));

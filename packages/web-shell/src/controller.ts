@@ -986,7 +986,9 @@ export class PanelController {
       });
       this.set({ chips });
     } catch (err) {
-      if (canCommit()) this.set({ error: errorText(err) });
+      // A background refresh the user did not ask for: record it for support, never show the
+      // host's raw text (live 2026-10-17: "GeneralException" after switching slides in PowerPoint).
+      this.logError('panel', errorText(err), { code: 'context_refresh' });
     }
   }
 
@@ -1000,7 +1002,8 @@ export class PanelController {
       if (this.attachmentVersions.get(id) !== version) return;
       this.setChip(id, { attached: true });
     } catch (err) {
-      this.set({ error: errorText(err) });
+      this.logError('panel', errorText(err), { code: 'attach_failed' });
+      this.set({ error: uiStrings(this.state.language ?? 'en').attachFailed });
     }
   }
 
@@ -1016,7 +1019,8 @@ export class PanelController {
     try {
       await this.lister.revealContext(ref);
     } catch (err) {
-      this.set({ error: errorText(err) });
+      this.logError('panel', errorText(err), { code: 'reveal_failed' });
+      this.set({ error: uiStrings(this.state.language ?? 'en').revealFailed });
     }
   }
 
@@ -1035,7 +1039,8 @@ export class PanelController {
     try {
       await this.lister.revealContext(ref);
     } catch (err) {
-      this.set({ error: errorText(err) });
+      this.logError('panel', errorText(err), { code: 'reveal_failed' });
+      this.set({ error: uiStrings(this.state.language ?? 'en').revealFailed });
     }
   }
 
