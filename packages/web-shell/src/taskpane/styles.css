@@ -1684,7 +1684,15 @@ body {
 /* markdown */
 .md-content {
   display: grid;
+  /* One column never wider than the answer: a table's long cells scroll in .md-table-wrap
+   * instead of widening every paragraph past the pane (real Outlook, 2026-10-17). */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
+}
+/* A long URL or word in prose wraps; a table keeps its words and scrolls in its own box. */
+.md-content p,
+.md-content li {
+  overflow-wrap: anywhere;
 }
 .md-content > :first-child {
   margin-top: 0;
