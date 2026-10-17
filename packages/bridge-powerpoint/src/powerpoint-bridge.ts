@@ -441,26 +441,26 @@ export class PowerPointBridge implements DocBridge {
       };
     }
     let newIndex: number | undefined;
-    let knownIds: ReadonlySet<string> | undefined;
+    let knownIds: NewSlideIds | undefined;
     const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
       try {
         const added = await appendSlide(
           ctx,
           plan.bullets.length > 0 ? CONTENT_LAYOUTS : TITLE_ONLY_LAYOUTS,
         );
-        if ('error' in added) return unknownActuationResult(req, added.error);
-        const { index, slideId, shapes, existingIds } = added;
+        if ('error' in added) return appendFailure(req, added);
+        const { index, slideId, shapes, ids } = added;
         await writeComposedSlide(ctx, index, shapes, plan.title, plan.bullets);
-        const wrote = queueNewSlideCheck(ctx, index, existingIds);
+        const wrote = queueNewSlideCheck(ctx, index, ids);
         await ctx.sync();
         if (!wrote()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
         newIndex = index;
-        knownIds = existingIds;
+        knownIds = ids;
         // A position past the end means "append": the slide is already there.
         if (plan.targetIndex !== undefined && plan.targetIndex < index) {
           try {
             ctx.presentation.slides.getItemAt(index).moveTo(plan.targetIndex);
-            const moved = queueNewSlideCheck(ctx, plan.targetIndex, existingIds);
+            const moved = queueNewSlideCheck(ctx, plan.targetIndex, ids);
             await ctx.sync();
             if (!moved()) return unknownActuationResult(req, SHIFTED_WHILE_WRITING);
             newIndex = plan.targetIndex;
@@ -788,7 +788,7 @@ export class PowerPointBridge implements DocBridge {
 
     let mutationQueued = false;
     let newSlideIndex: number | undefined;
-    let knownIds: ReadonlySet<string> | undefined;
+    let knownIds: NewSlideIds | undefined;
     try {
       const result = await PowerPoint.run(async (ctx): Promise<ActuationResult> => {
         const offSlide = offSlideMessage(await knownSlideSize(ctx), grid);
@@ -804,9 +804,9 @@ export class PowerPointBridge implements DocBridge {
           mutationQueued = true;
           // Title Only: the table goes below the title, not into a content placeholder.
           const added = await appendSlide(ctx, TITLE_ONLY_LAYOUTS);
-          if ('error' in added) return unknownActuationResult(req, added.error);
+          if ('error' in added) return appendFailure(req, added);
           newSlideIndex = added.index;
-          knownIds = added.existingIds;
+          knownIds = added.ids;
           slideLocation = added.slideId;
           const title = req.params.slide?.title?.trim();
           // The title goes into the layout's title placeholder when there is one, else a text box
@@ -1590,10 +1590,10 @@ async function appendSlide(
       index: number;
       slideId: string;
       shapes: PowerPoint.Shape[];
-      /** The slide ids before the add — what later checks prove "still the new slide" against. */
-      existingIds: ReadonlySet<string>;
+      /** The new slide's identity — what later checks prove "still the new slide" against. */
+      ids: NewSlideIds;
     }
-  | { error: string }
+  | { error: string; removed?: true }
 > {
   const slides = ctx.presentation.slides;
   slides.load('items/id');
@@ -1621,30 +1621,35 @@ async function appendSlide(
   // falls back to text boxes, or is lost. So when a layout was asked for (it has placeholders), wait
   // for its shapes. Desktop hosts have them at once and never wait.
   //
-  // Each probe re-reads every id too. The new slide is "the one id that wasn't there before"; its id
-  // may swap from provisional to real ONCE (and then stay put). Anything else — a slide gone, a
-  // second new one, a second id change — is a concurrent change.
-  let realId: string | undefined;
+  // Each probe re-reads every id too (queueNewSlideCheck): the new slide is "the one id that wasn't
+  // there before", and its id may swap from provisional to real ONCE.
+  const ids: NewSlideIds = { before: existingIds, provisional: provisionalId };
   for (let attempt = 0; ; attempt++) {
     const probe = ctx.presentation.slides.getItemAt(index);
     probe.load('id');
     const shapes = probe.shapes;
     shapes.load('items/id,items/type');
-    const check = queueNewSlideCheck(ctx, index, existingIds);
+    const check = queueNewSlideCheck(ctx, index, ids);
     await ctx.sync();
     const id = check();
-    if (id !== probe.id || (id !== provisionalId && realId !== undefined && id !== realId)) {
+    if (id === undefined || id !== probe.id) {
       return {
         error:
           'The deck changed while the slide was being added. Inspect the deck before trying again.',
       };
     }
-    if (id !== provisionalId) realId = id;
     if (!layoutId || shapes.items.length > 0) {
-      return { index, slideId: id, shapes: shapes.items, existingIds };
+      return { index, slideId: id, shapes: shapes.items, ids };
     }
     if (attempt >= NEW_SLIDE_SETTLE_ATTEMPTS) {
-      // The slide is in the deck but PowerPoint never finished it: writing now could be lost.
+      // PowerPoint never finished the slide, so nothing was written to it. Remove the empty slide
+      // we just added, so trying again cannot leave a duplicate (security review 2026-10-17).
+      if (await removeNewSlide(ctx, index, ids)) {
+        return {
+          error: 'PowerPoint did not finish creating the slide in time, so nothing was added.',
+          removed: true,
+        };
+      }
       return {
         error:
           'PowerPoint added the slide but did not finish creating it in time, so its text was not ' +
@@ -1664,24 +1669,72 @@ async function appendSlide(
 function queueNewSlideCheck(
   ctx: PowerPoint.RequestContext,
   index: number,
-  existingIds: ReadonlySet<string>,
+  ids: NewSlideIds,
 ): () => string | undefined {
   const slide = ctx.presentation.slides.getItemAt(index);
   slide.load('id');
   const all = ctx.presentation.slides;
   all.load('items/id');
   return () => {
-    const ids = all.items.map((item) => item.id);
-    const fresh = ids.filter((id) => !existingIds.has(id));
-    return ids.length === existingIds.size + 1 && fresh.length === 1 && fresh[0] === slide.id
-      ? slide.id
-      : undefined;
+    const now = all.items.map((item) => item.id);
+    const fresh = now.filter((id) => !ids.before.has(id));
+    if (now.length !== ids.before.size + 1 || fresh.length !== 1 || fresh[0] !== slide.id)
+      return undefined;
+    // After the one swap only the real id is ours; a later different id (or a swap back) is not.
+    if (ids.real !== undefined) return slide.id === ids.real ? slide.id : undefined;
+    if (slide.id !== ids.provisional) ids.real = slide.id;
+    return slide.id;
   };
+}
+
+/**
+ * A slide this request added: the ids before the add, its first (provisional) id, and the real id
+ * PowerPoint for the web may swap it to once. Every later check accepts only this slide.
+ */
+interface NewSlideIds {
+  readonly before: ReadonlySet<string>;
+  readonly provisional: string;
+  real?: string;
+}
+
+/** Delete the empty slide this request just added; true only when the deck is back as it was. */
+async function removeNewSlide(
+  ctx: PowerPoint.RequestContext,
+  index: number,
+  ids: NewSlideIds,
+): Promise<boolean> {
+  try {
+    const check = queueNewSlideCheck(ctx, index, ids);
+    await ctx.sync();
+    if (check() === undefined) return false;
+    ctx.presentation.slides.getItemAt(index).delete();
+    const all = ctx.presentation.slides;
+    all.load('items/id');
+    await ctx.sync();
+    const now = all.items.map((item) => item.id);
+    return now.length === ids.before.size && now.every((id) => ids.before.has(id));
+  } catch {
+    return false;
+  }
 }
 
 /** How long {@link appendSlide} waits for a new layout slide's shapes: 20 × 200 ms = 4 s. */
 const NEW_SLIDE_SETTLE_ATTEMPTS = 20;
 const NEW_SLIDE_SETTLE_POLL_MS = 200;
+
+/** A failed add: a clean failure when the empty slide was removed again, else outcome unknown. */
+function appendFailure(
+  req: ActuationRequest,
+  added: { error: string; removed?: true },
+): ActuationResult {
+  if (!added.removed) return unknownActuationResult(req, added.error);
+  return {
+    ok: false,
+    changeId: req.changeId,
+    kind: req.kind,
+    error: { code: 'slide_not_ready', message: added.error },
+  };
+}
 
 const SHIFTED_WHILE_WRITING =
   'The deck changed while the new slide was being written, so the text may have landed on another ' +
@@ -2037,14 +2090,11 @@ function shapeSummary(slideKey: string, shapes: ShapeElement[]): string | undefi
 }
 
 /** The id of the slide at `index`, read in a fresh request (undefined if it can't be read). */
-async function readNewSlideIdAt(
-  index: number,
-  existingIds: ReadonlySet<string>,
-): Promise<string | undefined> {
+async function readNewSlideIdAt(index: number, ids: NewSlideIds): Promise<string | undefined> {
   try {
     return await PowerPoint.run(async (ctx) => {
       // Only the new slide's id: if the deck shifted since, keep the id the write verified.
-      const check = queueNewSlideCheck(ctx, index, existingIds);
+      const check = queueNewSlideCheck(ctx, index, ids);
       await ctx.sync();
       return check();
     });

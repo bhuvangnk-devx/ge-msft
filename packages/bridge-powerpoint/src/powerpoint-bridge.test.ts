@@ -472,6 +472,12 @@ class FakeSlide {
     this.seed.slides.splice(from, 1);
     this.seed.slides.splice(slideIndex, 0, this.slide);
   }
+  /** `Slide.delete` (PowerPointApi 1.2). */
+  delete(): void {
+    this.guard();
+    const at = this.seed.slides.indexOf(this.slide);
+    if (at >= 0) this.seed.slides.splice(at, 1);
+  }
   setSelectedShapes(shapeIds: string[]): void {
     this.seed.selectedIndices = [this.index];
     this.seed.selectedShapeIds = [...shapeIds];
@@ -1955,9 +1961,12 @@ describe('PowerPointBridge.actuate insert-slide (layout without placeholders)', 
       );
       await vi.runAllTimersAsync();
       const res = await pending;
+      // The empty slide is removed again, so trying again cannot leave a duplicate.
       expect(res.ok).toBe(false);
-      expect(res.error?.code).toBe('outcome_unknown');
-      expect(res.error?.message).toContain('did not finish creating it');
+      expect(res.error?.code).toBe('slide_not_ready');
+      expect(res.error?.message).toContain('nothing was added');
+      expect(res.recoveryPending).toBeUndefined();
+      expect(d.slides.map((slide) => slide.id)).toEqual(['s1']);
       expect(d.addedShapes).toEqual([]);
     } finally {
       vi.useRealTimers();
@@ -2308,6 +2317,47 @@ describe('PowerPointBridge shape and slide references (tests 48–51)', () => {
     expect(d.slides[0]?.id).toBe(before[0]);
     // Undo still removes the created slide, now at position 2.
     expect(res.inverse).toMatchObject({ op: 'delete-object', objectType: 'slide' });
+  });
+
+  it('fails closed when the new slide changes id again after its one swap (security review)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const d = deck([{ id: 's1', shapes: [{ text: 'Existing' }] }], [0]);
+      d.layouts = [
+        {
+          id: 'L-title',
+          type: 'TitleOnly',
+          shapes: [{ text: '', type: 'Placeholder', placeholderType: 'Title' }],
+        },
+      ];
+      d.settleIdsAfterSyncs = 3;
+      d.layoutShapesOnSettle = true;
+      // After the table lands, our slide is replaced by a co-author's at the same position.
+      d.onSync = () => {
+        const slide = d.slides[1];
+        if (d.addedShapes.some((s) => s.kind === 'table') && slide?.id === 'sim-slide-2')
+          slide.id = 'someone-elses-slide';
+      };
+      installed = install(d);
+      const pending = new PowerPointBridge().actuate({
+        changeId: asChangeId('table-swap'),
+        kind: 'add-table-slide',
+        surface: 'powerpoint',
+        params: {
+          target: { slideId: 'new' },
+          slide: { title: 'Key risks', bullets: [] },
+          tableGrid: { hasHeaders: true, rows: [['Risk', 'Owner']] },
+        },
+      });
+      await vi.runAllTimersAsync();
+      const res = await pending;
+      // Before the fix: ok, with an undo that deletes 'someone-elses-slide'.
+      expect(res.ok).toBe(false);
+      expect(res.error?.code).toBe('outcome_unknown');
+      expect(res.inverse).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('refuses at= on an existing slide before writing anything', async () => {
