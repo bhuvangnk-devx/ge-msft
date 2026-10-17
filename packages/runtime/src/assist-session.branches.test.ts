@@ -322,6 +322,19 @@ describe('AssistSession.runCommands — surface effect-arg expressions resolve a
       readRange: () => Promise.resolve(gfmTable()),
     });
 
+  it('keeps writes that leave the document (Teams posts) at 8 per turn under the 30 cap', async () => {
+    const bridge = composeBridge();
+    const posts = Array.from({ length: 9 }, (_, i) => `post "update ${i}"`).join('\n');
+    const { fetch } = scriptedFetch(['```cmd\n' + posts + '\n```', '```cmd\ndone\n```']);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    const events = await collectLoop(
+      session.runCommands('post nine updates', { approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(8);
+    expect(events.find((e) => e.type === 'capped')).toMatchObject({ reason: 'write cap 8/turn' });
+  });
+
   it('post (textExpr) resolves a composed scalar to concrete text', async () => {
     const bridge = composeBridge();
     const { fetch } = scriptedFetch([

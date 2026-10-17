@@ -196,6 +196,16 @@ const DEFAULT_MAX_WRITES_PER_TURN = 30;
  */
 const MAX_SHARES_PER_TASK = 8;
 /**
+ * Writes that leave the open document (mail, Teams posts, Graph estate changes) keep the old cap
+ * of 8 per turn; only in-document writes get the larger cap (security review 2026-10-17).
+ */
+const MAX_OUTWARD_WRITES_PER_TURN = 8;
+
+function leavesDocument(kind: ActuationKind): boolean {
+  const cls = approvalClassOf(kind);
+  return cls === 'external' || cls === 'estate' || kind === 'send-activity-notification';
+}
+/**
  * Clean host rejections (nothing was written) that a different-kind write landing in a LATER turn,
  * followed by a finish, may excuse: the model read the corrective and recovered another way.
  * - wrong target: "this verb cannot apply to this item / host";
@@ -473,7 +483,10 @@ export interface RunCommandsOptions {
   }) => boolean | Promise<boolean>;
   /** Max commands run per model turn (default 32); the rest of the block is refused. */
   maxCommandsPerTurn?: number;
-  /** Max writes actuated per model turn (default 8); extra writes are blocked. */
+  /**
+   * Max writes actuated per model turn (default 30; writes that leave the document stay at 8);
+   * extra writes are blocked.
+   */
   maxWritesPerTurn?: number;
   /**
    * Finding #2/#B-wire — the STRUCTURED grounding for the loop's turns: the typed `@`-mention
@@ -2524,18 +2537,24 @@ export class AssistSession {
     plan.results.push(undefined); // placeholder, filled after approval (pass 2)
 
     // Per-turn write cap: a capped effect never enters the plan (never reaches the gate).
-    if (plan.planSlots.length >= plan.maxWrites) {
+    // ADR-0008 §two-tier: a `/<kind>` invoke carries its kind directly; core verbs map via the table.
+    const effectKind =
+      command.verb === 'invoke'
+        ? (command.kind as ActuationKind)
+        : WRITE_VERB_TO_KIND[command.verb];
+    const outward = effectKind !== undefined && leavesDocument(effectKind);
+    const cap = outward ? Math.min(plan.maxWrites, MAX_OUTWARD_WRITES_PER_TURN) : plan.maxWrites;
+    const used = outward
+      ? plan.planSlots.filter((slot) => leavesDocument(slot.effect.request.kind)).length
+      : plan.planSlots.length;
+    if (used >= cap || plan.planSlots.length >= plan.maxWrites) {
       const capped: ActuationResult = {
         ok: false,
         changeId: asChangeId(crypto.randomUUID()),
-        // ADR-0008 §two-tier: a `/<kind>` invoke carries its kind directly; core verbs map via the table.
-        kind:
-          command.verb === 'invoke'
-            ? (command.kind as ActuationKind)
-            : WRITE_VERB_TO_KIND[command.verb],
+        kind: effectKind,
         error: {
           code: 'write_cap',
-          message: `write cap (${plan.maxWrites}/turn) reached — not applied yet; in your next block resend exactly: ${commandText(command)}`,
+          message: `write cap (${cap}/turn) reached — not applied yet; in your next block resend exactly: ${commandText(command)}`,
         },
       };
       plan.results[slotIndex] = advisory(capped);
@@ -2543,7 +2562,7 @@ export class AssistSession {
       yield {
         type: 'capped',
         turn,
-        reason: `write cap ${plan.maxWrites}/turn`,
+        reason: `write cap ${cap}/turn`,
         deferred: JSON.stringify(command),
       };
       return;

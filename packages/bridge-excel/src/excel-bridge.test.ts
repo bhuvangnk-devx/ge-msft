@@ -1522,6 +1522,24 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
     }
   });
 
+  it('keeps +, - and @ text literal so Excel never evaluates it as a formula (security review)', async () => {
+    active = installExcel(salesSeed());
+    const writes = vi.spyOn(FakeRange.prototype, 'values', 'set');
+    try {
+      await new ExcelBridge().actuate(
+        writeCells({
+          target: { range: 'Sales!A2' },
+          cells: [["+cmd|' /C calc'!A0", '-1+WEBSERVICE("x")', '@SUM(A1)', '-5', '+1.5e3']],
+        }),
+      );
+      expect(writes).toHaveBeenCalledWith([
+        ["'+cmd|' /C calc'!A0", '\'-1+WEBSERVICE("x")', "'@SUM(A1)", '-5', '+1.5e3'],
+      ]);
+    } finally {
+      writes.mockRestore();
+    }
+  });
+
   it('keeps set/grid text that Excel would convert as text (CIMB UAT 2026-10-16)', async () => {
     // UAT row 11: a retyped leads table lost the 0 and + of phone numbers, and 02/06/2026 became
     // 6 February. Plain numbers still go in as numbers so formulas over them keep working.

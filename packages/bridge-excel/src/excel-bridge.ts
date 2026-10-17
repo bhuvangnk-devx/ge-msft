@@ -299,7 +299,10 @@ export class ExcelBridge implements DocBridge {
 
       // Every sheet's used range, so a request about another sheet can name and read it.
       // `visibility` is ExcelApi 1.1; the null-object read needs 1.4, older hosts list names only.
-      const listed = allSheets.items.slice(0, MAX_LISTED_SHEETS);
+      // A VeryHidden sheet is set by code, not the user (often lookup/config data): never listed.
+      const listed = allSheets.items
+        .filter((s) => s.visibility !== 'VeryHidden')
+        .slice(0, MAX_LISTED_SHEETS);
       const sheetUsed = hasNullObj
         ? listed.map((s) => s.getUsedRangeOrNullObject(true).load('address,isNullObject'))
         : [];
@@ -547,7 +550,9 @@ export class ExcelBridge implements DocBridge {
       row.map((v, c) =>
         formulaCells[r]?.[c]?.startsWith('=')
           ? null
-          : typeof v === 'string' && v !== '' && (explicit || EXCEL_CONVERTS.test(v))
+          : typeof v === 'string' &&
+              v !== '' &&
+              (explicit || EXCEL_CONVERTS.test(v) || FORMULA_LIKE.test(v))
             ? `'${v}`
             : (v ?? ''),
       ),
@@ -1175,6 +1180,13 @@ interface OfficeSettingsLike {
  * `02/06/2026` became 6 February.
  */
 const EXCEL_CONVERTS = /^(?:0\d+|\+[\d\s-]+|\d{16,}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})$/;
+
+/**
+ * Text Excel may evaluate like a typed formula: a leading `+`, `-` or `@` (`+cmd|' /C calc'!A0`,
+ * `-1+WEBSERVICE(…)`), or a tab/CR before one. Only `=` cells pass the unsafe-formula guard, so
+ * these stay literal; a plain signed number (`-5`, `+1.5e3`) is still written as a number.
+ */
+const FORMULA_LIKE = /^(?![+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?%?$)[+\-@\t\r]/;
 
 /** Normalize an Office `AsyncResult.status` to `'succeeded'`/`'failed'` (enum value or string). */
 function asyncStatus(result: unknown): string {
