@@ -2916,13 +2916,27 @@ export class AssistSession {
   private async evalEffectArg(expr: ParsedExpr): Promise<{ text: string } | { error: string }> {
     const result = await this.evalExpression(expr);
     if ('error' in result) return result;
+    let text: string;
     if (result.kind === 'table') {
+      // A one-cell read (`let $x = read 'Sheet'!F10`) is that cell's value.
+      const cell =
+        result.columns.length === 1 && result.rows.length <= 1
+          ? (result.rows[0]?.[0] ?? result.columns[0])
+          : undefined;
+      if (cell === undefined)
+        return {
+          error:
+            'effect value resolved to a table — terminate the pipeline in a scalar (sum/avg/min/max/count) before writing',
+        };
+      text = cell;
+    } else text = renderValue(result);
+    // CIMB UAT 2026-10-17: a read of an address that matched nothing came back empty, and the write
+    // stored 52 blank cells as a success. An empty value is never something to write.
+    if (text.trim() === '')
       return {
-        error:
-          'effect value resolved to a table — terminate the pipeline in a scalar (sum/avg/min/max/count) before writing',
+        error: `${renderExprArg(expr)} came out empty, so there is nothing to write. Check the address it reads ('Sheet Name'!A1), or write the value or formula itself.`,
       };
-    }
-    return { text: renderValue(result) };
+    return { text };
   }
 
   /**

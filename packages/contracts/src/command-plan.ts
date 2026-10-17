@@ -45,6 +45,15 @@ export const PlanContextHintSchema = z.enum([
 ]);
 export type PlanContextHint = z.infer<typeof PlanContextHintSchema>;
 
+/**
+ * The hints the planner is offered and the executor receives. `code-execution-preferred` still
+ * parses for older plans, but nothing in this setup runs code (the CLI cannot, and the engine has no
+ * code-execution tool): offering it made the executor deliberate past the 90 s stream limit on a
+ * gender-from-names task (CIMB scenario run 2026-10-17).
+ */
+export const OFFERED_PLAN_CONTEXT_HINTS: readonly PlanContextHint[] =
+  PlanContextHintSchema.options.filter((hint) => hint !== 'code-execution-preferred');
+
 /** Versioned planner vocabulary emitted into the standalone Python skill bundle. */
 export const PLANNER_LANGUAGE = {
   version: 'm365-plan/1.0',
@@ -516,7 +525,7 @@ export function renderPlanPrompt(
     `surface  ${surface}`,
     'scope    <selection|document|range(<a1|named>)|section(<heading>)|comment(<id>)|this-item>   # optional',
     'ground   "<source>"        # repeatable; a pinned @source this plan needs',
-    'context  <incremental|inline-preferred|reference-preferred|upload-preferred|code-execution-preferred|analytical|full-scope>   # repeatable; optional',
+    `context  <${OFFERED_PLAN_CONTEXT_HINTS.join('|')}>   # repeatable; optional`,
     'step     <one action, in order>   # repeatable; one reviewable change per line',
     'exclude  <what to leave unchanged>   # repeatable; optional',
     'clarify  <a question>      # repeatable; emit when something material is ambiguous, and STOP short of guessing',

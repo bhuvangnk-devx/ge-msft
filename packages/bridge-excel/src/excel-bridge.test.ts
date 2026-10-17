@@ -1567,12 +1567,17 @@ describe('ExcelBridge.actuate write-cells (reversible, address-anchored)', () =>
       const res = await new ExcelBridge().actuate(
         writeCells({
           target: { range: 'Sales!A2' },
-          cells: [['081234567807', '+6281234567801', '02/06/2026', '4111111111111111', '100']],
+          cells: [
+            ['081234567807', '+6281234567801', '02/06/2026', '4111111111111111', '100'],
+            ['3/4', '2E5', 'Jan 2026', '50%', 'Thamrin'],
+          ],
         }),
       );
       expect(res).toMatchObject({ ok: true, verification: { status: 'verified' } });
       expect(writes).toHaveBeenCalledWith([
         ["'081234567807", "'+6281234567801", "'02/06/2026", "'4111111111111111", '100'],
+        // A percentage may convert; a ratio, a code and a month label may not.
+        ["'3/4", "'2E5", "'Jan 2026", '50%', 'Thamrin'],
       ]);
     } finally {
       writes.mockRestore();

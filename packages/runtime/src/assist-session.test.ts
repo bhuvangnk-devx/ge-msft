@@ -1209,6 +1209,54 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(bridge.applied[0]?.provenance).toBeDefined();
   });
 
+  it('refuses to write a value that came out empty instead of writing blanks (CIMB UAT 2026-10-17)', async () => {
+    // Scenario run: `let $formula = read "Branch Performance!I3"` matched nothing, and
+    // `set I4:I55 $formula` stored 52 empty cells while the task reported a change.
+    class EmptyReadBridge extends ComposeBridge {
+      override readRange(a1: string): Promise<ResolvedContext[]> {
+        return a1.includes('Missing') ? Promise.resolve([]) : super.readRange(a1);
+      }
+    }
+    const bridge = new EmptyReadBridge();
+    const { fetch } = scriptedFetch([
+      '```cmd\nlet $formula = read Missing!I3\nset Summary!I4:I6 = $formula\n```',
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    const events = await collectLoop(
+      session.runCommands('copy it down', { approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(0);
+    const refused = events.find(
+      (e) => e.type === 'command' && 'compiled' in e && 'error' in e.compiled,
+    ) as Extract<CommandLoopEvent, { type: 'command' }> | undefined;
+    expect(refused?.compiled).toMatchObject({ error: expect.stringContaining('came out empty') });
+  });
+
+  it('writes a one-cell read as that cell value, not a refused table (CIMB scenario 2026-10-17)', async () => {
+    class OneCellBridge extends ComposeBridge {
+      override readRange(a1: string): Promise<ResolvedContext[]> {
+        if (!a1.endsWith('!F10')) return super.readRange(a1);
+        return Promise.resolve([
+          {
+            ref: { id: `xl:${a1}`, kind: 'range', surface: 'excel', title: a1, live: false },
+            value: { as: 'text', text: '| 4210 |\n| --- |', mimeType: 'text/markdown' },
+          },
+        ]);
+      }
+    }
+    const bridge = new OneCellBridge();
+    const { fetch } = scriptedFetch([
+      "```cmd\nlet $total = read 'Branch Performance'!F10\nset Summary!B2 = $total\n```",
+      '```cmd\ndone\n```',
+    ]);
+    const client = new StreamAssistClient(tokens, cfg, fetch);
+    const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
+    await collectLoop(session.runCommands('copy the total', { approvePlan: () => true }));
+    expect(bridge.applied[0]?.params.cells).toEqual([['4210']]);
+  });
+
   it('resolves a slide bulletsExpr (table → bullets) at dry-run', async () => {
     const bridge = new ComposeBridge();
     const { fetch } = scriptedFetch([

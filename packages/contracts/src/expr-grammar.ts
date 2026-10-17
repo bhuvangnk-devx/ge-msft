@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeSelector } from './address.js';
 import { scanQuoted } from './command-grammar.js';
 
 /**
@@ -315,7 +316,7 @@ function parseSource(text: string): PipeSource | ExprParseError {
   switch (head) {
     case 'read':
       // Empty selector is valid (whole-document read, as in ADR-0004).
-      return { src: 'read', selector: rest };
+      return { src: 'read', selector: normalizeSelector(rest) };
     case 'search':
       if (rest === '') return { error: 'search source needs text — e.g. search revenue' };
       return { src: 'search', text: stripWrappingQuotes(rest) };

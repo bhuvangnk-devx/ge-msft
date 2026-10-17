@@ -1292,7 +1292,7 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
       'Per-group trend from long data (one row per group per month): chart line Sheet!A1:H25 x=Month by=Branch value=Complaints (the pane builds the summary; never type totals).',
     );
   lines.push(
-    'inspect result:<ref> path=/json/pointer offset=0 limit=20 retrieves a bounded receipt slice.',
+    'inspect result:<ref> path=<pointer> offset=0 limit=20 retrieves a bounded receipt slice.',
     // Name where readback exists (today only the Excel bridge returns it): live 2026-10-09, PowerPoint
     // programs kept ending with `finish when=verified`, which no PowerPoint write can satisfy.
     'Program control: finish when=verified completes only after every effect succeeds and no error remains. Only Excel cell writes return readback, and theirs must match. End a block with done OR finish when=verified, never both.',

@@ -390,7 +390,7 @@ export class CommandResultStore {
         if (!match || options.has(match[1]!))
           throw new ResultDataError(
             'selector',
-            'Use path=/json/pointer offset=N limit=N once each.',
+            'Use path=<json-pointer, e.g. /rows/0> offset=N limit=N once each.',
           );
         options.set(
           match[1]!,
