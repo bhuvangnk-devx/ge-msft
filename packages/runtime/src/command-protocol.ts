@@ -1171,6 +1171,14 @@ const CANNOT_DO_RULE =
   'reply done "<one plain sentence: what cannot be done here yet, and what you can do instead>".';
 
 /**
+ * A request that lacks a detail the document cannot supply ("answer the revenue question" with no
+ * revenue figure) looped until the turn cap (2026-10-15 re-run). Asking ends the run cleanly.
+ */
+const ASK_RULE =
+  'If a detail the request needs is neither in the request nor in the document (which value, which item, what text), ' +
+  'do not guess and do not keep reading: reply done "<one short question>" in the language the user wrote in.';
+
+/**
  * Stable protocol + exact common signatures, followed by optional task-selected command cards.
  * Unlike full help, this is sized for every first command turn. Task text influences ranking only;
  * it is never copied into instructions. Execution still checks the live manifest independently.
@@ -1206,6 +1214,7 @@ export function renderCommandBootstrap(manifest: CapabilityManifest, task?: stri
     // or approximated with another write. The list above is the live manifest, so this rule covers
     // any capability that ships later without a change here.
     CANNOT_DO_RULE,
+    ASK_RULE,
     // UAT 2026-10-15: a new formula column arrived with extra helper columns nobody asked for.
     'Change only what the request asks for: no extra helper columns, rows, notes or formatting.',
     'Common exact signatures:',
@@ -1326,6 +1335,7 @@ export function renderGrammarPrompt(manifest: CapabilityManifest): string {
     `- When the whole task is complete, emit a \`\`\`cmd block containing only: done`,
     `- If the user asked a question, answer it in that line: done "<the answer>"`,
     `- ${CANNOT_DO_RULE}`,
+    `- ${ASK_RULE}`,
   ].join('\n');
 }
 
