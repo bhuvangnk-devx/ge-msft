@@ -159,6 +159,36 @@ describe('buildDocStateSnapshot', () => {
     expect(snap.selection?.title).toBe('A1:D9');
     expect(DocStateSnapshotSchema.parse(snap)).toEqual(snap);
   });
+
+  it('lists every worksheet with a readable ref when the workbook has more than one', () => {
+    const snap = buildDocStateSnapshot({
+      surface: 'excel',
+      version: 1,
+      blocks: [],
+      sheets: [
+        { name: 'Summary', usedAddress: 'Summary!A1:C4', active: true },
+        { name: 'Jakarta', usedAddress: 'Jakarta!A1:E31' },
+        { name: "Bob's Q1", hidden: true },
+      ],
+      now: FIXED_NOW,
+    });
+    const text = renderDocState(snap);
+    expect(text).toContain('[sheet] ref="Summary!A1:C4" "Summary" (active sheet)');
+    expect(text).toContain('[sheet] ref="Jakarta!A1:E31" "Jakarta"');
+    expect(text).toContain(`[sheet] ref="'Bob''s Q1'!A1" "Bob's Q1" (hidden, empty)`);
+    expect(DocStateSnapshotSchema.parse(snap)).toEqual(snap);
+  });
+
+  it('does not list a lone worksheet (it is already the title and used range)', () => {
+    const snap = buildDocStateSnapshot({
+      surface: 'excel',
+      version: 1,
+      blocks: [],
+      sheets: [{ name: 'Sheet1', usedAddress: 'Sheet1!A1:B2', active: true }],
+      now: FIXED_NOW,
+    });
+    expect(snap.inventory).toEqual([]);
+  });
 });
 
 describe('renderDocState', () => {

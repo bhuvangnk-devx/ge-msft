@@ -618,6 +618,7 @@ class FakeWorksheet {
   get id(): string {
     return `sheet:${this.name}`;
   }
+  readonly visibility = 'Visible';
   /** Sheets named in `protectedSheets` are protected (Review → Protect Sheet). */
   get protection(): { protected: boolean; load(_props?: string): void } {
     return { protected: protectedSheets.has(this.name), load() {} };
@@ -681,6 +682,13 @@ class FakeWorksheetCollection {
   constructor(private readonly seed: ExcelSeed) {}
   getActiveWorksheet(): FakeWorksheet {
     return new FakeWorksheet(this.seed, this.seed.activeSheet);
+  }
+  get items(): FakeWorksheet[] {
+    // Through `getItem`, which the context wraps to track loads until the next sync.
+    return this.seed.sheets.map((s) => this.getItem(s.name));
+  }
+  load(_props?: string): this {
+    return this;
   }
   getItem(name: string): FakeWorksheet {
     byName(this.seed, name);
@@ -1269,6 +1277,16 @@ describe('ExcelBridge.captureDocState (ADR-0003 outline)', () => {
 
     const second = await bridge.captureDocState();
     expect(second?.version).toBe(2);
+  });
+
+  it('lists every worksheet with its used range, so another sheet can be read', async () => {
+    active = installExcel(salesSeed());
+    const snap = await new ExcelBridge().captureDocState();
+    const sheets = snap?.inventory.filter((i) => i.kind === 'sheet');
+    expect(sheets).toEqual([
+      { kind: 'sheet', id: 'range:Sales!A1:C4', title: 'Sales', summary: 'active sheet' },
+      { kind: 'sheet', id: 'range:Empty!A1', title: 'Empty', summary: 'empty' },
+    ]);
   });
 
   it('still snapshots and lists context while a chart (not cells) is selected', async () => {

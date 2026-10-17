@@ -84,6 +84,11 @@ export interface BuildDocStateInput {
   blocks: Block[];
   selection?: DocStateSelection;
   namedRanges?: DocStateNamedRange[];
+  /**
+   * Every worksheet in an Excel workbook (name + used range). Without it the model saw only the
+   * active sheet and could not fill a sheet "from the Jakarta and Surabaya sheets".
+   */
+  sheets?: DocStateSheet[];
   comments?: DocStateComment[];
   /** ISO 8601 capture time; defaults to now. */
   capturedAt?: string;
@@ -151,9 +156,41 @@ export function commandRef(id: string): string | undefined {
   return id.startsWith('range:') ? id.slice('range:'.length) : id;
 }
 
+/** One worksheet of an Excel workbook, as the bridge read it. */
+export interface DocStateSheet {
+  name: string;
+  /** The used range with its sheet prefix (`Jakarta!A1:E31`); absent when the sheet is empty. */
+  usedAddress?: string;
+  active?: boolean;
+  hidden?: boolean;
+}
+
+/** A sheet name as an A1 prefix: quoted unless it is a plain identifier. */
+function sheetPrefix(name: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_.]*$/.test(name) ? name : `'${name.replace(/'/g, "''")}'`;
+}
+
+/** A worksheet's inventory entry: `read <ref>` reads its used range. */
+function sheetEntry(sheet: DocStateSheet): DocStateInventoryEntry {
+  const notes = [
+    ...(sheet.active ? ['active sheet'] : []),
+    ...(sheet.hidden ? ['hidden'] : []),
+    ...(sheet.usedAddress ? [] : ['empty']),
+  ];
+  return {
+    kind: 'sheet',
+    id: `range:${sheet.usedAddress ?? `${sheetPrefix(sheet.name)}!A1`}`,
+    title: clip(sheet.name, ANCHOR_PREFIX_CHARS),
+    ...(notes.length > 0 ? { summary: notes.join(', ') } : {}),
+  };
+}
+
 export function buildDocStateSnapshot(input: BuildDocStateInput): DocStateSnapshot {
   const outlineAll: DocStateOutlineEntry[] = [];
-  const inventoryAll: DocStateInventoryEntry[] = [];
+  // Sheets come first, so a long outline cannot push them past the inventory cap. One sheet is
+  // already the snapshot's title and used range.
+  const inventoryAll: DocStateInventoryEntry[] =
+    input.sheets !== undefined && input.sheets.length > 1 ? input.sheets.map(sheetEntry) : [];
 
   let tableCount = 0;
   let slideCount = 0;

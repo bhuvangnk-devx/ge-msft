@@ -746,6 +746,7 @@ class FakeWorksheet {
   get id(): string {
     return `sheet:${this.name}`;
   }
+  readonly visibility = 'Visible';
   get protection(): { protected: boolean; load(_props?: string): void } {
     return { protected: sheetByName(this.seed, this.name).protected === true, load() {} };
   }
@@ -798,6 +799,13 @@ class FakeWorksheetCollection {
   constructor(private readonly seed: ExcelSeed) {}
   getActiveWorksheet(): FakeWorksheet {
     return new FakeWorksheet(this.seed, this.seed.activeSheet);
+  }
+  get items(): FakeWorksheet[] {
+    // Through `getItem`, which the context wraps to track loads until the next sync.
+    return this.seed.sheets.map((s) => this.getItem(s.name));
+  }
+  load(_props?: string): this {
+    return this;
   }
   getItem(name: string): FakeWorksheet {
     sheetByName(this.seed, name); // throw on a typo

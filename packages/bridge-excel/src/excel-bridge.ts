@@ -21,7 +21,7 @@ import type {
 } from '@ge/contracts';
 import type { DocBridge } from '@ge/runtime';
 import type { HostEvent, Unsubscribe } from '@ge/triggers';
-import { buildDocStateSnapshot } from '@ge/content';
+import { buildDocStateSnapshot, type DocStateSheet } from '@ge/content';
 import { EXCEL_CAPABILITIES } from './capabilities.js';
 import { isSet } from './capabilities-runtime.js';
 import {
@@ -292,8 +292,27 @@ export class ExcelBridge implements DocBridge {
 
       const names = ctx.workbook.names;
       if (wantNames) names.load('items/name,items/type,items/formula');
+      const allSheets = ctx.workbook.worksheets;
+      allSheets.load('items/name,items/visibility');
 
       await ctx.sync();
+
+      // Every sheet's used range, so a request about another sheet can name and read it.
+      // `visibility` is ExcelApi 1.1; the null-object read needs 1.4, older hosts list names only.
+      const listed = allSheets.items.slice(0, MAX_LISTED_SHEETS);
+      const sheetUsed = hasNullObj
+        ? listed.map((s) => s.getUsedRangeOrNullObject(true).load('address,isNullObject'))
+        : [];
+      if (sheetUsed.length > 0) await ctx.sync();
+      const sheets: DocStateSheet[] = listed.map((s, i) => {
+        const u = sheetUsed[i] as { address: string; isNullObject?: boolean } | undefined;
+        return {
+          name: s.name,
+          ...(u && u.isNullObject !== true ? { usedAddress: u.address } : {}),
+          ...(s.name === sheet.name ? { active: true } : {}),
+          ...(s.visibility !== 'Visible' ? { hidden: true } : {}),
+        };
+      });
 
       const usedEmpty = hasNullObj && (used as { isNullObject?: boolean }).isNullObject === true;
       const usedAddress = usedEmpty ? '' : used.address;
@@ -312,6 +331,7 @@ export class ExcelBridge implements DocBridge {
         selValues: selected?.values ?? [],
         selSkippedCells: selected?.skippedCells,
         namedRanges,
+        sheets,
       };
     });
 
@@ -341,6 +361,7 @@ export class ExcelBridge implements DocBridge {
       blocks,
       ...(selection ? { selection } : {}),
       ...(captured.namedRanges.length > 0 ? { namedRanges: captured.namedRanges } : {}),
+      sheets: captured.sheets,
     });
   }
 
@@ -1187,6 +1208,9 @@ function previewOf(values: string[][]): string {
 
 /** Cap comment threads read into context so a heavily reviewed workbook can't blow the budget. */
 export const MAX_READ_COMMENTS = 50;
+
+/** Sheets listed in the snapshot; a workbook with more lists the first ones only. */
+const MAX_LISTED_SHEETS = 30;
 
 /**
  * Read up to {@link MAX_READ_COMMENTS} workbook comment threads — author, text, cell and replies —

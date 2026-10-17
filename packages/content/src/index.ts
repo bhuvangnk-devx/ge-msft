@@ -23,6 +23,7 @@ export {
   commandRef,
   renderDocState,
   type BuildDocStateInput,
+  type DocStateSheet,
 } from './doc-state-builder.js';
 export { processContent, processNative, toContext, toContextNative } from './process.js';
 export {
