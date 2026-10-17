@@ -380,6 +380,35 @@ describe('compileCommand', () => {
     ).toMatchObject({ error: expect.stringContaining('mail attach= cannot build a .xlsx') });
   });
 
+  it.each([
+    'evil\u202Excod.docx',
+    '../x.docx',
+    '.hidden.docx',
+    'page.html',
+    'run.hta',
+    'macro.docm',
+    `${'a'.repeat(101)}.docx`,
+  ])('refuses the attachment name %j when building a file from text', (name) => {
+    for (const line of [
+      `/add-attachment name=${JSON.stringify(name)} text="x"`,
+      `mail "See attached." attach=${JSON.stringify(name)} text="x"`,
+    ]) {
+      expect(
+        compileCommand(parseCommandLine(line) as never, { surface: 'outlook', mintChangeId: mint }),
+      ).toHaveProperty('error');
+    }
+  });
+
+  it("keeps the built file's text on the request for the approval card", () => {
+    const out = compileCommand(
+      parseCommandLine('/add-attachment name="notes.csv" text="a,b"') as never,
+      { surface: 'outlook', mintChangeId: mint },
+    );
+    expect(out).toMatchObject({
+      request: { params: { attachment: { name: 'notes.csv', text: 'a,b' } } },
+    });
+  });
+
   it('refuses tab-separated values on a multi-cell set and points to grid (live 2026-10-17)', () => {
     const out = compileCommand(parseCommandLine('set Summary!B2:C2 "18010\\t13860"') as never, {
       surface: 'excel',

@@ -566,6 +566,8 @@ export const ActuationParamsSchema = z.object({
       attachmentId: z.string().optional(),
       name: z.string().optional(),
       isInline: z.boolean().optional(),
+      /** The text a .docx/.txt file was built from, shown in full on the approval card. */
+      text: z.string().optional(),
     })
     .optional(),
   /** add-categories (Outlook): names must pre-exist in the master-categories list. */

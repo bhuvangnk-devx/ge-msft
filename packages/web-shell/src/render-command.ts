@@ -51,8 +51,26 @@ export function renderCommandLine(request: ActuationRequest): string {
         ...(typeof at === 'number' ? [`at=${at + 1}`] : []),
       ].join(' ');
     }
+    case 'reply-mail': {
+      // The file and the full text it holds: a reply leaves the mailbox, so nothing is hidden.
+      const file = p.attachment;
+      return [
+        'mail',
+        quote(p.mail?.body ?? p.text ?? ''),
+        ...(file ? [`attach=${quote(file.name ?? 'a file')}`] : []),
+        ...(file?.text !== undefined ? [`text=${quote(file.text)}`] : []),
+      ].join(' ');
+    }
+    case 'add-attachment': {
+      const file = p.attachment;
+      return [
+        '/add-attachment',
+        `name=${quote(file?.name ?? file?.uri ?? 'a file')}`,
+        ...(file?.text !== undefined ? [`text=${quote(file.text)}`] : []),
+      ].join(' ');
+    }
     default:
-      // Best-effort fallback for any kind without a dedicated renderer (e.g. compose-deck, reply).
+      // Best-effort fallback for any kind without a dedicated renderer (e.g. compose-deck).
       return labelFallback(request);
   }
 }

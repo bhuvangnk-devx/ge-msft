@@ -14,6 +14,17 @@ const req = (
 });
 
 describe('renderCommandLine', () => {
+  it('shows a reply file and the full text it holds (security review 2026-10-17)', () => {
+    expect(
+      renderCommandLine(
+        req('reply-mail', {
+          mail: { body: 'See attached.' },
+          attachment: { name: 'notes.docx', base64: 'UEsDBA==', text: 'Q3 "draft" figures' },
+        }),
+      ),
+    ).toBe('mail "See attached." attach="notes.docx" text="Q3 \\"draft\\" figures"');
+  });
+
   it('renders write-cells as `set <cell> <value>` (formula first)', () => {
     expect(
       renderCommandLine(req('write-cells', { target: { range: 'Sales!F2' }, cells: [['=C2-D2']] })),

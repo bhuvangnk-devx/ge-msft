@@ -256,11 +256,15 @@ export class OutlookBridge implements DocBridge {
     }
     // A file opened with the reply (`mail … attach=`): a received message cannot take
     // add-attachment, but its reply form can carry a base64 file (Mailbox 1.15).
-    const file = req.params.attachment;
-    const attachments =
-      file?.name && file.base64
-        ? [{ type: 'base64', name: file.name, base64file: file.base64 }]
-        : undefined;
+    let attachments: Array<{ type: string; name: string; base64file: string }> | undefined;
+    if (req.params.attachment) {
+      // Same checks as add-attachment: a base64 file with a name, under the 3 MB ceiling.
+      const file = planAttachment(req);
+      if (!file.ok) return actuationError(req, file.reason, ATTACHMENT_ERROR_MESSAGES[file.reason]);
+      if (file.transport !== 'base64')
+        return actuationError(req, 'invalid_attachment', 'A reply carries only a built file.');
+      attachments = [{ type: 'base64', name: file.name, base64file: file.value }];
+    }
     if (attachments && !Office.context.requirements?.isSetSupported?.('Mailbox', '1.15')) {
       return actuationError(
         req,

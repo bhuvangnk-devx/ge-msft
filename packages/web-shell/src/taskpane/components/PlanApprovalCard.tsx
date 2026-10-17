@@ -30,6 +30,13 @@ export const HIGH_IMPACT_KINDS: ReadonlySet<string> = new Set([
   'add-attachment',
 ]);
 
+/** Any write that carries a file is checked too: it can take document content out with a reply. */
+export function isHighImpact(effect: PlanEffect): boolean {
+  return (
+    HIGH_IMPACT_KINDS.has(effect.request.kind) || effect.request.params.attachment !== undefined
+  );
+}
+
 function clipPreview(text: string, max = 60): string {
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
@@ -40,15 +47,18 @@ function clipPreview(text: string, max = 60): string {
  * recipients, the link or the file. The exact command stays in the opened details; this preview is
  * what lets a reviewer approve without opening every row.
  */
-function effectChange(effect: PlanEffect): string | undefined {
+export function effectChange(effect: PlanEffect): string | undefined {
   const p = effect.request.params;
   const after = effect.dryRun?.after;
   // Recipients first: a dry-run preview must never hide who the mail goes to.
+  // A file first: a reply that carries one must show it even when a body follows.
+  const file = p.attachment?.name ? `file: ${p.attachment.name}` : undefined;
   if (p.mail) {
     const parts = (['to', 'cc', 'bcc'] as const)
       .filter((k) => p.mail?.[k]?.length)
       .map((k) => `${k}: ${p.mail?.[k]?.join(', ')}`);
     if (p.mail.subject) parts.push(`subject: ${p.mail.subject}`);
+    if (file) parts.unshift(file);
     if (p.mail.body) parts.push(`body: ${p.mail.body}`);
     if (parts.length) return parts.join(' · ');
   }
@@ -96,7 +106,7 @@ function EffectRow({
   const dry = effect.dryRun;
   const change = effectChange(effect);
   const description = target ?? '';
-  const highImpact = HIGH_IMPACT_KINDS.has(effect.request.kind);
+  const highImpact = isHighImpact(effect);
   const detailsId = `plan-effect-${effect.request.changeId}`;
   return (
     <li className="plan-effect">

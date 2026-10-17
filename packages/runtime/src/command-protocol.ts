@@ -286,7 +286,9 @@ export function compileCommand(
       }
       return compileWrite(WRITE_VERB_TO_KIND.mail, ctx, {
         mail: { body: cmd.body },
-        ...(file ? { attachment: { name: file.name, base64: textFileBase64(file) } } : {}),
+        ...(file
+          ? { attachment: { name: file.name, base64: textFileBase64(file), text: file.text } }
+          : {}),
       });
     }
     case 'post':
@@ -549,6 +551,7 @@ function paramsFromInvoke(
       p.attachment = {
         ...(props.name ? { name: props.name } : {}),
         ...(base64 ? { base64 } : {}),
+        ...(props.base64 === undefined && text !== undefined ? { text } : {}),
         ...(props.uri ? { uri: props.uri } : {}),
       };
       break;
@@ -1514,11 +1517,23 @@ function textFileBase64(file: { name: string; text: string }): string {
 /** An Office or PDF file cannot be made from plain text here (only .docx and text files can). */
 function textAttachmentError(props: Record<string, string>): string | undefined {
   if (props.base64 !== undefined || (props.text ?? props.content) === undefined) return undefined;
-  const ext = /\.(xlsx|xlsm|xls|pptx|ppt|doc|pdf)$/i.exec(props.name ?? '')?.[1];
-  return ext
-    ? `/add-attachment cannot build a .${ext.toLowerCase()} file from text= — attach it as name="….docx" (a Word file) or name="….txt", or tell the user to attach the file themselves.`
-    : undefined;
+  const name = props.name ?? '';
+  // A name the user can trust on the card and in Outlook (security review 2026-10-17): no control
+  // or direction-override characters, no path parts, no hidden-file dot, a short length.
+  if (
+    name.length > 100 ||
+    /^\.|[\\/:]/.test(name) ||
+    [...name].some((c) => c.charCodeAt(0) < 0x20 || c === '\u007f') ||
+    /[\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(name)
+  )
+    return '/add-attachment needs a plain file name (no path, control or direction characters, at most 100 characters), e.g. name="report.docx".';
+  if (TEXT_FILE_NAME.test(name)) return undefined;
+  const ext = /\.([A-Za-z0-9]+)$/.exec(name)?.[1]?.toLowerCase();
+  return `/add-attachment cannot build ${ext ? `a .${ext}` : 'that'} file from text= — attach it as name="….docx" (a Word file), "….txt", "….csv" or "….md", or tell the user to attach the file themselves.`;
 }
+
+/** The files the pane can build from text: a Word file and plain-text files. */
+const TEXT_FILE_NAME = /^[^.].*\.(docx|txt|csv|md)$/i;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';

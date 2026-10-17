@@ -551,6 +551,19 @@ describe('OutlookBridge.actuate reply-mail (reviewable reply form)', () => {
     ]);
   });
 
+  it('opens nothing for a reply file that is not valid base64 or is too large', async () => {
+    active = installOutlook(readMail());
+    const bad = await new OutlookBridge().actuate(
+      reply({ mail: { body: 'x' }, attachment: { name: 'a.docx', base64: 'not base64!' } }),
+    );
+    expect(bad).toMatchObject({ ok: false, error: { code: 'invalid_attachment' } });
+    const big = await new OutlookBridge().actuate(
+      reply({ mail: { body: 'x' }, attachment: { name: 'a.docx', base64: 'A'.repeat(5_000_000) } }),
+    );
+    expect(big).toMatchObject({ ok: false, error: { code: 'attachment_too_large' } });
+    expect(active.replyForms).toEqual([]);
+  });
+
   it('opens nothing and says so when Outlook is older than Mailbox 1.15', async () => {
     active = installOutlook(readMail(), { mailboxVersion: 1.14 });
     const res = await new OutlookBridge().actuate(

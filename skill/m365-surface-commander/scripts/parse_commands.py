@@ -735,12 +735,16 @@ def parse_line(line: str):
         slot = "body" if verb == "mail" else "text"
         out = {"verb": verb, slot: q[0]}
         # mail "reply" attach="name.docx" text="file text": a file opened with the reply.
-        if verb == "mail":
-            _, props = _tokenize_args(q[1])
-            if "attach" in props or "text" in props:
-                if not props.get("attach", "").strip() or "text" not in props:
-                    return {"error": 'mail attach= needs a file name and text="file text"'}
-                out["attachment"] = {"name": props["attach"], "text": props["text"]}
+        # Mirrors parseMail: a tail is only attach= and text=, both present, after a non-empty body.
+        if verb == "mail" and q[1].strip():
+            positional, props = _tokenize_args(q[1])
+            if positional or set(props) - {"attach", "text"} or "attach" not in props or "text" not in props:
+                return {"error": 'mail needs a quoted body, then optionally attach="name.docx" text="file text"'}
+            if q[0] == "":
+                return {"error": "mail body cannot be empty"}
+            if not props["attach"].strip():
+                return {"error": "mail attach= needs a file name"}
+            out["attachment"] = {"name": props["attach"], "text": props["text"]}
         return out
 
     if verb == "slide":
@@ -959,6 +963,10 @@ done
         "verb": "mail", "body": "See attached", "attachment": {"name": "a.docx", "text": "Hi"}
     }:
         failures.append("mail with attach= did not parse")
+    for bad in ('mail "x" attach="a.docx" text="y" extra', 'mail "x" attach="a.docx" text="y" cc="z"',
+                'mail "" attach="a.docx" text="y"'):
+        if "error" not in (parse_line(bad) or {}):
+            failures.append(f"{bad} did not error")
     if "error" not in (parse_line('mail "See attached" attach="a.docx"') or {}):
         failures.append("mail attach= without text= did not error")
     if parse_line("list comments") != {"verb": "list", "kind": "comment"}:
