@@ -1,3 +1,4 @@
+import { parseEmphasis, type EmphasisInput, type EmphasisNode } from './emphasis.js';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ChatMessage, ResultChange } from '../../controller.js';
@@ -84,7 +85,7 @@ function isBlockStart(lines: string[], index: number): boolean {
 }
 
 function findNextInlineMarker(text: string, start: number): number {
-  const markers = ['**', '`', '[', '*'];
+  const markers = ['`', '['];
   const indexes = markers.map((marker) => text.indexOf(marker, start)).filter((idx) => idx >= 0);
   return indexes.length ? Math.min(...indexes) : text.length;
 }
@@ -95,37 +96,24 @@ function renderInline(
   surface: Surface,
   onRevealLocation?: (location: string) => void,
 ): ReactNode[] {
-  const nodes: ReactNode[] = [];
+  // Code spans and links first (atoms), then emphasis by the CommonMark rules over what is left.
+  const pieces: EmphasisInput<ReactNode> = [];
   let i = 0;
   let key = 0;
   const pushText = (value: string): void => {
-    if (value) nodes.push(value);
+    if (!value) return;
+    const last = pieces[pieces.length - 1];
+    if (last?.kind === 'text') last.text += value;
+    else pieces.push({ kind: 'text', text: value });
   };
 
   while (i < text.length) {
-    if (text.startsWith('**', i)) {
-      const end = text.indexOf('**', i + 2);
-      if (end > i + 2) {
-        nodes.push(
-          <strong key={`${keyPrefix}-b-${key++}`}>
-            {renderInline(
-              text.slice(i + 2, end),
-              `${keyPrefix}-b-${key}`,
-              surface,
-              onRevealLocation,
-            )}
-          </strong>,
-        );
-        i = end + 2;
-        continue;
-      }
-    }
-
+    const atoms: ReactNode[] = [];
     if (text[i] === '`') {
       const end = text.indexOf('`', i + 1);
       if (end > i + 1) {
         const codeText = text.slice(i + 1, end);
-        nodes.push(
+        atoms.push(
           onRevealLocation && canRenderHostLocation(surface, codeText) ? (
             <button
               key={`${keyPrefix}-loc-${key++}`}
@@ -140,6 +128,7 @@ function renderInline(
             <code key={`${keyPrefix}-c-${key++}`}>{codeText}</code>
           ),
         );
+        pieces.push({ kind: 'atom', atom: atoms[0] });
         i = end + 1;
         continue;
       }
@@ -154,7 +143,7 @@ function renderInline(
         const rawTarget = text.slice(urlStart, urlEnd).trim();
         const hostLocation = citationLocation(rawTarget);
         const href = safeHttpUri(rawTarget);
-        nodes.push(
+        atoms.push(
           hostLocation && onRevealLocation && canRenderHostLocation(surface, hostLocation) ? (
             <button
               key={`${keyPrefix}-host-a-${key++}`}
@@ -181,25 +170,8 @@ function renderInline(
             </span>
           ),
         );
+        pieces.push({ kind: 'atom', atom: atoms[0] });
         i = urlEnd + 1;
-        continue;
-      }
-    }
-
-    if (text[i] === '*' && !text.startsWith('**', i)) {
-      const end = text.indexOf('*', i + 1);
-      if (end > i + 1) {
-        nodes.push(
-          <em key={`${keyPrefix}-i-${key++}`}>
-            {renderInline(
-              text.slice(i + 1, end),
-              `${keyPrefix}-i-${key}`,
-              surface,
-              onRevealLocation,
-            )}
-          </em>,
-        );
-        i = end + 1;
         continue;
       }
     }
@@ -209,7 +181,14 @@ function renderInline(
     i = next;
   }
 
-  return nodes;
+  const render = (nodes: EmphasisNode<ReactNode>[]): ReactNode[] =>
+    nodes.map((node) => {
+      if (node.kind === 'text') return node.text;
+      if (node.kind === 'atom') return node.atom;
+      const Tag = node.kind === 'em' ? 'em' : 'strong';
+      return <Tag key={`${keyPrefix}-${node.kind}-${key++}`}>{render(node.children)}</Tag>;
+    });
+  return render(parseEmphasis(pieces));
 }
 
 const USER_TOKEN_RE =
