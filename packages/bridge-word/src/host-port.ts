@@ -1300,7 +1300,7 @@ async function replaceTracked(
 ): Promise<void> {
   // Only plain single-spaced text: a run across a tab, line break or paragraph mark would be
   // rejoined with one space.
-  const plain = !/[\t\n\r\u000b\u00a0]| {2}/.test(oldText);
+  const plain = !/[\t\n\r\u00a0]| {2}/.test(oldText) && !oldText.includes(String.fromCharCode(11));
   const edits = plain && isSet('WordApi', '1.3') ? wordEdits(oldText, text) : undefined;
   if (edits?.length) {
     let words: Word.RangeCollection;
