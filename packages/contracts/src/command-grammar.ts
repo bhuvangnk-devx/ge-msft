@@ -490,7 +490,10 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'list': {
       if (rest === '') return { verb: 'list' };
       const kind = rest.toLowerCase();
-      const parsed = ContextKindSchema.safeParse(kind);
+      // Accept the plural the model often writes (`list comments` → `comment`).
+      const parsed = ContextKindSchema.safeParse(
+        ContextKindSchema.safeParse(kind).success ? kind : kind.replace(/s$/, ''),
+      );
       if (!parsed.success) {
         return {
           error: `unknown context kind "${rest}" — supported: ${ContextKindSchema.options.join(', ')}`,

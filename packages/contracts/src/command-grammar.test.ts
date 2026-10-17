@@ -234,6 +234,11 @@ describe('command-grammar — parseCommandLine (control + reads)', () => {
     });
   });
 
+  it('accepts a plural context kind (`list comments`)', () => {
+    expect(parseCommandLine('list comments')).toEqual({ verb: 'list', kind: 'comment' });
+    expect(parseCommandLine('list Slides')).toEqual({ verb: 'list', kind: 'slide' });
+  });
+
   it('rejects malformed context inspection verbs', () => {
     expect(parseCommandLine('list monster')).toMatchObject({
       error: expect.stringContaining('unknown context kind'),

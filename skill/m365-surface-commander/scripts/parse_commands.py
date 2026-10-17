@@ -504,6 +504,9 @@ def parse_line(line: str):
         if not rest:
             return {"verb": "list"}
         kind = rest.lower()
+        # Accept the plural the model often writes (`list comments` -> `comment`).
+        if kind not in CONTEXT_KINDS and kind.endswith("s"):
+            kind = kind[:-1]
         if kind not in CONTEXT_KINDS:
             supported = ", ".join(sorted(CONTEXT_KINDS))
             return {"error": f"unknown context kind '{rest}' — supported: {supported}"}
@@ -893,8 +896,8 @@ done
         failures.append("clean closed `done` block was NOT reported complete")
 
     # A no-arg verb with a trailing token is a reported error, not a silent drop.
-    if "error" not in (parse_line("done now please") or {}):
-        failures.append("`done now please` did not error on its trailing tokens")
+    if parse_line("done now please") != {"verb": "done"}:
+        failures.append("`done now please` did not finish (trailing text is ignored, as in the TS grammar)")
 
     ctx = parse_line("context analytical full-scope upload-preferred code-execution-preferred")
     if ctx != {
@@ -930,6 +933,8 @@ done
         failures.append("tail with a non-numeric n did not error")
     if parse_line('open "Sales!A1:C9"') != {"verb": "open", "selector": "Sales!A1:C9"}:
         failures.append("open selector did not parse")
+    if parse_line("list comments") != {"verb": "list", "kind": "comment"}:
+        failures.append("plural list kind did not parse")
     if "error" not in (parse_line("list monster") or {}):
         failures.append("unknown list kind did not error")
     if parse_line("help shape") != {"verb": "help", "topic": "shape"}:
