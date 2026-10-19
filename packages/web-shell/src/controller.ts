@@ -1954,8 +1954,18 @@ export class PanelController {
    */
   async undoChanges(messageId: string): Promise<void> {
     const message = this.state.messages.find((m) => m.id === messageId);
-    const undoable = (message?.changes ?? []).filter((c) => c.undoable && !c.undone);
-    if (this.switchBlocked() || undoable.length === 0) return;
+    const listed = (message?.changes ?? []).filter((c) => c.undoable && !c.undone);
+    if (this.switchBlocked() || listed.length === 0) return;
+    // A receipt freed to make room for later writes can no longer restore its cells.
+    const kept = new Set((this.session.recovery?.list() ?? []).map((r) => r.id));
+    const undoable = listed.filter((c) => kept.has(c.changeId));
+    if (undoable.length < listed.length) {
+      this.patchMessage(messageId, (m) => ({
+        changes: m.changes?.map((c) => (kept.has(c.changeId) ? c : { ...c, undoable: false })),
+      }));
+      this.set({ error: uiStrings(this.state.language ?? 'en').undoGone });
+    }
+    if (undoable.length === 0) return;
     // One journal undo per change, each through its own approval card. Only changes the journal
     // then reports as undone are marked (a rejected or failed restore leaves its Undo in place).
     for (const change of undoable) {

@@ -671,6 +671,39 @@ describe('PanelController — result card', () => {
     expect(undoRuns).toEqual(['undo:w1']);
     expect(c.getState().messages.find((m) => m.id === card.id)!.changes![0]!.undone).toBe(true);
   });
+
+  it('says plainly when an Undo receipt was freed for later writes, and runs no restore', async () => {
+    const assist = new FakeAssist();
+    let records = [
+      {
+        id: 'w1',
+        createdAt: '',
+        state: 'applied' as const,
+        target: 'Sheet1!F2:F3',
+        rows: 2,
+        columns: 1,
+        canUndo: true,
+        canResume: false,
+      },
+    ];
+    Object.assign(assist, { recovery: { durable: true, list: () => records } });
+    const undoRuns: string[] = [];
+    Object.assign(assist, {
+      runAnalysis: async function* (action: { kind: string; id: string }) {
+        undoRuns.push(`${action.kind}:${action.id}`);
+        yield { type: 'done', turn: 1 };
+      },
+    });
+    assist.commandScript = [landed, ev({ type: 'done', turn: 2 })];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add totals');
+    const card = c.getState().messages.at(-1)!;
+    records = [];
+    await c.undoChanges(card.id);
+    expect(undoRuns).toEqual([]);
+    expect(c.getState().error).toBe('Undo is no longer available for this change.');
+    expect(c.getState().messages.find((m) => m.id === card.id)!.changes![0]!.undoable).toBe(false);
+  });
 });
 
 describe('PanelController — conversation history', () => {

@@ -25,6 +25,7 @@ const STRINGS = {
     undone: 'Undone',
     undoInOffice: 'To undo, use Undo (Ctrl+Z) in Office.',
     undoRequest: 'Undo the last change',
+    undoGone: 'Undo is no longer available for this change.',
     failedTitle: "That didn't finish",
     failedPartial: (made: number) =>
       made === 1
@@ -78,6 +79,7 @@ const STRINGS = {
     undone: 'Diurungkan',
     undoInOffice: 'Untuk mengurungkan, gunakan Undo (Ctrl+Z) di Office.',
     undoRequest: 'Urungkan perubahan terakhir',
+    undoGone: 'Urungkan tidak tersedia lagi untuk perubahan ini.',
     failedTitle: 'Maaf, belum berhasil',
     failedPartial: (made: number) => `${made} perubahan sudah dibuat sebelum berhenti.`,
     tryAgain: 'Coba lagi',

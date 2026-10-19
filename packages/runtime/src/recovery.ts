@@ -51,7 +51,21 @@ export interface RecoverySummary {
   canForget?: boolean;
   message?: string;
 }
-const HistorySchema = z.array(RecordSchema).max(32);
+const MAX_RECORDS = 32;
+/**
+ * Office document settings hold about 2 MiB per add-in, shared with other entries (Excel write
+ * provenance), so the history keeps headroom below that.
+ */
+const MAX_BYTES = 1.5 * 1024 * 1024;
+/** An applying receipt this recent may be another pane's write still in flight: never re-read it. */
+const IN_FLIGHT_MS = 5 * 60 * 1000;
+const HistorySchema = z.array(RecordSchema).max(MAX_RECORDS);
+const FULL =
+  'This workbook has too many unconfirmed changes. Copy the data into a new workbook and try again.';
+const TOO_LARGE =
+  'This range is too large to keep an undo copy. Select a smaller range and try again.';
+const byteSize = (value: unknown): number =>
+  new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const now = (): string => new Date().toISOString();
 const queues = new Map<string, Promise<unknown>>();
 function isUnresolved(record: RecoveryRecord): boolean {
@@ -143,6 +157,34 @@ export class RecoveryCoordinator {
   private async save(): Promise<void> {
     await this.bridge.recoveryStorage?.save(this.owner, this.records);
   }
+  /** True when the history plus `next` fits the record and byte limits. */
+  private fits(next: RecoveryRecord): boolean {
+    if (this.records.length >= MAX_RECORDS) return false;
+    return byteSize([...this.records, next]) <= MAX_BYTES;
+  }
+  /** Drop the oldest finished receipts until `next` fits. Unresolved ones and replay parents stay. */
+  private dropResolved(next: RecoveryRecord): void {
+    const kept = new Set([...this.parents.values()].map((p) => p.id));
+    while (!this.fits(next)) {
+      const index = this.records.findIndex((r) => !isUnresolved(r) && !kept.has(r.id));
+      if (index < 0) return;
+      this.records.splice(index, 1);
+    }
+  }
+  /** Make room for `next`: finished receipts first, then once more after re-reading unresolved ones. */
+  private async makeRoom(next: RecoveryRecord): Promise<void> {
+    if (byteSize([next]) > MAX_BYTES) throw new Error(TOO_LARGE);
+    this.dropResolved(next);
+    if (this.fits(next)) return;
+    // Only unresolved receipts are re-read: a finished one can already be dropped, and a failed read
+    // would turn it into an unresolved one that holds a slot for good.
+    const cutoff = Date.now() - IN_FLIGHT_MS;
+    await this.reconcile(
+      (r) => isUnresolved(r) && !(r.state === 'applying' && Date.parse(r.updatedAt) > cutoff),
+    );
+    this.dropResolved(next);
+    if (!this.fits(next)) throw new Error(FULL);
+  }
   /** Whether a write to these cells would be refused for an unresolved earlier write. */
   async isBlocked(cells: CellSnapshot): Promise<boolean> {
     return this.locked(async () => {
@@ -226,20 +268,7 @@ export class RecoveryCoordinator {
         throw new Error(
           'This effect already has a receipt. Review recovery history before retrying.',
         );
-      if (this.records.length >= 32)
-        throw new Error('Recovery history is full. Remove a resolved receipt before writing.');
-      this.assertNoUnresolvedOverlap(before);
       const parent = this.parents.get(request.changeId);
-      if (parent) {
-        const original = this.records.find((r) => r.id === parent.id);
-        if (
-          !original ||
-          (parent.undo
-            ? original.state !== 'applied' || !original.afterHash
-            : original.state !== 'not-applied')
-        )
-          throw new Error('The recovery receipt changed. Inspect it again before continuing.');
-      }
       const record: RecoveryRecord = {
         version: 1,
         id: request.changeId,
@@ -251,11 +280,26 @@ export class RecoveryCoordinator {
         before,
         ...(parent ? { parentId: parent.id, undo: parent.undo } : {}),
       };
-      this.records.push(record);
+      // Nothing changes in memory unless the receipt is saved: list() readers see stored state.
+      const stored = structuredClone(this.records);
       try {
+        // Making room can re-read receipts, so the overlap and parent checks run on the result.
+        await this.makeRoom(record);
+        this.assertNoUnresolvedOverlap(before);
+        if (parent) {
+          const original = this.records.find((r) => r.id === parent.id);
+          if (
+            !original ||
+            (parent.undo
+              ? original.state !== 'applied' || !original.afterHash
+              : original.state !== 'not-applied')
+          )
+            throw new Error('The recovery receipt changed. Inspect it again before continuing.');
+        }
+        this.records.push(record);
         await this.save();
       } catch (error) {
-        this.records.pop();
+        this.records = stored;
         throw error;
       }
       let result: ActuationResult;
@@ -309,42 +353,50 @@ export class RecoveryCoordinator {
     return this.locked(async () => {
       await this.load();
       if (!this.bridge.captureCells) return [];
-      for (const record of this.records) {
-        if (record.state === 'undone' || record.state === 'superseded') continue;
-        try {
-          const current = await this.bridge.captureCells(record.before.locator);
-          if (
-            current.documentId !== record.before.documentId ||
-            current.objectId !== record.before.objectId
-          ) {
-            record.state = 'conflict';
-            record.message = 'The original document or worksheet is no longer active.';
-          } else if (record.afterHash && current.hash === record.afterHash) {
-            record.state = 'applied';
-          } else if (current.hash === record.before.hash) {
-            record.state = 'not-applied';
-          } else if (
-            !record.afterHash &&
-            cellsMatchRequest(current, record.request) &&
-            !hasFormulaErrors(current)
-          ) {
-            record.state = 'applied';
-            record.afterHash = current.hash;
-          } else {
-            record.state = 'conflict';
-            record.message = record.afterHash
-              ? 'This verified write was changed later. Undo is no longer safe; review a new write or remove this receipt.'
-              : 'The cells differ from both the reviewed input and output. Review them manually.';
-          }
-        } catch {
-          record.state = 'uncertain';
-          record.message =
-            'The destination could not be read. Open the original worksheet and try again.';
-        }
-      }
+      await this.reconcile();
       await this.save();
       return this.list();
     });
+  }
+  /**
+   * Compare receipts with the current cells and update their state. The caller must hold the lock
+   * (`locked()` is not re-entrant).
+   */
+  private async reconcile(only: (record: RecoveryRecord) => boolean = () => true): Promise<void> {
+    if (!this.bridge.captureCells) return;
+    for (const record of this.records) {
+      if (record.state === 'undone' || record.state === 'superseded' || !only(record)) continue;
+      try {
+        const current = await this.bridge.captureCells(record.before.locator);
+        if (
+          current.documentId !== record.before.documentId ||
+          current.objectId !== record.before.objectId
+        ) {
+          record.state = 'conflict';
+          record.message = 'The original document or worksheet is no longer active.';
+        } else if (record.afterHash && current.hash === record.afterHash) {
+          record.state = 'applied';
+        } else if (current.hash === record.before.hash) {
+          record.state = 'not-applied';
+        } else if (
+          !record.afterHash &&
+          cellsMatchRequest(current, record.request) &&
+          !hasFormulaErrors(current)
+        ) {
+          record.state = 'applied';
+          record.afterHash = current.hash;
+        } else {
+          record.state = 'conflict';
+          record.message = record.afterHash
+            ? 'This verified write was changed later. Undo is no longer safe; review a new write or remove this receipt.'
+            : 'The cells differ from both the reviewed input and output. Review them manually.';
+        }
+      } catch {
+        record.state = 'uncertain';
+        record.message =
+          'The destination could not be read. Open the original worksheet and try again.';
+      }
+    }
   }
   list(): RecoverySummary[] {
     return this.records
