@@ -583,6 +583,12 @@ class FakeWorksheetCollection {
   readonly onChanged = new EventSink<{ source?: string }>();
   readonly onSelectionChanged = new EventSink<{ address: string }>();
   constructor(private readonly seed: ExcelSeed) {}
+  load(): this {
+    return this;
+  }
+  get items(): FakeWorksheet[] {
+    return this.seed.sheets.map((sheet) => this.getItem(sheet.name));
+  }
   getActiveWorksheet(): FakeWorksheet {
     return new FakeWorksheet(this.seed, this.seed.activeSheet);
   }
@@ -906,7 +912,7 @@ describe('ExcelBridge.listContext (host wiring)', () => {
     expect(refs).toHaveLength(3);
     expect(refs[0]).toMatchObject({ kind: 'range', surface: 'excel', live: true });
     expect(refs[0]?.id).toBe('xl:Sales!A2:C2');
-    expect(refs[0]?.preview).toContain('East'); // selection A2:C2 = East,Alice,300
+    expect(refs[0]?.preview).toBe('1 × 3 cells'); // metadata only; no eager values load
     expect(refs[1]).toMatchObject({
       id: 'xl:named:SalesTable',
       kind: 'range',
@@ -946,7 +952,7 @@ describe('ExcelBridge.listContext (host wiring)', () => {
       id: 'xl:Empty!A1',
       kind: 'range',
       live: true,
-      preview: 'Blank selection',
+      preview: '1 × 1 cells',
     });
     expect(refs.map((r) => r.kind)).toEqual(['range', 'range', 'sheet']);
   });
@@ -1020,7 +1026,8 @@ describe('ExcelBridge.captureDocState (ADR-0003 outline)', () => {
     expect(() => DocStateSnapshotSchema.parse(first)).not.toThrow();
     expect(first.surface).toBe('excel');
     expect(first.version).toBe(1);
-    expect(first.title).toBe('Sales');
+    expect(first.title).toBe('2 worksheets');
+    expect(first.inventory.map((item) => item.title)).toContain('Sales');
     // Selection (A2:C2) has content → a selection summary is present.
     expect(first.selection).toBeDefined();
     // Named ranges read because ExcelApi >= 1.7.
@@ -1043,8 +1050,9 @@ describe('ExcelBridge.captureDocState (ADR-0003 outline)', () => {
     active = installExcel(seed);
     const snap = await new ExcelBridge().captureDocState();
     expect(snap).toBeDefined();
-    // No used-range content → no table blocks → no selection summary.
-    expect(snap?.selection).toBeUndefined();
+    // Empty sheets remain addressable, without loading cell values for a preview.
+    expect(snap?.selection?.title).toBe('Empty!A1');
+    expect(snap?.inventory.find((item) => item.title === 'Empty')?.summary).toBe('Empty worksheet');
   });
 });
 

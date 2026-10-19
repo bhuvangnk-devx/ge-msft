@@ -28,7 +28,7 @@ reviewable change.
 | Command       | Usage                          | Notes                                                               |
 | ------------- | ------------------------------ | ------------------------------------------------------------------- |
 | `outline`     | `outline`                      | Structure of the document/workbook. Not available in Outlook/Teams. |
-| `read`        | `read <selector>`              | Excel: an addressable range. Others: whole or current section.      |
+| `read`        | `read <selector>`              | Addressed content; bare read pages Word/Excel/PowerPoint. Follow next to EOF.      |
 | `search`      | `search <text>`                | Find content containing the text.                                   |
 | `list`        | `list [kind]`                  | List addressable context refs. `kind` is optional.                  |
 | `inspect`     | `inspect <refId\|selector>`    | Resolve one context ref or selector into readable content.          |

@@ -406,6 +406,12 @@ class FakeWorksheetCollection {
   readonly onChanged = new EventSink<{ source?: string }>();
   readonly onSelectionChanged = new EventSink<{ address: string }>();
   constructor(private readonly seed: ExcelSeed) {}
+  load(): this {
+    return this;
+  }
+  get items(): FakeWorksheet[] {
+    return this.seed.sheets.map((sheet) => this.getItem(sheet.name));
+  }
   getActiveWorksheet(): FakeWorksheet {
     return new FakeWorksheet(this.seed, this.seed.activeSheet);
   }

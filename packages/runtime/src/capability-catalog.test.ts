@@ -92,8 +92,10 @@ describe('command discovery', () => {
   });
 
   it('preserves surface-specific read syntax rather than generic selector help', () => {
-    expect(discoverCommands(manifest('word'), 'read')[0]?.syntax).toBe('read');
-    expect(discoverCommands(manifest('excel'), 'read')[0]?.syntax).toBe('read <A1|NamedRange>');
+    expect(discoverCommands(manifest('word'), 'read')[0]?.syntax).toBe('read [document:<cursor>]');
+    expect(discoverCommands(manifest('excel'), 'read')[0]?.syntax).toBe(
+      'read [A1|NamedRange|document:<cursor>]',
+    );
   });
 
   it.each<Surface>(['excel', 'word', 'powerpoint', 'outlook', 'onenote', 'teams'])(

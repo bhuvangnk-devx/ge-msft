@@ -47,6 +47,11 @@ already named, inspect metadata already supplied, or ask for full help to learn 
 Help and discovery never grant capabilities or approval. Reuse resolved prerequisites from cards;
 "If unresolved" means the host has not already supplied the necessary fact.
 
+For complete Word/Excel/PowerPoint content, `read` returns a bounded page with source IDs, scope,
+limitations and an optional `next` command. Follow cursors to EOF. An outline or a search hit is not
+a complete read; never label a partial result as the whole document. Use targeted reads when the
+question does not require exhaustive coverage.
+
 ## Keep data out of the conversation when the runtime can use it
 
 `let` binds computed values. `let $source = analyze {"kind":"capture",...}` binds a versioned table

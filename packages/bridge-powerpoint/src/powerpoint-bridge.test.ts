@@ -680,7 +680,8 @@ describe('PowerPointBridge.captureDocState', () => {
     expect(() => DocStateSnapshotSchema.parse(first)).not.toThrow();
     expect(first.surface).toBe('powerpoint');
     expect(first.version).toBe(1);
-    expect(first.outline.some((o) => o.text.includes('SLA Terms'))).toBe(true);
+    expect(first.outline).toEqual([]);
+    expect(first.inventory[0]?.title).toBe('Slide 1');
 
     const second = await bridge.captureDocState();
     expect(second?.version).toBe(2);
@@ -698,7 +699,9 @@ describe('PowerPointBridge.captureDocState', () => {
     if (!snap) return;
     // The slide past the cap must not appear in the inventory.
     expect(snap.outline.some((o) => o.text.includes(`Title ${MAX_READ_SLIDES + 5}`))).toBe(false);
-    expect(snap.outline.some((o) => o.text.includes('Title 0'))).toBe(true);
+    expect(snap.inventory[0]?.title).toBe('Slide 1');
+    expect(snap.inventory).toHaveLength(MAX_READ_SLIDES);
+    expect(snap.truncated).toBe(true);
   });
 });
 

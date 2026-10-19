@@ -22,6 +22,10 @@ saved settings, source chips and result previews. They run directly through the 
 call. Sessionless follow-ups use current execution state with inspectable evidence. See
 [workflow usage and extension points](docs/WORKFLOW-RECIPES.md).
 
+Whole-document summaries now traverse Office content in bounded pages and summarize it through
+independent model requests, with coverage and extraction limits. See
+[document context and operating limits](docs/DOCUMENT-CONTEXT.md).
+
 ## Choose the environment you want to test
 
 | Goal | Start here | Successful result |

@@ -92,3 +92,4 @@ export * from './evidence.js';
 export * from './analysis-program.js';
 export * from './result-store.js';
 export { discoverCommands, type CommandCard } from './capability-catalog.js';
+export * from './document-summary.js';

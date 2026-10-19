@@ -52,7 +52,7 @@ export interface GeminiSkillMention {
   uri: string;
 }
 
-export type GeminiSkillRoute = 'default' | 'planner' | 'command';
+export type GeminiSkillRoute = 'default' | 'planner' | 'command' | 'document';
 
 export interface GeminiWidgetConfig {
   configId: string;

@@ -912,16 +912,16 @@ describe('command-grammar — capability scoping', () => {
     expect(verbs).toEqual(expect.arrayContaining(['list', 'inspect', 'properties', 'open']));
     expect(verbs).toContain('tables');
     const read = grammarFor(excelManifest).find((v) => v.verb === 'read');
-    expect(read?.usage).toBe('read <A1|NamedRange>');
+    expect(read?.usage).toBe('read [A1|NamedRange|document:<cursor>]');
   });
 
-  it('Word advertises suggest (tracked-change) and a whole-doc read, NOT set', () => {
+  it('Word advertises suggest (tracked-change) and a paged document read, NOT set', () => {
     const verbs = grammarFor(wordManifest).map((v) => v.verb);
     expect(verbs).toContain('suggest');
     expect(verbs).not.toContain('set');
     expect(verbs).toEqual(expect.arrayContaining(['list', 'inspect', 'properties', 'open']));
     const read = grammarFor(wordManifest).find((v) => v.verb === 'read');
-    expect(read?.usage).toBe('read');
+    expect(read?.usage).toBe('read [document:<cursor>]');
   });
 
   it('Excel advertises comment (cell form) and format when add-comment/format-cells are present', () => {

@@ -11,7 +11,9 @@ load_when: The active surface is Word or a plan mentions redlines, comments, par
 
 Load this when the active surface is Word. Cross-surface table: [capability-map.md](capability-map.md).
 
-**Reading:** `read` returns the whole document (or a section); `search <text>` locates passages. You
+**Reading:** `read` returns the first bounded page of main-body paragraphs. Follow the returned
+`next` command until `eof: true`; respect scope and extraction limitations. `outline` is metadata,
+not complete content. `search <text>` locates passages. You
 **cannot anchor on text you have not read** — read/search first.
 
 **Writing is content-anchored.** `suggest "exact old" => "new"` lands a **tracked change** anchored on

@@ -194,3 +194,24 @@ Validation: 2,671 Vitest tests passed, 16 optional live tests skipped (198 files
 builds, TypeScript, ESLint, Prettier, frozen lockfile, generated-resource checks, 46 Python tests,
 71 parity cases, 14 deterministic eval cases, and three source-exact skill archives passed.
 Security review closed all concrete findings. Live Office/tenant acceptance remains tracked above.
+
+
+## User-directed bounded document context — October 2026
+
+- [x] Separate metadata snapshots from bounded content pages across Word, Excel and PowerPoint.
+- [x] Traverse complete sources with explicit cursors, EOF, extraction scope and limitations.
+- [x] Summarize with bounded sessionless map/reduce requests and verify a second source traversal.
+- [x] Fix natural-language `read` routing and stop using an outline as whole-document content.
+- [x] Add scale, request-isolation, drift, cancellation and incomplete-response regressions.
+- [x] Complete type, test, lint, build and generated-skill parity gates; review changed trust boundaries.
+- [ ] Live Office and tenant acceptance: pagination, requirement sets, sessionless routing, latency
+      and semantic summary quality. Mock coverage is not a live performance result.
+
+Implementation and operating limits: [DOCUMENT-CONTEXT.md](DOCUMENT-CONTEXT.md).
+
+Validation: 2,692 Vitest tests passed, 16 optional live tests skipped (202 files); TypeScript,
+ESLint, Prettier, all workspace production builds, generated-resource/manifest drift checks,
+46 Python tests, 71 parity cases, 14 deterministic eval cases and source-exact skill archives passed.
+Reviewed source-data framing, hook guards, policy propagation, session isolation, cancellation,
+coverage/freshness claims and absence of new write/auth/credential paths. Live acceptance remains
+open above.

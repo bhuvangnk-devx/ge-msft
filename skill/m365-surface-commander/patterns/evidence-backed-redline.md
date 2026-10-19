@@ -21,7 +21,7 @@ A reasoning template, not a command. Read it for shape, then write the turn's al
 **Pure core (OBSERVE → DERIVE)**
 
 ```
-read                       # the whole document (or search for the claim-bearing passages)
+read                       # first content page; follow returned next commands to EOF
 search "<claim phrase>"    # locate the exact text to anchor on
   → reason over what you READ: which claims are wrong, which are unsourced
 ```

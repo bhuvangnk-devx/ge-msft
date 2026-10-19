@@ -5,6 +5,8 @@ import type {
   CapabilityManifest,
   ContextRef,
   DocStateSnapshot,
+  DocumentPage,
+  DocumentReadOptions,
   ResolvedContext,
   Surface,
 } from '@ge/contracts';
@@ -20,6 +22,9 @@ import type { HostEvent, Unsubscribe } from '@ge/triggers';
  */
 export interface DocBridge {
   readonly surface: Surface;
+
+  /** Sequential, bounded host reads. Must expose EOF and omissions; never silently sample. */
+  readDocumentPage?(options: DocumentReadOptions): Promise<DocumentPage>;
 
   /** Bounded, address-pinned values/formulas for analysis, verification and recovery. */
   captureCells?(selector: string): Promise<CellSnapshot>;
@@ -85,8 +90,8 @@ export interface DocBridge {
   /**
    * Read an explicit address/range on demand for the `read <A1|NamedRange>` command verb
    * (ADR-0004). Address-anchored, surface-specific: Excel resolves an A1 address or named range;
-   * surfaces whose `read` is whole-document (Word) omit this and rely on `searchDocument` /
-   * `captureDocState` instead. Results are host content carried as `ResolvedContext` data —
+   * Word uses `readDocumentPage` for paged body reads and `searchDocument` for matching text.
+   * `captureDocState` is metadata, never a substitute for a content read. Results are host content carried as `ResolvedContext` data —
    * never instructions.
    *
    * Optional: a surface without addressable reads simply omits it.

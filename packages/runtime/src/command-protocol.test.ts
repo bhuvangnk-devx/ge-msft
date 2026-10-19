@@ -847,7 +847,7 @@ describe('renderGrammarPrompt', () => {
     const prompt = renderGrammarPrompt(excelManifest);
     expect(prompt).toContain('set <A1> <value|=formula>');
     expect(prompt).toContain('grid <range> = "a\\tb\\nc\\td"');
-    expect(prompt).toContain('read <A1|NamedRange>');
+    expect(prompt).toContain('read [A1|NamedRange|document:<cursor>]');
     expect(prompt).toContain('context [incremental|inline-preferred');
     expect(prompt).not.toContain('suggest "old text"');
     expect(prompt).toContain('```cmd');

@@ -166,6 +166,8 @@ export interface WordHost {
 
   /** Non-empty body paragraphs with their built-in style (for heading-level derivation). */
   readParagraphs(): Promise<WordParagraph[]>;
+  /** Host-side pagination; blanks retain their ordinal so cursors cannot skip content. */
+  readParagraphPage?(offset: number, count: number): Promise<WordParagraph[]>;
 
   /**
    * Lazily read the body for `query` (ADR-0003 `search_document`): re-resolve the matches at
@@ -355,6 +357,16 @@ export class OfficeWordHost implements WordHost {
     });
   }
 
+  async readParagraphPage(offset: number, count: number): Promise<WordParagraph[]> {
+    return Word.run(async (ctx) => {
+      const paragraphs = ctx.document.body.paragraphs;
+      paragraphs.load({ select: 'text,styleBuiltIn', skip: offset, top: count });
+      await ctx.sync();
+      if (paragraphs.items.length > count) throw new Error('Word did not honor paged reads.');
+      return paragraphs.items.map((p) => ({ text: p.text, styleBuiltIn: String(p.styleBuiltIn) }));
+    });
+  }
+
   async searchText(query: string, matchCase: boolean): Promise<WordSearchHit[]> {
     const q = query.trim();
     if (!q) return [];
@@ -365,7 +377,10 @@ export class OfficeWordHost implements WordHost {
         // → WordApi 1.1; reading a result's `paragraphs` is broadly available, but we guard the
         // whole batch in try/catch so an older/quirky host degrades to `[]` rather than throwing.
         results.load('items/text');
-        const paras = results.items.map((r) => r.paragraphs.getFirstOrNullObject());
+        await ctx.sync();
+        const paras = results.items
+          .slice(0, MAX_SEARCH_HITS)
+          .map((r) => r.paragraphs.getFirstOrNullObject());
         for (const p of paras) p.load('text');
         await ctx.sync();
 

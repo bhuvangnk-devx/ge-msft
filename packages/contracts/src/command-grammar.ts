@@ -453,8 +453,8 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
       return { verb: 'help', ...(rest ? { topic: rest } : {}) };
 
     case 'read': {
-      // Excel: an A1/NamedRange selector. Word: whole-doc (no selector) — empty string is fine,
-      // the runtime read-intent treats an empty selector as "whole document".
+      // An address reads a range. Empty/document selectors read the first bounded document
+      // page; document:<cursor> continues. EOF does not imply prior pages were read.
       return { verb: 'read', selector: rest };
     }
 
@@ -1668,9 +1668,27 @@ export interface VerbSpec {
  */
 export function grammarFor(manifest: CapabilityManifest): VerbSpec[] {
   const isExcelLike = manifest.surface === 'excel';
-  const readSelector = isExcelLike
-    ? { verb: 'read', usage: 'read <A1|NamedRange>', hint: 'read a range, e.g. read Sales!C2:C7' }
-    : { verb: 'read', usage: 'read', hint: 'read the whole document' };
+  const readSelector =
+    manifest.surface === 'excel'
+      ? {
+          verb: 'read',
+          usage: 'read [A1|NamedRange|document:<cursor>]',
+          hint: 'read a range; bare read pages the workbook, follow next until eof',
+        }
+      : manifest.surface === 'word' || manifest.surface === 'powerpoint'
+        ? {
+            verb: 'read',
+            usage:
+              manifest.surface === 'word'
+                ? 'read [document:<cursor>]'
+                : 'read [slide:N|document:<cursor>]',
+            hint: 'read content; bare read pages the document, follow next until eof; outline is metadata only',
+          }
+        : {
+            verb: 'read',
+            usage: 'read <selector>',
+            hint: 'read an addressed target; use list/inspect to discover refs',
+          };
 
   // Read verbs, scoped by manifest.reads (ADR-0006). Advertise a read verb only when the surface
   // declares it serves that read — otherwise the grammar would advertise an unreachable read.

@@ -400,7 +400,7 @@ def parse_line(line: str):
     if verb == "help":
         return {"verb": "help", **({"topic": rest} if rest else {})}
     if verb == "read":
-        return {"verb": "read", "selector": rest}  # empty ⇒ whole doc
+        return {"verb": "read", "selector": rest}  # empty ⇒ first bounded document page; follow next to EOF
     if verb == "search":
         if not rest:
             return {"error": "search needs text — usage: search <text>"}

@@ -510,7 +510,7 @@ export function buildStreamAssistRequest(
     ...(cfg.dataStores ?? []).map((dataStore) => ({ dataStore })),
     ...(grounding?.dataStoreSpecs ?? []),
   ];
-  if (filter || dataStoreSpecs.length > 0) {
+  if (skillRoute !== 'document' && (filter || dataStoreSpecs.length > 0)) {
     out.toolsSpec = {
       vertexAiSearchSpec: {
         ...(filter ? { filter } : {}),
@@ -596,6 +596,8 @@ function skillsForRoute(
   mentions?: GeminiClientConfig['skillMentions'];
 } {
   switch (route) {
+    case 'document':
+      return { resources: [] };
     case 'planner':
       return {
         resources: cfg.plannerSkills ?? [],
