@@ -16,6 +16,11 @@ Load this when the active surface is Word. Cross-surface table: [capability-map.
 not complete content. `search <text>` locates passages. You
 **cannot anchor on text you have not read** — read/search first.
 
+For a selected edit, keep the paragraph/selection as the write target while reading relevant
+surroundings, definitions and exceptions elsewhere. Captured evidence paths refer to a revision;
+resolve native anchors from current observed text. See [document evidence workspace](document-workspace.md)
+for continuations and binding freshness.
+
 **Writing is content-anchored.** `suggest "exact old" => "new"` lands a **tracked change** anchored on
 the exact existing text; `comment "exact text" "note"` flags it. The anchor is re-resolved at
 apply-time: if the text has drifted, the change **degrades to a panel item** rather than landing a

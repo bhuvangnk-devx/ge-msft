@@ -14,7 +14,7 @@ compatibility: >-
   require Python 3.
 metadata:
   author: ge-msft
-  version: '1.4'
+  version: '1.5'
 ---
 
 # M365 Command Planner
@@ -103,6 +103,12 @@ Add a hint only when it changes how the runtime should construct context:
 - `full-scope` or `upload-preferred` when the whole artifact is likely required.
 - `analytical` or `code-execution-preferred` for workbook/file-scale computation.
 
+For an edit, preserve the selected paragraph/range/slides as `scope` even when wider reading is
+needed. Describe governing definitions, assumptions and exceptions in `step` lines. Use `full-scope`
+when the user explicitly requires the whole supported source; it broadens evidence needs, not edit
+authority. Do not substitute `scope document` merely because the executor needs document context.
+The executor/host obtains snapshot coverage and freshness; invent no evidence IDs or refresh verbs.
+
 These are hints, not actions. Never invent an upload id, run Python, or claim hosted analysis ran.
 
 ## Cross-surface boundary
@@ -122,6 +128,8 @@ Do not load supporting material by default.
 - Ordinary, well-specified, single-surface request: use this file only.
 - Exact keyword, context, clarification, or surface-vocabulary question: load
   [references/plan-grammar.md](references/plan-grammar.md).
+- Selected edit requiring whole-document context: load
+  [the scoped-edit example](assets/example-plans/example-plan-selection-document-context.md).
 - Cross-product request: load
   [references/handoff-contract.md](references/handoff-contract.md).
 - Need a concrete complex variant: load exactly one matching example from

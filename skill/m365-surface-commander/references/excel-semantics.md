@@ -17,6 +17,11 @@ address. Read the smallest range that answers the request, not the whole sheet. 
 `properties <ref>`, and `open <ref>` expose workbook tables and named ranges as typed refs; resolving
 one must use that exact ref, not the current selection.
 
+For workbook-wide reads, `read document` pages supported values/formulas across sheets; follow
+returned `next` commands to EOF and retain extraction limitations. Context from headers, assumptions
+or other tabs never widens the selected destination range. Snapshot row/tile links do not establish
+a complete formula dependency graph. See [document evidence workspace](document-workspace.md).
+
 **Writing is address-anchored** — `set <cell> <value|=formula>` lands an exact cell. Prefer a native
 formula (`=SUMIF(...)`) or a value you read over a guessed number. For a multi-cell write, choose the
 one bulk shape that matches the source of the data:

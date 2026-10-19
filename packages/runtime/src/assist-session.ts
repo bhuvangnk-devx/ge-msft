@@ -95,6 +95,8 @@ import { WorkspaceStore, type WorkspaceResult } from './workspace.js';
 import {
   createDocFs,
   ls as docFsLs,
+  cat as docFsCat,
+  grep as docFsGrep,
   find as docFsFind,
   tail as docFsTail,
   type SharedStore,
@@ -1921,7 +1923,10 @@ export class AssistSession {
       plan.results.push({ help: renderCommandHelp(capabilities, command.topic) });
       return;
     }
-    if (isReadCommand(command)) {
+    if (
+      isReadCommand(command) ||
+      ((command.verb === 'cat' || command.verb === 'grep') && command.ref.startsWith('/'))
+    ) {
       const compiled = compileCommand(command, {
         surface: this.bridge.surface,
         mintChangeId: () => asChangeId(crypto.randomUUID()),
@@ -2926,6 +2931,29 @@ export class AssistSession {
             };
           const reads = await this.bridge.searchDocument(intent.text);
           return { label: `search ${intent.text}`, result: readsToData(reads) };
+        }
+        case 'file-cat': {
+          const value = await docFsCat(this.docFs, intent.path);
+          const lines = value.text.split('\n');
+          const limited =
+            intent.head === undefined ? value.text : lines.slice(0, intent.head).join('\n');
+          return {
+            label: `cat ${intent.path}`,
+            result: {
+              path: intent.path,
+              text: limited,
+              truncated:
+                value.truncated || (intent.head !== undefined && lines.length > intent.head),
+            },
+          };
+        }
+        case 'file-grep': {
+          return {
+            label: `grep ${intent.path}`,
+            result: await docFsGrep(this.docFs, intent.path, intent.pattern, {
+              context: intent.context,
+            }),
+          };
         }
         case 'ls': {
           try {

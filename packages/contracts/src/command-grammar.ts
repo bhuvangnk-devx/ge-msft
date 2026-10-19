@@ -764,7 +764,8 @@ function parseShare(rest: string): ParsedCommand | CommandParseError {
 }
 
 function parseCat(rest: string): ParsedCommand | CommandParseError {
-  const usage = 'cat needs a workspace artifact ref — usage: cat <name|ws:id> [head=N]';
+  const usage =
+    'cat needs an artifact ref or absolute path — usage: cat <name|ws:id|/absolute/path> [head=N]';
   const { positional, props } = tokenizeArgs(rest);
   const ref = positional[0];
   if (!ref || positional.length > 1) return { error: usage };
@@ -779,7 +780,7 @@ function parseCat(rest: string): ParsedCommand | CommandParseError {
 
 function parseGrep(rest: string): ParsedCommand | CommandParseError {
   const usage =
-    'grep needs an artifact ref and pattern — usage: grep <name|ws:id> "pattern" [context=N]';
+    'grep needs an artifact ref or absolute path and pattern — usage: grep <name|ws:id|/absolute/path> "pattern" [context=N]';
   const split = splitFirstArg(rest);
   if (!split) return { error: usage };
   const ref = stripWrappingQuotes(split.arg);
@@ -1839,14 +1840,14 @@ function workspaceVerbSpec(verb: WorkspaceVerb): VerbSpec {
     case 'cat':
       return {
         verb,
-        usage: 'cat <name|ws:id> [head=N]',
-        hint: 'preview a bounded slice of a workspace artifact by handle',
+        usage: 'cat <name|ws:id|/absolute/path> [head=N]',
+        hint: 'read an absolute DocFs path or preview a named workspace artifact; truncation is explicit',
       };
     case 'grep':
       return {
         verb,
-        usage: 'grep <name|ws:id> "pattern" [context=N]',
-        hint: 'search a workspace artifact locally and return compact line matches',
+        usage: 'grep <name|ws:id|/absolute/path> "pattern" [context=N]',
+        hint: 'search an absolute DocFs path or a named workspace artifact; bounded matches follow mount semantics',
       };
     case 'cp':
       return {

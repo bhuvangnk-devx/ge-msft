@@ -1062,3 +1062,61 @@ describe('AssistSession evidence-bound execution', () => {
     expect(bodies).toHaveLength(0);
   });
 });
+
+describe('AssistSession absolute DocFs reads advertised by the skills', () => {
+  it('routes evidence grep and Unicode text continuations through the command loop', async () => {
+    const bridge = new FlexBridge('word');
+    const { fetch } = scriptedFetch(['```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), {
+      unit,
+      context: { docState: false },
+    });
+    const text = 'Governed revenue definition: ' + '😀'.repeat(2500);
+    const { id } = await session.sourceWorkspace.capture({
+      id: 'source',
+      readPage: async () => ({
+        scope: 'body',
+        limitations: ['body text only'],
+        units: [{ id: 'definition', text }],
+      }),
+    });
+    const grepEvents = await collectLoop(
+      session.runCommandProgram(`grep /evidence/${id}/units "Governed revenue"`),
+    );
+    const search = readResults(grepEvents)[0]!.result as { matches: Array<{ path: string }> };
+    expect(search.matches[0]!.path).toBe(`/evidence/${id}/units/0/0.json`);
+    let nextPath: string | undefined = `/evidence/${id}/windows/0/0.json`;
+    let exact = '';
+    while (nextPath) {
+      const events = await collectLoop(session.runCommandProgram(`cat ${nextPath}`));
+      const result = readResults(events)[0]!.result as { text: string; truncated: boolean };
+      expect(result.truncated).toBe(false);
+      const page = JSON.parse(result.text) as { text: string; nextPath?: string };
+      exact += page.text;
+      nextPath = page.nextPath;
+    }
+    expect(exact).toBe(text);
+    expect(bridge.applied).toEqual([]);
+  });
+  it('preserves named workspace reads and reports missing paths and line truncation', async () => {
+    const { fetch } = scriptedFetch(['```cmd\ndone\n```']);
+    const session = new AssistSession(
+      new FlexBridge('word'),
+      new StreamAssistClient(tokens, cfg, fetch),
+      { unit, context: { docState: false }, skillFiles: { 'lines.md': 'first\nsecond' } },
+    );
+    await collectLoop(session.runCommandProgram('save notes.md = "first\\nsecond"'));
+    const legacy = readResults(await collectLoop(session.runCommandProgram('cat notes.md')))[0]!
+      .result as { workspace: string; preview: string };
+    expect(legacy.workspace).toBe('cat');
+    expect(legacy.preview).toContain('second');
+    const absolute = readResults(
+      await collectLoop(session.runCommandProgram('cat /skills/lines.md head=1')),
+    )[0]!.result as { text: string; truncated: boolean };
+    expect(absolute).toMatchObject({ text: 'first', truncated: true });
+    const missing = readResults(
+      await collectLoop(session.runCommandProgram('cat /evidence/missing/units/0/0.json')),
+    )[0]!.result as { error: string };
+    expect(missing.error).toContain('no such file');
+  });
+});

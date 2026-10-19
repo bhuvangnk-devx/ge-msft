@@ -26,6 +26,7 @@ Generated from resource frontmatter. Load the listed file only when its `load_wh
 | [references/capability-map.md](../references/capability-map.md) | reference | - | - | Checking which commands each Office surface may advertise. |
 | [references/command-grammar.md](../references/command-grammar.md) | reference | - | - | Exact CLI syntax, selector forms, composed writes, or reusable recipe grammar is needed. |
 | [references/composition-rules.md](../references/composition-rules.md) | reference | - | - | A task requires read-derived values, table materialization, or more than one command phase. |
+| [references/document-workspace.md](../references/document-workspace.md) | reference | - | - | Reading a large source, following supplied evidence paths, or editing a selected target using broader document context. |
 | [references/errors-and-recovery.md](../references/errors-and-recovery.md) | reference | - | - | A result block contains an error or a command failed validation. |
 | [references/excel-semantics.md](../references/excel-semantics.md) | reference | excel | - | The active surface is Excel or a plan mentions ranges, formulas, tables, charts, or workbook analysis. |
 | [references/generated-capability-catalog.md](../references/generated-capability-catalog.md) | generated-reference | - | - | Checking generated capability metadata, registry status, requirement sets, or capability-specific playbooks. |

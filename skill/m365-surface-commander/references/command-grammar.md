@@ -74,8 +74,14 @@ code, send messages, or approve later effects.
 | ----------- | ------------------------------------------ | -------------------------------------------------------------------- |
 | `workspace` | `workspace [name\|ws:id]`                  | List artifacts, or summarize one artifact by name/id.                |
 | `save`      | `save <name> = read <selector>`            | Save a bounded rendered read/search/outline/pipeline/literal output. |
-| `cat`       | `cat <name\|ws:id> [head=N]`               | Preview the first N lines of an artifact.                            |
-| `grep`      | `grep <name\|ws:id> "pattern" [context=N]` | Search an artifact locally and return compact line matches.          |
+| `cat`       | `cat <name\|ws:id\|/absolute/path> [head=N]`               | Read an absolute DocFs path, or preview an artifact; check truncation.                            |
+| `grep`      | `grep <name\|ws:id\|/absolute/path> "pattern" [context=N]` | Search a DocFs path or artifact; mount semantics and bounds apply.          |
+
+Absolute `cat`/`grep` paths use the read-only DocFs dispatcher; artifact names and `ws:` handles
+retain their workspace behavior. Available mounts include `/doc`, `/work`, `/skills`, `/shared` and,
+when captured sources exist, `/evidence`. For exact evidence paths and text-window continuations,
+load [document evidence workspace](document-workspace.md). SDK query/expand/capture methods are not
+CLI verbs. `save` does not create an evidence snapshot, and `cp`/`mv`/`rm` do not mutate evidence.
 
 Accepted `save` sources:
 

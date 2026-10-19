@@ -233,3 +233,19 @@ integrity, principal isolation requirements, untrusted data framing, read/write 
 post-approval freshness, cancellation, and uncertain-write invalidation. Live host acceptance remains
 open. Storage is in-memory by default; automatic graph extraction and multi-write rebasing are not
 claimed. See DOCUMENT-CONTEXT.md for the complete extension contract and limits.
+
+## User-directed evidence skill alignment — October 2026
+
+- [x] Route absolute-path CLI cat/grep through DocFs while preserving named workspace artifacts.
+- [x] Teach commander bounded evidence traversal, continuations, coverage and binding freshness.
+- [x] Teach planner to preserve selected edit targets while describing broader evidence reads.
+- [x] Document reproducible skill packaging and the separate live provisioning step.
+- [x] Regenerate resources/manifests, validate behavior and publish the skill update.
+
+Validation: 2,709 Vitest tests passed, 16 optional live tests skipped (203 files). TypeScript,
+ESLint, formatting, production builds, generated manifest/resource drift checks, 46 Python tests,
+71 parity cases, 14 deterministic eval cases and all three source-exact skill archives passed.
+An isolated skill forward-test selected the supplied text continuation before proposing a redline.
+Commander bootstrap remains below four KiB. Reviewed DocFs-only absolute path routing, hook guards,
+source-data trust, native target separation and evidence freshness. Tenant provisioning is separate
+and was not performed by this repository update.

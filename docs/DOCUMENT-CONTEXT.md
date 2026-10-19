@@ -202,3 +202,11 @@ graph, or arbitrary cross-document links. Applications can enrich units and inje
 The existing analysis workspace remains the place for bounded local SQL/computation on captured
 tabular data. This change does not introduce arbitrary model-generated Office.js execution or claim
 a new automatic snapshot-to-DuckDB importer.
+
+
+The commander skill routes large-source and scoped-edit tasks to
+`references/document-workspace.md`. Absolute-path `cat` and `grep` now dispatch through DocFs;
+named artifacts and `ws:` handles retain WorkspaceStore behavior. SDK-only source capture,
+structural queries and evidence-binding refresh are explicitly distinguished from CLI operations.
+The planner keeps the edit scope fixed while describing broader evidence needs. Rebuild and validate
+all skill bundles before a separately requested tenant provisioning step.

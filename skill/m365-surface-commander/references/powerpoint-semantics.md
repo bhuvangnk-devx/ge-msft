@@ -12,8 +12,11 @@ load_when: The active surface is PowerPoint or a handoff targets a PowerPoint de
 Load this when the active surface is PowerPoint. Cross-surface table:
 [capability-map.md](capability-map.md).
 
-**Reading:** `read`/`outline` give the slides and their shapes. Write by slide index or by an existing
-shape ref. Use `list shape`, `properties <ref>`, `open <ref>`, and `inspect <ref>` to target one
+**Reading:** `outline` gives metadata; `read document` pages supported shape text across the deck.
+Follow returned `next` commands to EOF, retaining exclusions for unsupported content. Read other
+slides for context while preserving the selected slides/shapes as the edit target. Captured unit
+IDs are revision-scoped evidence, not native shape refs; see
+[document evidence workspace](document-workspace.md). Write by slide index or an existing shape ref. Use `list shape`, `properties <ref>`, `open <ref>`, and `inspect <ref>` to target one
 shape; do not parse a shape id out of slide text.
 
 **Progressive disclosure:** specialized PowerPoint writes are live capability-gated. Use only slash

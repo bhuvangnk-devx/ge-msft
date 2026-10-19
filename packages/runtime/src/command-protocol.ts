@@ -36,6 +36,8 @@ export type ReadIntent =
   | { read: 'outline' } // → bridge.captureDocState()
   | { read: 'range'; selector: string } // → bridge.readRange() (Excel) — empty ⇒ whole doc
   | { read: 'search'; text: string } // → bridge.searchDocument()
+  | { read: 'file-cat'; path: string; head?: number }
+  | { read: 'file-grep'; path: string; pattern: string; context?: number }
   | { read: 'ls'; path: string } // → DocFs.readdir() via ls() coreutil
   | { read: 'find'; path: string; glob?: string } // → DocFs coreutil find()
   | { read: 'tail'; path: string; n?: number } // → DocFs coreutil tail() (file-level, NOT compose.ts's pipeline tail transform)
@@ -176,11 +178,30 @@ export function compileCommand(
         intent: { workspace: 'save', name: cmd.name, source: cmd.source },
       };
     case 'cat':
+      if (cmd.ref.startsWith('/'))
+        return {
+          kind: 'read',
+          intent: {
+            read: 'file-cat',
+            path: cmd.ref,
+            ...(cmd.head !== undefined ? { head: cmd.head } : {}),
+          },
+        };
       return {
         kind: 'workspace',
         intent: { workspace: 'cat', ref: cmd.ref, ...(cmd.head ? { head: cmd.head } : {}) },
       };
     case 'grep':
+      if (cmd.ref.startsWith('/'))
+        return {
+          kind: 'read',
+          intent: {
+            read: 'file-grep',
+            path: cmd.ref,
+            pattern: cmd.pattern,
+            ...(cmd.context !== undefined ? { context: cmd.context } : {}),
+          },
+        };
       return {
         kind: 'workspace',
         intent: {

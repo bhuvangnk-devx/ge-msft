@@ -22,6 +22,11 @@ Verification is a host phase; a separate model inference is necessary only for a
 semantic ambiguity. Reads after effects may require another program because preview preparation
 must observe the state against which the user will approve a write.
 
+When the host supplies an evidence binding, prepare at most one native effect: dispatch consumes
+that binding even if the write outcome is uncertain. The next effect requires fresh host-prepared
+context; another model turn alone does not refresh it. See
+[document evidence workspace](document-workspace.md). Unbound programs can use normal batching.
+
 ## One-program reconciliation
 
 With known ranges, column mappings, and destination, emit:

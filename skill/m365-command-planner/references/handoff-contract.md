@@ -35,6 +35,11 @@ roles.
   surface. Use the live capability manifest and registry-backed targeted help before inventing a
   sequence; a planner step like "materialize one rectangular grid" should compile to the bulk grid
   path when available, not many per-cell approvals.
+- Preserve the native edit target even when evidence comes from other sections, slides or sheets.
+  A `full-scope` hint never changes `scope selection` into document-wide write authority.
+- Use supplied evidence paths and current native refs. Snapshot capture/query/projection and binding
+  refresh are host SDK operations. A supplied binding permits one dispatched effect before fresh
+  context is required; retain this boundary when compiling several plan steps.
 - Respect every `exclude` line as a hard boundary.
 - For cross-surface plans, perform only work available in the active host. The output
   of a source phase is a handoff packet, not a write into another Office app.

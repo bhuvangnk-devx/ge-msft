@@ -2,7 +2,7 @@
 title: Progressive Disclosure
 kind: reference
 skill: m365-surface-commander
-topics: [context, execution-state, journal, host-refs, inspect, full-file, handoff]
+topics: [context, execution-state, journal, host-refs, inspect, full-file, handoff, evidence]
 load_when: Choosing context or command help, or recovering omitted evidence from an execution-state reference.
 ---
 
@@ -36,6 +36,7 @@ A context budget failure stops execution instead of silently dropping constraint
 | Metadata for a known ref | `properties <ref>` |
 | Relevant content at a known target | `inspect <ref>` or bounded `read <selector>` |
 | Location of known words | `search <text>` |
+| Captured source units or oversized text | `ls /evidence`, `grep <supplied-evidence-path> "literal"`, `cat <returned-path>`; follow `textWindowPath`/`nextPath` |
 | A small portion of a saved result | `cat <artifact> head=N` or `grep <artifact> "pattern"` |
 | Omitted program, macro definition, artifact detail or effect receipt | `inspect state:<scope>:<id> path=/json/pointer offset=0 limit=20` using a supplied ref |
 | Earlier program/result addresses | `inspect state:<scope>:journal offset=0 limit=20`, then inspect the returned turn ref |
@@ -51,6 +52,10 @@ For complete Word/Excel/PowerPoint content, `read` returns a bounded page with s
 limitations and an optional `next` command. Follow cursors to EOF. An outline or a search hit is not
 a complete read; never label a partial result as the whole document. Use targeted reads when the
 question does not require exhaustive coverage.
+
+For large sources, extraction coverage, snapshot navigation and binding limits, load
+[document evidence workspace](document-workspace.md). Reading broader evidence preserves the
+original selected edit target. A snapshot unit ID is not a native write selector.
 
 ## Keep data out of the conversation when the runtime can use it
 
@@ -78,7 +83,7 @@ attachment, or thread, depending on the task. OneNote and Teams use scoped page/
 Load the relevant surface semantics only if target behavior is uncertain.
 
 A planner handoff supplies intent, not document truth or effect approval. Use its exact scope to
-choose the necessary read. Preserve every exclusion. `full-scope` does not require a full paste;
+choose the necessary read. Preserve every exclusion. `full-scope` requests broader evidence without widening the edit target or requiring a full paste;
 `analytical` does not require hosted code when local bounded analysis suffices.
 
 After source drift, recapture and recompute. If an anchor changes after preview, regenerate the

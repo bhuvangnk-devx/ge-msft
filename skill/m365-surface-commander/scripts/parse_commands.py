@@ -487,7 +487,7 @@ def parse_line(line: str):
     if verb == "cat":
         split = _split_first_arg(rest)
         if not split:
-            return {"error": "cat needs a workspace artifact ref — usage: cat <name|ws:id> [head=N]"}
+            return {"error": "cat needs an artifact ref or absolute path — usage: cat <name|ws:id|/absolute/path> [head=N]"}
         ref, tail = split[0], split[1].strip()
         out = {"verb": "cat", "ref": ref}
         if tail:
@@ -500,10 +500,10 @@ def parse_line(line: str):
     if verb == "grep":
         split = _split_first_arg(rest)
         if not split:
-            return {"error": 'grep needs an artifact ref and pattern — usage: grep <name|ws:id> "pattern" [context=N]'}
+            return {"error": 'grep needs an artifact ref or absolute path and pattern — usage: grep <name|ws:id|/absolute/path> "pattern" [context=N]'}
         ref, tail = split[0], split[1].strip()
         if not tail:
-            return {"error": 'grep needs an artifact ref and pattern — usage: grep <name|ws:id> "pattern" [context=N]'}
+            return {"error": 'grep needs an artifact ref or absolute path and pattern — usage: grep <name|ws:id|/absolute/path> "pattern" [context=N]'}
         context = None
         ctx = re.search(r"(?:^|\s)context=(\d+)\s*$", tail)
         if ctx:
