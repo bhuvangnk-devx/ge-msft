@@ -8,6 +8,8 @@ import { workMount } from './work-mount.js';
 import { skillsMount } from './skills-mount.js';
 import { sharedMount, type SharedStore } from './shared-mount.js';
 import { readOnly } from './mount.js';
+import { evidenceMount } from '../evidence/mount.js';
+import type { EvidenceWorkspace } from '../evidence/workspace.js';
 
 export * from './mount.js';
 export * from './router.js';
@@ -34,12 +36,14 @@ const NO_SHARED_STORE: SharedStore = {
  */
 export function createDocFs(opts: {
   bridge: DocBridge;
+  evidence?: EvidenceWorkspace;
   workspace: WorkspaceStore;
   skillFiles?: Readonly<Record<string, string>>;
   sharedStore?: SharedStore;
 }): DocFs {
   return new DocFsRouter([
     readOnly(docMount(opts.bridge)),
+    ...(opts.evidence ? [evidenceMount(opts.evidence)] : []),
     workMount(opts.workspace),
     readOnly(skillsMount(opts.skillFiles ?? {})),
     readOnly(sharedMount(opts.sharedStore ?? NO_SHARED_STORE)),

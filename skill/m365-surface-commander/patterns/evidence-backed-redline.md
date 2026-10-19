@@ -21,13 +21,18 @@ A reasoning template, not a command. Read it for shape, then write the turn's al
 **Pure core (OBSERVE → DERIVE)**
 
 ```
-read                       # the whole document (or search for the claim-bearing passages)
+read                       # first content page; follow returned next commands to EOF
 search "<claim phrase>"    # locate the exact text to anchor on
   → reason over what you READ: which claims are wrong, which are unsourced
 ```
 
 You cannot anchor on text you have not read — `suggest` and `comment` both require the **exact
 existing text**. Read first, then anchor.
+
+For a selected redline, read governing passages from elsewhere without expanding the write target.
+Use supplied evidence paths and text continuations when available; see
+[document evidence workspace](../references/document-workspace.md). With an evidence binding,
+choose one effect from the following examples; the host must prepare fresh context before another.
 
 **Effect core (EFFECT)**
 

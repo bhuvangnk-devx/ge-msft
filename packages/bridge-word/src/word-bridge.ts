@@ -42,6 +42,7 @@ import {
   selectionChangedEvent,
 } from './events.js';
 import { isSet } from './capabilities-runtime.js';
+import { documentOffset, type DocumentPage, type DocumentReadOptions } from '@ge/contracts';
 import { canRevealWordContext, OfficeWordHost, type WordHost } from './host-port.js';
 
 const MAX_LISTED_PARAGRAPHS = 12;
@@ -77,6 +78,30 @@ export class WordBridge implements DocBridge {
 
   readonly surface = 'word' as const;
 
+  async readDocumentPage(options: DocumentReadOptions = {}): Promise<DocumentPage> {
+    options.signal?.throwIfAborted();
+    if (!this.host.readParagraphPage)
+      throw new Error('Paged Word reads are unavailable in this host.');
+    const offset = documentOffset(options.cursor);
+    const count = 40;
+    const paragraphs = await this.host.readParagraphPage(offset, count + 1);
+    options.signal?.throwIfAborted();
+    if (offset > 0 && paragraphs.length === 0)
+      throw new Error('The document changed or the cursor is out of range. Start a new read.');
+    return {
+      scope: 'Word main-body paragraphs',
+      units: paragraphs.slice(0, count).map((p, i) => ({
+        id: `paragraph:${offset + i + 1}`,
+        text: p.text,
+      })),
+      ...(paragraphs.length > count ? { nextCursor: String(offset + count) } : {}),
+      limitations: [
+        'Text only: headers, footers, footnotes, comments, drawings and image content are not extracted.',
+        'Table coverage is limited to text exposed by the body paragraph collection; table structure is not extracted.',
+      ],
+    };
+  }
+
   /** Monotonic `<doc_state>` version, bumped on each capture (ADR-0003 Layer B element 1). */
   private docStateVersion = 0;
 
@@ -87,10 +112,11 @@ export class WordBridge implements DocBridge {
   }
 
   async listContext(): Promise<ContextRef[]> {
-    const [selText, bodyText, paragraphs] = await Promise.all([
+    const [selText, paragraphs] = await Promise.all([
       this.host.readSelectionText(),
-      this.host.readBodyText(),
-      this.host.readParagraphs(),
+      this.host.readParagraphPage
+        ? this.host.readParagraphPage(0, MAX_LISTED_PARAGRAPHS)
+        : this.host.readParagraphs(),
     ]);
     const refs: ContextRef[] = [];
     if (selText.trim()) {
@@ -126,7 +152,7 @@ export class WordBridge implements DocBridge {
       kind: 'document',
       surface: 'word',
       title: 'Whole document',
-      preview: bodyText.slice(0, 120),
+      preview: 'Read all body paragraphs with a paged document summary.',
     });
     return refs;
   }
@@ -155,14 +181,18 @@ export class WordBridge implements DocBridge {
    * are omitted (no cheap port read); the runtime renders + wraps this as untrusted data.
    */
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
-    const paras = await this.host.readParagraphs();
+    const paras = this.host.readParagraphPage
+      ? await this.host.readParagraphPage(0, 61)
+      : await this.host.readParagraphs();
     if (paras.length === 0) return undefined;
     this.docStateVersion += 1;
-    return buildDocStateSnapshot({
+    const snapshot = buildDocStateSnapshot({
       surface: 'word',
       version: this.docStateVersion,
-      blocks: paragraphsToBlocks(paras),
+      blocks: paragraphsToBlocks(paras.slice(0, 60)),
     });
+    if (paras.length > 60) snapshot.truncated = true;
+    return snapshot;
   }
 
   /**

@@ -11,7 +11,6 @@ import type {
 } from '@ge/contracts';
 import type { DocBridge } from '@ge/runtime';
 import type { HostEvent, Unsubscribe } from '@ge/triggers';
-import { buildDocStateSnapshot } from '@ge/content';
 import { POWERPOINT_CAPABILITIES } from './capabilities.js';
 import { isSet } from './capabilities-runtime.js';
 import {
@@ -22,15 +21,15 @@ import {
   shapeContextRef,
   slideContextRef,
   shapesToSlideText,
-  slideElementsToDocStateBlocks,
   slidesToContext,
   type SlideElement,
 } from './capture.js';
 import { planInsertSlide } from './actuate-plan.js';
 import { documentChanged, selectionChanged } from './events.js';
+import { readPowerPointPage } from './document-reader.js';
 
 /**
- * Upper bound on slides materialized by a single read port (`captureDocState`/`searchDocument`/
+ * Upper bound on slides materialized by a single read port (`searchDocument`/
  * `readRange`). A deck can be large; reading every shape's text across the Office.js bridge is
  * O(slides × shapes) syncs, so we cap the scan to keep a per-turn read bounded (ADR-0006 — every
  * read is bounded). A deck over this is read as its first {@link MAX_READ_SLIDES} slides.
@@ -82,6 +81,7 @@ export class PowerPointBridge implements DocBridge {
   static readonly handledActuations = PowerPointBridge.dispatcher.handledActuations;
 
   readonly surface = 'powerpoint' as const;
+  readonly readDocumentPage = readPowerPointPage;
 
   getCapabilities(): CapabilityManifest {
     return POWERPOINT_CAPABILITIES;
@@ -158,22 +158,31 @@ export class PowerPointBridge implements DocBridge {
   private docStateVersion = 0;
 
   /**
-   * ADR-0003 Layer B element 1 / ADR-0006 `outline` read: an ambient structural snapshot of the
-   * deck — a slide inventory (per-slide title + body) read from the native object model and mapped
-   * through the same `native.slide()` blocks grounding context uses. Bounded to
-   * {@link MAX_READ_SLIDES} slides; the snapshot's `inventory` lists each slide. Reading the deck
-   * needs `TextRange.text` (PowerPointApi 1.4) — on an older host we yield `undefined` (the runtime
-   * just streams without the ambient part). Empty deck → `undefined`. Version increments per capture.
+   * Compact slide inventory without loading shape text. Content lives behind paged document
+   * reads or an addressed read. Inventory truncation is explicit; it does not limit traversal.
+   * Version increments per capture and is not a source revision.
    */
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     if (!isSet('PowerPointApi', '1.4')) return undefined;
-    const slides = await this.readAllSlides();
-    if (slides.length === 0) return undefined;
-    this.docStateVersion += 1;
-    return buildDocStateSnapshot({
-      surface: 'powerpoint',
-      version: this.docStateVersion,
-      blocks: slideElementsToDocStateBlocks(slides),
+    return PowerPoint.run(async (ctx) => {
+      const slides = ctx.presentation.slides;
+      slides.load('items/id');
+      await ctx.sync();
+      if (!slides.items.length) return undefined;
+      return {
+        surface: 'powerpoint',
+        version: ++this.docStateVersion,
+        capturedAt: new Date().toISOString(),
+        title: `${slides.items.length} slides`,
+        outline: [],
+        inventory: slides.items.slice(0, MAX_READ_SLIDES).map((slide, index) => ({
+          kind: 'slide',
+          id: `slide:${index + 1}`,
+          title: `Slide ${index + 1}`,
+          summary: slide.id,
+        })),
+        ...(slides.items.length > MAX_READ_SLIDES ? { truncated: true } : {}),
+      };
     });
   }
 
@@ -229,7 +238,7 @@ export class PowerPointBridge implements DocBridge {
 
   /**
    * Read up to {@link MAX_READ_SLIDES} slides of the deck into pure {@link SlideElement}s — the
-   * shared host read behind `captureDocState`/`searchDocument`. Bounded so a huge deck can't blow
+   * legacy host read behind `searchDocument`. Bounded so a huge deck can't blow
    * the per-turn budget; read-only (loads shape text, writes nothing).
    */
   private async readAllSlides(): Promise<SlideElement[]> {

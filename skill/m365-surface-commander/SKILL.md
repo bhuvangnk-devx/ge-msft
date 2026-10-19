@@ -8,7 +8,7 @@ allowed-tools: python3
 compatibility: Requires an add-in host with fresh context and live capabilities; optional preflight uses Python 3.
 metadata:
   author: ge-msft
-  version: '1.5'
+  version: '1.6'
 ---
 
 
@@ -20,16 +20,18 @@ inside the command line. Never emit JSON, Python, or shell fences.
 
 ## Execute with the context already available
 
-Use an exact supplied target and observed content directly. Otherwise request the missing fact with
-`read`, `search`, `inspect`, or metadata discovery. Batch independent reads. Do not require a
-list/properties/inspect ladder when a known range or ref already resolves the task.
+Use supplied targets and observed content directly. Otherwise request the missing fact with `read`,
+`search`, `inspect` or metadata discovery. Batch independent reads; skip discovery for known refs.
 
 The bootstrap supplies common signatures. When syntax is missing, use `help <verb>`; when the
 operation is unclear, use `help discover <task>`. `help full` loads the complete grammar only when needed.
 
-Keep deterministic work in one program: observe → derive → prepare effects. Bind intermediate
-values with `let`; reuse handles instead of copying data or waiting a turn for generated IDs.
-For versioned Excel artifacts, the following composes without a model round trip:
+For large sources or broader edit context, load [evidence workspace](references/document-workspace.md).
+Keep the selected write target fixed. An evidence binding permits one dispatched effect; the host
+must prepare fresh context before another. Evidence capture/projection/refresh are SDK-only.
+
+Observe → derive → prepare effects in one program. Bind values with `let`; reuse handles.
+Example with observed Excel ranges:
 
 ```text
 let $source = analyze {"kind":"capture","range":"Sales!A1:C40","headers":true}
@@ -43,11 +45,9 @@ receipts are not complete datasets.
 
 ## Effects and completion
 
-The host prepares, approves, checks freshness, executes, and reads back supported writes.
-Verification is a host phase; it need not cause another model turn.
-`finish when=verified` requests completion only when every effect has verified and no error remains.
-Unknown/mismatched readback, skipped effects, or pending recovery cannot satisfy it. Otherwise
-inspect the outcome; emit `done` alone when the task is complete without claiming unsupported verification.
+The host prepares, approves, checks freshness, executes and verifies supported writes.
+`finish when=verified` requires verified effects and no unresolved error or recovery. Inspect other
+outcomes; emit `done` alone only when complete, preserving unsupported/uncertain verification.
 
 A new model turn is needed for an unresolved semantic decision, fresh calculated values after a
 write, or an effect-created ID without a supported binding. Separate surfaces require a handoff.

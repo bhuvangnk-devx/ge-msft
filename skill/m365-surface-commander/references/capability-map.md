@@ -16,12 +16,16 @@ listed for the current app.
 
 | App        | `outline` |                   `read`                   |      `search`       | `list`/`inspect`/`properties`/`open` | Surface refs exposed                      |
 | ---------- | :-------: | :----------------------------------------: | :-----------------: | :----------------------------------: | ----------------------------------------- |
-| Word       |    yes    |            yes (whole/section)             |         yes         |                 yes                  | selection, paragraphs, comments, anchors  |
+| Word       |    yes    |            yes (paged body paragraphs)             |         yes         |                 yes                  | selection, paragraphs, comments, anchors  |
 | Excel      |    yes    | yes (`read <A1\|range>`, up to ~10k cells) |         yes         |                 yes                  | ranges, tables, named ranges, comments    |
 | PowerPoint |    yes    |           yes (`read <slide:N>`)           |   yes (≤8 slides)   |                 yes                  | slides, shapes, text boxes, charts        |
-| OneNote    |    yes    |              yes (whole page)              | yes (≤8 paragraphs) |                 yes                  | pages, paragraphs, tables, images         |
-| Outlook    |     —     |              yes (whole item)              |   yes (≤8 lines)    |                 yes                  | current item, thread, attachments, draft  |
-| Teams      |     —     |           yes (whole transcript)           |   yes (≤8 lines)    |                 yes                  | transcript segments, messages, deep links |
+| OneNote    |    yes    |              yes (addressed page)              | yes (≤8 paragraphs) |                 yes                  | pages, paragraphs, tables, images         |
+| Outlook    |     —     |              yes (addressed item)              |   yes (≤8 lines)    |                 yes                  | current item, thread, attachments, draft  |
+| Teams      |     —     |           yes (addressed transcript)           |   yes (≤8 lines)    |                 yes                  | transcript segments, messages, deep links |
+
+Bare `read` and `read document:<cursor>` page actual Word/Excel/PowerPoint content. Follow the
+returned `next` command until `eof: true`; disclose extraction exclusions. An outline or a final
+page alone never proves full-source coverage. Other surfaces require an addressed read/inspect.
 
 Reads are bounded and scoped to the open item/window. They return empty on bad input and
 always frame document content as data. `context` is runtime-served: it returns a strategy for

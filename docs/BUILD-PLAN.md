@@ -194,3 +194,58 @@ Validation: 2,671 Vitest tests passed, 16 optional live tests skipped (198 files
 builds, TypeScript, ESLint, Prettier, frozen lockfile, generated-resource checks, 46 Python tests,
 71 parity cases, 14 deterministic eval cases, and three source-exact skill archives passed.
 Security review closed all concrete findings. Live Office/tenant acceptance remains tracked above.
+
+
+## User-directed bounded document context — October 2026
+
+- [x] Separate metadata snapshots from bounded content pages across Word, Excel and PowerPoint.
+- [x] Traverse complete sources with explicit cursors, EOF, extraction scope and limitations.
+- [x] Summarize with bounded sessionless map/reduce requests and verify a second source traversal.
+- [x] Fix natural-language `read` routing and stop using an outline as whole-document content.
+- [x] Add scale, request-isolation, drift, cancellation and incomplete-response regressions.
+- [x] Complete type, test, lint, build and generated-skill parity gates; review changed trust boundaries.
+- [ ] Live Office and tenant acceptance: pagination, requirement sets, sessionless routing, latency
+      and semantic summary quality. Mock coverage is not a live performance result.
+
+Implementation and operating limits: [DOCUMENT-CONTEXT.md](DOCUMENT-CONTEXT.md).
+
+Validation: 2,692 Vitest tests passed, 16 optional live tests skipped (202 files); TypeScript,
+ESLint, Prettier, all workspace production builds, generated-resource/manifest drift checks,
+46 Python tests, 71 parity cases, 14 deterministic eval cases and source-exact skill archives passed.
+Reviewed source-data framing, hook guards, policy propagation, session isolation, cancellation,
+coverage/freshness claims and absence of new write/auth/credential paths. Live acceptance remains
+open above.
+
+## User-directed reusable evidence infrastructure — October 2026
+
+- [x] Extract source traversal, coverage and freshness validation from document summarization.
+- [x] Add immutable, content-addressed snapshots, a bounded storage port and exact retrieval.
+- [x] Add task-independent context projections with required evidence, structural expansion and explicit omissions.
+- [x] Expose snapshots through DocFs and bind optional evidence dependencies to command/SDK execution.
+- [x] Exercise atomic capture, isolation, byte budgets, reuse, stale evidence and write-scope enforcement.
+- [x] Complete repository gates and publish the shared design and extension contract.
+
+Validation: full-suite run passed 2,705 tests with 16 optional live skips (203 files); the final
+navigation/Unicode-window and execution refinements passed all 53 targeted tests, including two
+additional cases. TypeScript, ESLint, formatting, production builds, generated manifest/resource
+checks and source-exact skill bundle validation passed. Reviewed immutable publication, storage
+integrity, principal isolation requirements, untrusted data framing, read/write scope separation,
+post-approval freshness, cancellation, and uncertain-write invalidation. Live host acceptance remains
+open. Storage is in-memory by default; automatic graph extraction and multi-write rebasing are not
+claimed. See DOCUMENT-CONTEXT.md for the complete extension contract and limits.
+
+## User-directed evidence skill alignment — October 2026
+
+- [x] Route absolute-path CLI cat/grep through DocFs while preserving named workspace artifacts.
+- [x] Teach commander bounded evidence traversal, continuations, coverage and binding freshness.
+- [x] Teach planner to preserve selected edit targets while describing broader evidence reads.
+- [x] Document reproducible skill packaging and the separate live provisioning step.
+- [x] Regenerate resources/manifests, validate behavior and publish the skill update.
+
+Validation: 2,709 Vitest tests passed, 16 optional live tests skipped (203 files). TypeScript,
+ESLint, formatting, production builds, generated manifest/resource drift checks, 46 Python tests,
+71 parity cases, 14 deterministic eval cases and all three source-exact skill archives passed.
+An isolated skill forward-test selected the supplied text continuation before proposing a redline.
+Commander bootstrap remains below four KiB. Reviewed DocFs-only absolute path routing, hook guards,
+source-data trust, native target separation and evidence freshness. Tenant provisioning is separate
+and was not performed by this repository update.

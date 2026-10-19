@@ -15,7 +15,7 @@ compatibility: >-
   for explicit user approval and any required browser/device-code login.
 metadata:
   author: ge-msft
-  version: '0.1'
+  version: '0.2'
 ---
 
 # M365 Release Operator
@@ -86,7 +86,9 @@ If no local harness is available, give the same sequence as a short command runb
 4. **Sync identity**: update Entra SPA redirects only for the chosen release profile.
 5. **Publish**: sideload for personal dev, catalog upload for unified app package, XML Centralized
    Deployment only where the platform supports it.
-6. **Provision skills**: rebuild zips, compare hashes, then update Gemini Enterprise skills.
+6. **Provision skills**: regenerate manifests/indexes, rebuild source-exact ZIPs, and validate before
+   a requested live update. Use the [command runbook](references/command-runbook.md) for all three
+   bundles. A repository commit or local ZIP does not update the tenant's mounted skills.
 7. **Verify**: list skills, inspect generated env values, and report exact next action.
 
 ## Interactive copy-paste protocol

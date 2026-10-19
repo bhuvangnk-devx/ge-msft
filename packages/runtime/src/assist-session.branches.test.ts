@@ -8,12 +8,13 @@ import type {
   Surface,
   SseEvent,
 } from '@ge/contracts';
-import { asChangeId } from '@ge/contracts';
+import { asChangeId, asSessionId } from '@ge/contracts';
 import { StreamAssistClient } from '@ge/gemini-client';
 import type { DocStateSnapshot } from '@ge/contracts';
 import { AssistSession } from './assist-session.js';
 import type { CommandLoopEvent } from './assist-session.js';
 import type { DocBridge } from './bridge.js';
+import { RuntimeHooks } from './hooks.js';
 
 /* ──────────────────────────────── harness ──────────────────────────────── */
 
@@ -85,6 +86,7 @@ const readResults = (
  */
 class FlexBridge implements DocBridge {
   applied: ActuationRequest[] = [];
+  readDocumentPage?: DocBridge['readDocumentPage'];
   actuateError: Error | null = null;
   constructor(
     readonly surface: Surface,
@@ -189,9 +191,15 @@ describe('AssistSession.runCommands — read intents (ADR-0003 dispatch branches
     expect(readResults(events)[0]?.result).toEqual({ outline: null });
   });
 
-  it('whole-document read (empty selector) falls back to captureDocState', async () => {
+  it('whole-document read returns body text and a continuation instead of the outline', async () => {
     const bridge = new FlexBridge('word', {
       captureDocState: () => Promise.resolve(snapshot()),
+    });
+    bridge.readDocumentPage = async () => ({
+      scope: 'body',
+      units: [{ id: 'p1', text: 'Actual paragraph body' }],
+      nextCursor: '40',
+      limitations: [],
     });
     // `read` with no selector → whole-document read intent.
     const { fetch } = scriptedFetch(['```cmd\nread\n```', '```cmd\ndone\n```']);
@@ -200,11 +208,15 @@ describe('AssistSession.runCommands — read intents (ADR-0003 dispatch branches
 
     const events = await collectLoop(session.runCommands('read all'));
     const r = readResults(events)[0];
-    expect(r?.intentLabel).toBe('read');
-    expect(String(r?.result)).toContain('Heading One');
+    expect(r?.intentLabel).toBe('read document');
+    expect(r?.result).toMatchObject({
+      units: [{ id: 'p1', text: 'Actual paragraph body' }],
+      complete: false,
+      next: 'read document:40',
+    });
   });
 
-  it('whole-document read returns { document: null } when capture yields undefined', async () => {
+  it('whole-document read does not pass an absent outline off as document content', async () => {
     const bridge = new FlexBridge('word', {
       captureDocState: () => Promise.resolve(undefined),
     });
@@ -213,7 +225,9 @@ describe('AssistSession.runCommands — read intents (ADR-0003 dispatch branches
     const session = new AssistSession(bridge, client, { unit, context: { docState: false } });
 
     const events = await collectLoop(session.runCommands('read all'));
-    expect(readResults(events)[0]?.result).toEqual({ document: null });
+    expect(readResults(events)[0]?.result).toMatchObject({
+      error: expect.stringContaining('Paged document reads are unavailable'),
+    });
   });
 
   it('whole-document read with no captureDocState port → corrective', async () => {
@@ -224,7 +238,7 @@ describe('AssistSession.runCommands — read intents (ADR-0003 dispatch branches
 
     const events = await collectLoop(session.runCommands('read all'));
     expect(readResults(events)[0]?.result).toMatchObject({
-      error: expect.stringContaining('whole-document read not supported'),
+      error: expect.stringContaining('Paged document reads are unavailable'),
     });
   });
 
@@ -851,5 +865,258 @@ describe('AssistSession.apply — provenance presence/absence', () => {
     const result = await session.apply('tracked-change', { text: 'x' }, asChangeId('c1'));
     expect(result.ok).toBe(true);
     expect(bridge.applied[0]!.provenance).toBeUndefined();
+  });
+});
+
+describe('complete document summary integration', () => {
+  it('reads every page twice, isolates the wire, and preserves the existing chat session', async () => {
+    const bridge = new FlexBridge('word');
+    const reads: Array<string | undefined> = [];
+    bridge.readDocumentPage = async ({ cursor }) => {
+      reads.push(cursor);
+      return {
+        scope: 'Word main-body paragraphs',
+        limitations: ['Images excluded.'],
+        units: [
+          {
+            id: cursor ?? 'first',
+            text: cursor ? 'Final paragraph evidence' : 'First paragraph evidence',
+          },
+        ],
+        ...(cursor ? {} : { nextCursor: '40' }),
+      };
+    };
+    const { fetch, bodies } = scriptedFetch(['Summary of both paragraphs.']);
+    const client = new StreamAssistClient(
+      tokens,
+      {
+        ...cfg,
+        skills: ['projects/p/agents/commander'],
+        dataStores: ['external-store'],
+      },
+      fetch,
+    );
+    const session = new AssistSession(bridge, client, {
+      unit: { ...unit, surfaceContext: { kind: 'word', selection: 'STALE SELECTION' } },
+      resumeSessionId: asSessionId('existing-chat'),
+    });
+    session.context.add({
+      ref: { id: 'old-attachment', kind: 'document', surface: 'word', title: 'Old attachment' },
+      value: { as: 'text', text: 'STALE ATTACHMENT' },
+    });
+    const events = await collectLoop(session.ask('read the entire doc and summarise it'));
+    expect(reads).toEqual([undefined, '40', undefined, '40']);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ isSessionLess: true });
+    expect(bodies[0]).not.toHaveProperty('session');
+    expect(bodies[0]).not.toHaveProperty('agentsSpec');
+    expect(bodies[0]).not.toHaveProperty('toolsSpec');
+    expect(JSON.stringify(bodies)).toContain('Final paragraph evidence');
+    expect(JSON.stringify(bodies)).not.toContain('STALE');
+    expect(events.filter((event) => event.type === 'token')).toHaveLength(1);
+    expect(events.some((event) => event.type === 'provenance')).toBe(false);
+    expect(session.sessionId).toBe('existing-chat');
+    expect(session.executions.list()[0]?.status).toBe('completed');
+    expect(bridge.applied).toEqual([]);
+  });
+
+  it('honors a read guard before sending source content and records a blocked task', async () => {
+    const bridge = new FlexBridge('word');
+    bridge.readDocumentPage = vi.fn();
+    const { fetch, bodies } = scriptedFetch(['must not be called']);
+    const hooks = new RuntimeHooks();
+    hooks.register({
+      id: 'stop-read',
+      on: 'tool:before',
+      mode: 'guard',
+      handle: () => ({ kind: 'block', reason: 'Read denied.' }),
+    });
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), {
+      unit,
+      hooks,
+    });
+    await expect(collectLoop(session.ask('summarize this document'))).rejects.toThrow(
+      'Read denied',
+    );
+    expect(bridge.readDocumentPage).not.toHaveBeenCalled();
+    expect(bodies).toEqual([]);
+    expect(session.executions.list()[0]?.status).toBe('blocked');
+  });
+
+  it('rejects conflicting uploaded grounding without silently ignoring it', async () => {
+    const bridge = new FlexBridge('word');
+    bridge.readDocumentPage = vi.fn();
+    const { fetch, bodies } = scriptedFetch(['must not be called']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), { unit });
+    const events = await collectLoop(
+      session.ask('summarize this document', { grounding: { fileIds: ['uploaded-file'] } }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'error', code: 'document_scope_conflict' }),
+    );
+    expect(bridge.readDocumentPage).not.toHaveBeenCalled();
+    expect(bodies).toEqual([]);
+    expect(session.executions.list()[0]?.status).toBe('incomplete');
+  });
+});
+
+describe('paged document composition', () => {
+  it('refuses to bind a partial document as a complete pipeline source', async () => {
+    const bridge = new FlexBridge('word');
+    bridge.readDocumentPage = async () => ({
+      scope: 'Body',
+      units: [{ id: 'first', text: 'Only the first page' }],
+      nextCursor: '40',
+      limitations: [],
+    });
+    const { fetch } = scriptedFetch(['```cmd\nlet $t = read document\n```', '```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), { unit });
+    const events = await collectLoop(session.runCommands('read with a pipeline'));
+    expect(JSON.stringify(events)).toContain('Paged document read is incomplete');
+    expect(bridge.applied).toEqual([]);
+  });
+});
+
+describe('AssistSession evidence-bound execution', () => {
+  function setup() {
+    const bridge = new FlexBridge('excel', {
+      actuations: [{ kind: 'write-cells', surface: 'excel', title: 'Write', reversible: true }],
+    });
+    let definition = 'Revenue excludes refunds';
+    bridge.readDocumentPage = async () => ({
+      scope: 'workbook',
+      limitations: [],
+      units: [
+        { id: 'A1', text: '100', relatedIds: ['definition'] },
+        { id: 'definition', text: definition },
+      ],
+    });
+    const { fetch, bodies } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), {
+      unit,
+      context: { docState: false },
+    });
+    return {
+      bridge,
+      session,
+      bodies,
+      change: () => {
+        definition = 'Revenue includes refunds';
+      },
+    };
+  }
+  it('rechecks non-target evidence after approval, before host dispatch', async () => {
+    const { session, bridge, change } = setup();
+    const binding = await session.prepareEvidence(
+      { requiredIds: ['A1'] },
+      { authorizeEffect: () => true },
+    );
+    // Completion can fail freshness as well; neither path may dispatch the write.
+    try {
+      await collectLoop(
+        session.runCommands('write', {
+          evidenceBinding: binding.id,
+          approvePlan: () => {
+            change();
+            return true;
+          },
+        }),
+      );
+    } catch (error) {
+      expect(String(error)).toContain('changed');
+    }
+    expect(bridge.applied).toHaveLength(0);
+  });
+  it('defaults to no write authority even when the user approves a plan', async () => {
+    const { session, bridge } = setup();
+    const binding = await session.prepareEvidence({ requiredIds: ['A1'] });
+    await collectLoop(
+      session.runCommands('write', { evidenceBinding: binding.id, approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(0);
+  });
+  it('dispatches an authorized effect once and consumes its freshness binding', async () => {
+    const { session, bridge, bodies } = setup();
+    const binding = await session.prepareEvidence(
+      { requiredIds: ['A1'] },
+      { authorizeEffect: (request) => request.kind === 'write-cells' },
+    );
+    await collectLoop(
+      session.runCommands('write', { evidenceBinding: binding.id, approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(1);
+    expect(JSON.stringify(bodies[0])).toContain('Revenue excludes refunds');
+    await expect(
+      collectLoop(
+        session.runCommands('again', { evidenceBinding: binding.id, approvePlan: () => true }),
+      ),
+    ).rejects.toThrow('consumed');
+  });
+  it('rejects released bindings before invoking the model', async () => {
+    const { session, bodies } = setup();
+    const binding = await session.prepareEvidence({ requiredIds: ['A1'] });
+    session.releaseEvidenceBinding(binding.id);
+    await expect(
+      collectLoop(session.runCommands('write', { evidenceBinding: binding.id })),
+    ).rejects.toThrow('released');
+    expect(bodies).toHaveLength(0);
+  });
+});
+
+describe('AssistSession absolute DocFs reads advertised by the skills', () => {
+  it('routes evidence grep and Unicode text continuations through the command loop', async () => {
+    const bridge = new FlexBridge('word');
+    const { fetch } = scriptedFetch(['```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), {
+      unit,
+      context: { docState: false },
+    });
+    const text = 'Governed revenue definition: ' + '😀'.repeat(2500);
+    const { id } = await session.sourceWorkspace.capture({
+      id: 'source',
+      readPage: async () => ({
+        scope: 'body',
+        limitations: ['body text only'],
+        units: [{ id: 'definition', text }],
+      }),
+    });
+    const grepEvents = await collectLoop(
+      session.runCommandProgram(`grep /evidence/${id}/units "Governed revenue"`),
+    );
+    const search = readResults(grepEvents)[0]!.result as { matches: Array<{ path: string }> };
+    expect(search.matches[0]!.path).toBe(`/evidence/${id}/units/0/0.json`);
+    let nextPath: string | undefined = `/evidence/${id}/windows/0/0.json`;
+    let exact = '';
+    while (nextPath) {
+      const events = await collectLoop(session.runCommandProgram(`cat ${nextPath}`));
+      const result = readResults(events)[0]!.result as { text: string; truncated: boolean };
+      expect(result.truncated).toBe(false);
+      const page = JSON.parse(result.text) as { text: string; nextPath?: string };
+      exact += page.text;
+      nextPath = page.nextPath;
+    }
+    expect(exact).toBe(text);
+    expect(bridge.applied).toEqual([]);
+  });
+  it('preserves named workspace reads and reports missing paths and line truncation', async () => {
+    const { fetch } = scriptedFetch(['```cmd\ndone\n```']);
+    const session = new AssistSession(
+      new FlexBridge('word'),
+      new StreamAssistClient(tokens, cfg, fetch),
+      { unit, context: { docState: false }, skillFiles: { 'lines.md': 'first\nsecond' } },
+    );
+    await collectLoop(session.runCommandProgram('save notes.md = "first\\nsecond"'));
+    const legacy = readResults(await collectLoop(session.runCommandProgram('cat notes.md')))[0]!
+      .result as { workspace: string; preview: string };
+    expect(legacy.workspace).toBe('cat');
+    expect(legacy.preview).toContain('second');
+    const absolute = readResults(
+      await collectLoop(session.runCommandProgram('cat /skills/lines.md head=1')),
+    )[0]!.result as { text: string; truncated: boolean };
+    expect(absolute).toMatchObject({ text: 'first', truncated: true });
+    const missing = readResults(
+      await collectLoop(session.runCommandProgram('cat /evidence/missing/units/0/0.json')),
+    )[0]!.result as { error: string };
+    expect(missing.error).toContain('no such file');
   });
 });

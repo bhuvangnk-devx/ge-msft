@@ -126,6 +126,15 @@
     "load_when": "A task requires read-derived values, table materialization, or more than one command phase."
   },
   {
+    "path": "references/document-workspace.md",
+    "title": "Document Evidence Workspace",
+    "kind": "reference",
+    "surface": "",
+    "workflow": "",
+    "topics": "[evidence, snapshots, search, continuations, coverage, freshness, surgical-edits]",
+    "load_when": "Reading a large source, following supplied evidence paths, or editing a selected target using broader document context."
+  },
+  {
     "path": "references/errors-and-recovery.md",
     "title": "Errors And Recovery",
     "kind": "reference",
@@ -203,7 +212,7 @@
     "kind": "reference",
     "surface": "",
     "workflow": "",
-    "topics": "[context, execution-state, journal, host-refs, inspect, full-file, handoff]",
+    "topics": "[context, execution-state, journal, host-refs, inspect, full-file, handoff, evidence]",
     "load_when": "Choosing context or command help, or recovering omitted evidence from an execution-state reference."
   },
   {

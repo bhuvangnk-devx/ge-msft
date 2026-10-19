@@ -19,7 +19,7 @@ problem.
 | Guided setup               | `bun run setup:guide`                                                         | Maybe, asks first                         |
 | Install prerequisites      | `bun scripts/setup-cli.mjs prereqs --target all`                              | Local machine                             |
 | Generate manifests/package | `bun run setup:package`                                                       | `dist/`                                   |
-| Validate skills            | `bun run skills:check && python3 skill/validate_skill_bundles.py --check-zip` | Generated indexes only unless check fails |
+| Validate skills            | `bun run skills:check && python3 skill/validate_skill_bundles.py --check-zip` | Read-only drift checks |
 
 ## Dev loop
 
@@ -51,6 +51,25 @@ The release profile must provide a stable HTTPS origin and release-specific Entr
 ship a Cloudflare dev tunnel URL as a production redirect.
 
 ## Gemini Enterprise skills
+
+For a repository skill change, regenerate contract-derived metadata and resource indexes, then
+rebuild every ZIP whose source changed (indexes can change alongside instructions):
+
+```bash
+bun run skills:generate
+python3 skill/bundle.py m365-surface-commander
+python3 skill/bundle.py m365-command-planner
+python3 skill/bundle.py m365-release-operator
+bun run skills:check
+python3 skill/validate_skill_bundles.py --check-zip
+```
+
+Commit source and generated manifests/indexes. Keep generated ZIPs/build output out of Git. This
+validates local artifacts; it does not provision tenant skills. For a requested live update, use
+the harness below with its configured identity and approval. Update planner and commander together
+so their context, edit-scope and continuation guidance agree. Report local validation and tenant
+provisioning separately; never claim an uploaded revision from a successful local build alone.
+
 
 | Need                                      | Command                                                                                                   | Notes                                                   |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |

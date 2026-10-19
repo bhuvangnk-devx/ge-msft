@@ -1,3 +1,4 @@
+import { EvidenceWorkspace } from './evidence/workspace.js';
 import type { ResolvedContext } from '@ge/contracts';
 import type {
   SearchClient,
@@ -16,6 +17,7 @@ export interface EvidenceState {
   message: string;
 }
 export interface EvidenceOptions {
+  workspace?: EvidenceWorkspace;
   search: Pick<SearchClient, 'search'>;
   rank: Pick<RankClient, 'rank'>;
   grounding: Pick<GroundingClient, 'check'>;
@@ -33,6 +35,8 @@ const safeUri = (uri: string | undefined): string | undefined => {
 
 /** Scope first, retrieve, deduplicate, rerank, frame as untrusted evidence, then check claims. */
 export class EvidencePipeline {
+  readonly workspace: EvidenceWorkspace;
+  private readonly snapshots = new Map<string, string>();
   private current: EvidenceState = {
     status: 'idle',
     sources: [],
@@ -40,6 +44,7 @@ export class EvidencePipeline {
   };
   private readonly tasks = new Map<string, GroundingFact[]>();
   constructor(private readonly options: EvidenceOptions) {
+    this.workspace = options.workspace ?? new EvidenceWorkspace();
     if (
       options.requiredSupport !== undefined &&
       (!Number.isFinite(options.requiredSupport) ||
@@ -152,6 +157,20 @@ export class EvidencePipeline {
                 ...(safeUri(h.uri) ? { uri: safeUri(h.uri)! } : {}),
               },
             }));
+            const receipt = await this.workspace.capture(
+              {
+                id: `retrieval:${ctx.taskId}`,
+                readPage: async () => ({
+                  scope: 'Selected retrieval snippets',
+                  limitations: [
+                    'Only returned snippets were captured; source documents were not read in full.',
+                  ],
+                  units: candidates.map((hit) => ({ id: hit.documentName, text: hit.snippet! })),
+                }),
+              },
+              { signal: ctx.signal },
+            );
+            this.snapshots.set(ctx.taskId, receipt.id);
             this.tasks.set(ctx.taskId, facts);
             this.current = {
               status: 'ready',
@@ -266,7 +285,10 @@ export class EvidencePipeline {
         id: 'core.evidence/cleanup',
         on: 'task:finished',
         mode: 'observe',
-        handle: (_payload, ctx) => {
+        handle: async (_payload, ctx) => {
+          const id = this.snapshots.get(ctx.taskId);
+          if (id) await this.workspace.release(id);
+          this.snapshots.delete(ctx.taskId);
           this.tasks.delete(ctx.taskId);
           if (['searching', 'checking'].includes(this.current.status))
             this.current = {
@@ -280,6 +302,15 @@ export class EvidencePipeline {
     return () => {
       off.forEach((dispose) => dispose());
       this.tasks.clear();
+      for (const id of this.snapshots.values())
+        void this.workspace.release(id).catch(() => {
+          this.current = {
+            ...this.current,
+            status: 'unavailable',
+            message: 'Evidence cleanup failed; release retained snapshots through the workspace.',
+          };
+        });
+      this.snapshots.clear();
     };
   }
 }

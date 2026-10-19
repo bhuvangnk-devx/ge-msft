@@ -61,6 +61,19 @@ function parseNakedCliLine(line: string): ParsedLine | undefined {
   const entry = entries[0]!;
   if ('error' in entry) return undefined;
   if (!isNakedDirectEntry(entry)) return undefined;
+  // Read/search/outline overlap ordinary English. Bare read syntax must be recognisably
+  // addressed; arbitrary selectors and search expressions remain available in explicit fences.
+  if (isProgramCommand(entry)) {
+    if (
+      entry.verb === 'read' &&
+      !/^(?:read|read\s+(?:document(?::[\d:]+)?|(?:'[^']+'|[\w.-]+)!\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?|\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?|slide:\d+))$/i.test(
+        line,
+      )
+    )
+      return undefined;
+    if (entry.verb === 'search') return undefined;
+    if (entry.verb === 'outline' && line.toLowerCase() !== 'outline') return undefined;
+  }
   return {
     line,
     actionable: isActionableEntry(entry),

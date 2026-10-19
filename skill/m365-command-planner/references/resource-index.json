@@ -27,6 +27,15 @@
     "load_when": "A user asks to create a PowerPoint deck from an Excel workbook or range."
   },
   {
+    "path": "assets/example-plans/example-plan-selection-document-context.md",
+    "title": "Selected Edit With Document Context",
+    "kind": "example",
+    "surface": "word",
+    "workflow": "single-surface",
+    "topics": "[selection, document-context, evidence, exclusions]",
+    "load_when": "A user asks to edit only selected content while considering the entire document."
+  },
+  {
     "path": "assets/example-plans/example-plan-word-rewrite.md",
     "title": "Example Plan - Word Rewrite",
     "kind": "example",
