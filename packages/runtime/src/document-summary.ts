@@ -1,12 +1,7 @@
-import {
-  DocumentPageSchema,
-  type DocumentPage,
-  type DocumentReadOptions,
-  type SseEvent,
-} from '@ge/contracts';
-import { contentHash } from '@ge/gemini-client';
+import { type DocumentPage, type DocumentReadOptions, type SseEvent } from '@ge/contracts';
 import { byteLength } from './docfs/bytes.js';
 import { HookBlockedError } from './hooks.js';
+import { SourceTraversal, verifySource } from './evidence/source.js';
 
 export interface DocumentSummaryOptions {
   signal?: AbortSignal;
@@ -18,7 +13,6 @@ export type DocumentModel = (prompt: string, signal?: AbortSignal) => AsyncItera
 export const DOCUMENT_DATA_BYTES = 48 * 1024;
 export const DOCUMENT_REQUEST_BYTES = 96 * 1024;
 export const DOCUMENT_SUMMARY_BYTES = 12 * 1024;
-const MAX_PAGES = 10_000;
 
 /** Fragment oversized source units without dropping text; account for JSON escaping and UTF-8. */
 export function* documentFragments(unit: DocumentPage['units'][number]): Generator<string> {
@@ -69,15 +63,10 @@ export async function* summarizeDocument(
   let calls = 0;
   const maxCalls = options.maxCalls ?? 256;
   const maxSourceBytes = options.maxSourceBytes ?? 64 * 1024 * 1024;
-  const receipts: string[] = [];
   const limitations = new Set<string>();
-  const seen = new Set<string>();
-  const unitIds = new Set<string>();
   const summaries: string[] = [];
   let scope = '';
   let units = 0;
-  let sourceBytes = 0;
-  let cursor: string | undefined;
   let batch: string[] = [];
   let batchBytes = 0;
 
@@ -145,34 +134,15 @@ export async function* summarizeDocument(
       throw new Error('Document summary budgets must be positive safe integers.');
     if (byteLength(query) > 8 * 1024)
       throw new Error('Document summary instructions exceed 8 KiB.');
-    do {
-      signal?.throwIfAborted();
-      if (receipts.length >= MAX_PAGES)
-        throw new Error('Document page limit reached before EOF. Narrow the scope.');
-      const key = cursor ?? '<start>';
-      if (seen.has(key))
-        throw new Error('Document reader repeated a cursor; coverage is incomplete.');
-      seen.add(key);
-      const page = DocumentPageSchema.parse(await read({ cursor, signal }));
-      if (scope && scope !== page.scope) throw new Error('Document scope changed during the read.');
+    const source = { id: 'document-summary', readPage: read };
+    const traversal = new SourceTraversal(source, { maxBytes: maxSourceBytes });
+    let pageCount = 0;
+    for await (const page of traversal.pages(signal)) {
+      pageCount++;
       scope = page.scope;
       for (const limitation of page.limitations) limitations.add(limitation);
-      if (limitations.size > 40)
-        throw new Error('Too many extraction limitations. Narrow the scope.');
-      const encoded = JSON.stringify(page);
-      sourceBytes += byteLength(encoded);
-      if (sourceBytes > maxSourceBytes)
-        throw new Error(
-          'Document exceeds the source-byte budget. No complete summary was published.',
-        );
-      receipts.push(await contentHash(encoded));
       units += page.units.length;
       for (const unit of page.units) {
-        if (unitIds.has(unit.id))
-          throw new Error('Document reader repeated a source unit; coverage is ambiguous.');
-        unitIds.add(unit.id);
-        if (unitIds.size > 1_000_000)
-          throw new Error('Document source-unit limit reached. Narrow the scope.');
         for (const fragment of documentFragments(unit)) {
           // Budget the data after outer query JSON escaping, not just its inner serialization.
           const size = byteLength(JSON.stringify(fragment)) + 2;
@@ -188,9 +158,8 @@ export async function* summarizeDocument(
           batchBytes += size;
         }
       }
-      yield { type: 'activity', text: `Read ${units} source units in ${receipts.length} batches…` };
-      cursor = page.nextCursor;
-    } while (cursor !== undefined);
+      yield { type: 'activity', text: `Read ${units} source units in ${pageCount} batches…` };
+    }
 
     if (batch.length) {
       const summary = yield* generate(batch, summaries.length ? 'map' : 'final');
@@ -218,31 +187,10 @@ export async function* summarizeDocument(
       level = next;
     }
 
-    // Re-read rather than trusting a capture counter or a partial host change event feed.
-    // This detects drift between the two traversals; Office does not provide an atomic cross-host snapshot.
-    cursor = undefined;
-    let verified = 0;
-    do {
-      signal?.throwIfAborted();
-      const page = DocumentPageSchema.parse(await read({ cursor, signal }));
-      if (
-        verified >= receipts.length ||
-        (await contentHash(JSON.stringify(page))) !== receipts[verified]
-      )
-        throw new Error(
-          'The document changed during summarisation. Retry when editing has paused; no complete summary was published.',
-        );
-      verified++;
-      cursor = page.nextCursor;
-      yield {
-        type: 'activity',
-        text: `Checking source freshness: ${verified}/${receipts.length} batches…`,
-      };
-    } while (cursor !== undefined);
-    if (verified !== receipts.length)
-      throw new Error('Document coverage changed during verification.');
+    yield { type: 'activity', text: 'Checking source freshness…' };
+    await verifySource(source, traversal.receipt, signal);
     signal?.throwIfAborted();
-    const coverage = `Read coverage: ${units} source units across ${receipts.length} batches; reached the end and matched a second read. Scope: ${scope}.`;
+    const coverage = `Read coverage: ${units} source units across ${pageCount} batches; reached the end and matched a second read. Scope: ${scope}.`;
     yield { type: 'token', text: `${level[0]}\n\n${coverage}\n${[...limitations].join(' ')}` };
     yield { type: 'done' };
   } catch (error) {

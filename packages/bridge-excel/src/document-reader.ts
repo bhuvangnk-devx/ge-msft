@@ -64,7 +64,7 @@ export async function readExcelPage(options: DocumentReadOptions): Promise<Docum
     range.load('address,values,formulas');
     await ctx.sync();
     options.signal?.throwIfAborted();
-    const units = range.values.map((values, index) => {
+    const units: DocumentPage['units'] = range.values.map((values, index) => {
       const formulas = Object.fromEntries(
         (range.formulas[index] ?? []).flatMap((value, column) =>
           typeof value === 'string' && value.startsWith('=')
@@ -74,6 +74,7 @@ export async function readExcelPage(options: DocumentReadOptions): Promise<Docum
       );
       return {
         id: `sheet:${sheet.id}/row:${used.rowIndex + row + index + 1}/col:${used.columnIndex + col + 1}`,
+        parentId: `sheet:${sheet.id}/tile:${row}:${col}`,
         text: JSON.stringify({ values, ...(Object.keys(formulas).length ? { formulas } : {}) }),
       };
     });

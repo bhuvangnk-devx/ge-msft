@@ -41,8 +41,9 @@ export async function readPowerPointPage(options: DocumentReadOptions): Promise<
     for (const item of text) item.range.load('text');
     await ctx.sync();
     options.signal?.throwIfAborted();
-    const units = targets.map((shape) => ({
+    const units: DocumentPage['units'] = targets.map((shape) => ({
       id: `slide:${slideIndex + 1}:${slide.id}/shape:${shape.id}`,
+      parentId: `slide:${slideIndex + 1}:${slide.id}`,
       text:
         text.find((item) => item.shape.id === shape.id)?.range.text ??
         `[${shape.type}: content not extracted]`,

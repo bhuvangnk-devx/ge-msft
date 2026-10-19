@@ -976,3 +976,89 @@ describe('paged document composition', () => {
     expect(bridge.applied).toEqual([]);
   });
 });
+
+describe('AssistSession evidence-bound execution', () => {
+  function setup() {
+    const bridge = new FlexBridge('excel', {
+      actuations: [{ kind: 'write-cells', surface: 'excel', title: 'Write', reversible: true }],
+    });
+    let definition = 'Revenue excludes refunds';
+    bridge.readDocumentPage = async () => ({
+      scope: 'workbook',
+      limitations: [],
+      units: [
+        { id: 'A1', text: '100', relatedIds: ['definition'] },
+        { id: 'definition', text: definition },
+      ],
+    });
+    const { fetch, bodies } = scriptedFetch(['```cmd\nset A1 1\n```', '```cmd\ndone\n```']);
+    const session = new AssistSession(bridge, new StreamAssistClient(tokens, cfg, fetch), {
+      unit,
+      context: { docState: false },
+    });
+    return {
+      bridge,
+      session,
+      bodies,
+      change: () => {
+        definition = 'Revenue includes refunds';
+      },
+    };
+  }
+  it('rechecks non-target evidence after approval, before host dispatch', async () => {
+    const { session, bridge, change } = setup();
+    const binding = await session.prepareEvidence(
+      { requiredIds: ['A1'] },
+      { authorizeEffect: () => true },
+    );
+    // Completion can fail freshness as well; neither path may dispatch the write.
+    try {
+      await collectLoop(
+        session.runCommands('write', {
+          evidenceBinding: binding.id,
+          approvePlan: () => {
+            change();
+            return true;
+          },
+        }),
+      );
+    } catch (error) {
+      expect(String(error)).toContain('changed');
+    }
+    expect(bridge.applied).toHaveLength(0);
+  });
+  it('defaults to no write authority even when the user approves a plan', async () => {
+    const { session, bridge } = setup();
+    const binding = await session.prepareEvidence({ requiredIds: ['A1'] });
+    await collectLoop(
+      session.runCommands('write', { evidenceBinding: binding.id, approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(0);
+  });
+  it('dispatches an authorized effect once and consumes its freshness binding', async () => {
+    const { session, bridge, bodies } = setup();
+    const binding = await session.prepareEvidence(
+      { requiredIds: ['A1'] },
+      { authorizeEffect: (request) => request.kind === 'write-cells' },
+    );
+    await collectLoop(
+      session.runCommands('write', { evidenceBinding: binding.id, approvePlan: () => true }),
+    );
+    expect(bridge.applied).toHaveLength(1);
+    expect(JSON.stringify(bodies[0])).toContain('Revenue excludes refunds');
+    await expect(
+      collectLoop(
+        session.runCommands('again', { evidenceBinding: binding.id, approvePlan: () => true }),
+      ),
+    ).rejects.toThrow('consumed');
+  });
+  it('rejects released bindings before invoking the model', async () => {
+    const { session, bodies } = setup();
+    const binding = await session.prepareEvidence({ requiredIds: ['A1'] });
+    session.releaseEvidenceBinding(binding.id);
+    await expect(
+      collectLoop(session.runCommands('write', { evidenceBinding: binding.id })),
+    ).rejects.toThrow('released');
+    expect(bodies).toHaveLength(0);
+  });
+});

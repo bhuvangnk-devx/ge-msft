@@ -8,6 +8,8 @@ export const DocumentPageSchema = z.object({
       z.object({
         id: z.string().min(1).max(1000),
         text: z.string(),
+        parentId: z.string().min(1).max(1000).optional(),
+        relatedIds: z.array(z.string().min(1).max(1000)).max(100).optional(),
       }),
     )
     .max(1000),

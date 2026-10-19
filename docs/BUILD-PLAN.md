@@ -215,3 +215,21 @@ ESLint, Prettier, all workspace production builds, generated-resource/manifest d
 Reviewed source-data framing, hook guards, policy propagation, session isolation, cancellation,
 coverage/freshness claims and absence of new write/auth/credential paths. Live acceptance remains
 open above.
+
+## User-directed reusable evidence infrastructure — October 2026
+
+- [x] Extract source traversal, coverage and freshness validation from document summarization.
+- [x] Add immutable, content-addressed snapshots, a bounded storage port and exact retrieval.
+- [x] Add task-independent context projections with required evidence, structural expansion and explicit omissions.
+- [x] Expose snapshots through DocFs and bind optional evidence dependencies to command/SDK execution.
+- [x] Exercise atomic capture, isolation, byte budgets, reuse, stale evidence and write-scope enforcement.
+- [x] Complete repository gates and publish the shared design and extension contract.
+
+Validation: full-suite run passed 2,705 tests with 16 optional live skips (203 files); the final
+navigation/Unicode-window and execution refinements passed all 53 targeted tests, including two
+additional cases. TypeScript, ESLint, formatting, production builds, generated manifest/resource
+checks and source-exact skill bundle validation passed. Reviewed immutable publication, storage
+integrity, principal isolation requirements, untrusted data framing, read/write scope separation,
+post-approval freshness, cancellation, and uncertain-write invalidation. Live host acceptance remains
+open. Storage is in-memory by default; automatic graph extraction and multi-write rebasing are not
+claimed. See DOCUMENT-CONTEXT.md for the complete extension contract and limits.

@@ -126,3 +126,11 @@ flags and returns detached records so consumers cannot rewrite its stored audit 
 
 Extension interfaces remain typed in-process contracts. See [runtime extensions](RUNTIME-EXTENSIONS.md)
 for phase payloads, allowed decisions, cancellation, and observer behavior.
+
+### Immutable evidence sources and working context
+
+`packages/contracts/src/evidence.ts` owns source limits, complete snapshot receipts and bounded
+context projection contracts. `DocumentPage` units may declare parent and related unit IDs; these
+are revision-scoped evidence links, not write grants or live host locators. The runtime workspace
+owns traversal, publication, query continuations and trusted process-local execution bindings.
+See `DOCUMENT-CONTEXT.md` for storage, retrieval, freshness and native-write extension boundaries.

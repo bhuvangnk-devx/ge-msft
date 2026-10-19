@@ -40,3 +40,4 @@ export * from './cells.js';
 export * from './analysis-actions.js';
 export * from './analysis-program-schema.js';
 export * from './provenance-record.js';
+export * from './evidence.js';
