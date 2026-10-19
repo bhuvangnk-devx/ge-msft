@@ -69,6 +69,9 @@ export interface AppProps {
   userName?: string;
 }
 
+/** Commit and build time in every Copy diagnostics, so a pasted report names its build. */
+const BUILD = typeof __BUILD_ID__ === 'string' && __BUILD_ID__ ? { build: __BUILD_ID__ } : {};
+
 const SURFACE_PLACEHOLDER: Readonly<Record<string, string>> = {
   word: 'Ask about the selection…',
   excel: 'Ask about this range…',
@@ -401,7 +404,7 @@ export function App({
   };
   // Activity's Copy diagnostics carries the question too, in the same shape as a saved entry.
   const activityDiagnostics = (): string => {
-    const diagnostics = controller.diagnostics({ surface });
+    const diagnostics = controller.diagnostics({ surface, ...BUILD });
     const question = typedQuestion.current?.text;
     if (!question) return diagnostics;
     return JSON.stringify({ question, diagnostic: JSON.parse(diagnostics) as unknown }, null, 2);
@@ -427,7 +430,7 @@ export function App({
     // A failed request is reported with exactly what Copy diagnostics copies.
     if (wasBusy.current && !state.busy && reporter && requestStarted.current) {
       try {
-        const diagnostic = JSON.parse(controller.diagnostics({ surface })) as Diagnostic;
+        const diagnostic = JSON.parse(controller.diagnostics({ surface, ...BUILD })) as Diagnostic;
         const kind = classifyFailure(diagnostic, requestStarted.current);
         if (kind) {
           const copy = JSON.parse(activityDiagnostics()) as Partial<CopyDiagnostics> & Diagnostic;
@@ -451,7 +454,7 @@ export function App({
         savedStore.save({
           id: question.id,
           question: question.text,
-          diagnostic: JSON.parse(controller.diagnostics({ surface })) as unknown,
+          diagnostic: JSON.parse(controller.diagnostics({ surface, ...BUILD })) as unknown,
         });
         setSavedDiagnostics(savedStore.list());
       } catch {
