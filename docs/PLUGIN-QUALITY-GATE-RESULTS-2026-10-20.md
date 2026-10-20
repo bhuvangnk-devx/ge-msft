@@ -1,6 +1,6 @@
 # Root-cause worktree quality results — 20 October 2026
 
-Worktree: `fix/root-cause`, base commit `4c5806a05546423d97e79b025eb74168f18d3e28`, with local, uncommitted fixes. Nothing from this session has been merged, pushed or deployed.
+Worktree: `fix/root-cause`. The additional fixes tested here were checkpointed in `ad4c1786aee185d91f18db0d5b5b7f5c03389d78` and integrated into local `cimb-cicd` on 20 October 2026. Nothing from this session has been pushed or deployed. See [the integration record](ROOT-CAUSE-CIMB-INTEGRATION-2026-10-20.md) for the local-change comparison and preservation details.
 
 ## Scope and evidence
 
@@ -22,7 +22,7 @@ Original evidence:
 - [PowerPoint original sample and semantic audit](../scenarios/.results/quality-powerpoint-streaming-2026-10-20T03-25-01Z/POWERPOINT-QUALITY-RESULTS.md).
 - [Outlook original sample and semantic audit](../scenarios/.results/quality-outlook-2026-10-20T03-12-40Z/OUTLOOK-QUALITY-RESULTS.md) and [four-case follow-up](../scenarios/.results/outlook-semantic-retest-2026-10-20T04-00-14Z/OUTLOOK-QUALITY-RESULTS.md).
 
-These result directories contain private transcripts and are ignored by Git. This summary records their conclusions; it does not publish the transcripts.
+These result directories contain private transcripts and are ignored by Git. They remain under `scenarios/.results` in the RCA checkout at `/Users/gnkbhuvan/Desktop/devx/ge-msft/.claude/worktrees/root-cause`; the relative evidence links resolve there. They are not copied into the target checkout by the Git merge. This summary records their conclusions; it does not publish the transcripts.
 
 ## Causes and changes
 
@@ -63,7 +63,7 @@ The initial PowerPoint live attempt stopped incomplete, and its evidence is [pre
 
 ## Verification and limits
 
-Latest static verification: **3,624 tests passed, 16 skipped**; typecheck, lint and brand guard passed. Production build and generated-skill consistency passed. Independent review found no remaining important findings after the source-fact, row-association and API-version corrections.
+Latest RCA static verification: **3,626 tests passed, 16 skipped**; typecheck, lint and brand guard passed. This includes two additional compact/full prompt repair regressions from integration review. Production build and generated-skill consistency passed. Independent review found no remaining important findings after the source-fact, row-association, API-version and follow-up instruction corrections.
 
 All raw failures and original verdicts remain available. Follow-ups are separate, selected in advance of their runs, and reported as focused evidence. A successful retry is not a full-sample rerun or an estimate of production reliability. No prompt-specific routing, model substitution, timeout increase or engine-setting change was introduced to improve these scores.
 
@@ -76,7 +76,7 @@ Findings raised by the initial audit and their current disposition:
 - Passing unsupported-operation scenarios establishes honest refusal, not support for slide reordering, image insertion, calendar scheduling or sending mail.
 - The plan's full Flash-versus-Argon parity and real-host release certification have not been established by this two-per-group Argon sample.
 
-The work remains local and uncommitted. A release decision must use the reviewed, committed source that is actually intended for the target branch.
+The work is committed and integrated locally. A release decision still requires checking the exact source intended for release; this local integration does not establish deployment or real-host certification.
 
 ## Additional RCA: table facts and older-host reads
 

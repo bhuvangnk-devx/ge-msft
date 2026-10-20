@@ -38,4 +38,6 @@ The target's unrelated local `.claude/settings.json`, `.gitignore`, `CLAUDE.md`,
 
 Before integration, save both checkouts' patches, changed/untracked files, hashes and three-way previews. Checkpoint the reviewed root-cause source, retain a named recoverable stash of only the 13 already-covered target edits, then fast-forward the target. Do not reapply duplicate patches over their merged implementations. Retain the RCA worktree and private test artifacts.
 
+Local integration completed through checkpoint `ad4c1786aee185d91f18db0d5b5b7f5c03389d78`. All seven unrelated files retained their original byte hashes and uncommitted status. The 13 duplicate edits remain recoverable in stash `17595827cb010d421f1e87e97441e968d0c5916e`; they were not reapplied over the integrated implementations. The source worktree is retained.
+
 Verify the actual target checkout after integration: typecheck, lint, full unit suite, brand guard, production build, generated-skill consistency and both Python parser self-tests. Refresh its local derived graph after code integration. Record the final branch/commit and preservation checks in the integration evidence directory. Real Office certification, a new full live cross-app run, remote push and deployment are not implied by those checks.
