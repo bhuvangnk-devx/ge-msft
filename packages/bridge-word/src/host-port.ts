@@ -129,7 +129,13 @@ export type InsertTableOutcome =
   | { readonly status: 'applied'; readonly location: string }
   | { readonly status: 'drift' }
   /** The paragraphs to replace run past {@link MAX_TABLE_REPLACE_PARAGRAPHS}: nothing changed. */
-  | { readonly status: 'too_long'; readonly paragraphs: number };
+  | { readonly status: 'too_long'; readonly paragraphs: number }
+  /** Paragraphs can only be replaced as a forced tracked change; this host cannot: nothing changed. */
+  | { readonly status: 'untracked' }
+  /** The run crosses something one delete would break: nothing changed. */
+  | { readonly status: 'blocked'; readonly reason: string }
+  /** The write was sent but failed part-way: check the document before trying again. */
+  | { readonly status: 'unknown' };
 
 /** A table replaces at most this many paragraphs, so a loose anchor cannot wipe a document. */
 export const MAX_TABLE_REPLACE_PARAGRAPHS = 50;
@@ -874,6 +880,10 @@ export class OfficeWordHost implements WordHost {
   ): Promise<InsertTableOutcome> {
     return this.edit(async (ctx) => {
       if (query !== undefined && replaceThrough !== undefined) {
+        // Deleting paragraphs is only allowed as a tracked change the user can reject: without
+        // forced tracking (WordApi < 1.6, or tracking off) it would be permanent (review H2).
+        if (this.options.trackEdits === false || !isSet('WordApi', '1.6'))
+          return { status: 'untracked' };
         const starts = ctx.document.body.search(query, { matchCase: opts.matchCase });
         const ends = ctx.document.body.search(replaceThrough, { matchCase: opts.matchCase });
         starts.load('items/text');
@@ -882,34 +892,40 @@ export class OfficeWordHost implements WordHost {
         const liveStarts = await withoutTrackedDeletions(ctx, starts.items);
         const start = liveStarts[choose(liveStarts.map((r) => r.text))];
         if (!start) return { status: 'drift' };
-        // The first end at or after the start (WordApi 1.3 compareLocationWith).
+        // Compare whole paragraphs, not hits: the run ends at the NEAREST paragraph containing the
+        // end text at or after the start's paragraph, even when both texts share one (review M1).
+        const startPara = start.paragraphs.getFirst().getRange('Whole');
         const liveEnds = await withoutTrackedDeletions(ctx, ends.items);
-        const relations = liveEnds.map((end) => start.compareLocationWith(end));
+        const endParas = liveEnds.map((end) => end.paragraphs.getLast().getRange('Whole'));
+        const relations = endParas.map((para) => startPara.compareLocationWith(para));
         await ctx.sync();
-        const end = liveEnds.find((_, i) =>
-          [
-            'Before',
-            'AdjacentBefore',
-            'Equal',
-            'InsideStart',
-            'ContainsStart',
-            'InsideEnd',
-            'Inside',
-          ].includes(String(relations[i]?.value)),
+        const endPara = endParas.find((_, i) =>
+          ['Equal', 'Before', 'AdjacentBefore'].includes(String(relations[i]?.value)),
         );
-        if (!end) return { status: 'drift' };
-        const block = start.paragraphs
-          .getFirst()
-          .getRange('Whole')
-          .expandTo(end.paragraphs.getLast().getRange('Whole'));
+        if (!endPara) return { status: 'drift' };
+        const block = startPara.expandTo(endPara);
         block.paragraphs.load('items');
+        block.tables.load('items');
+        block.sections.load('items');
+        block.contentControls.load('items/cannotDelete');
         await ctx.sync();
         const count = block.paragraphs.items.length;
         if (count > MAX_TABLE_REPLACE_PARAGRAPHS) return { status: 'too_long', paragraphs: count };
+        // Nothing that one delete could break or half-remove (review M4).
+        if (block.tables.items.length > 0) return { status: 'blocked', reason: 'a table' };
+        if (block.sections.items.length > 1)
+          return { status: 'blocked', reason: 'a section break' };
+        if (block.contentControls.items.some((cc) => cc.cannotDelete))
+          return { status: 'blocked', reason: 'a locked content control' };
         // One tracked edit: the table goes in before the run, then the run is deleted.
         block.insertTable(rowCount, columnCount, Word.InsertLocation.before, values as string[][]);
         block.delete();
-        await ctx.sync();
+        try {
+          await ctx.sync();
+        } catch {
+          // Office does not roll back a queued insert when the delete fails: the outcome is unknown.
+          return { status: 'unknown' };
+        }
         return { status: 'applied', location: 'insert-table' };
       }
       if (query === undefined) {

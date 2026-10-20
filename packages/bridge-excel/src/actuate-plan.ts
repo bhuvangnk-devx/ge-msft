@@ -487,15 +487,19 @@ export function sortKeyIndex(
   key: string,
   header: readonly unknown[],
   firstColumn: string,
+  hasHeaders = true,
 ): number | undefined {
-  const wanted = key.trim().toLowerCase();
-  const byName = header.findIndex(
-    (cell) =>
-      String(cell ?? '')
-        .trim()
-        .toLowerCase() === wanted,
-  );
-  if (byName >= 0) return byName;
+  // A header name only when row 1 IS a header; a header named "C" wins over column C (review L4).
+  if (hasHeaders) {
+    const wanted = key.trim().toLowerCase();
+    const byName = header.findIndex(
+      (cell) =>
+        String(cell ?? '')
+          .trim()
+          .toLowerCase() === wanted,
+    );
+    if (byName >= 0) return byName;
+  }
   if (!/^[A-Za-z]{1,3}$/.test(key.trim())) return undefined;
   const offset = colToIndex(key.trim()) - colToIndex(firstColumn);
   return offset >= 0 && offset < header.length ? offset : undefined;
@@ -505,12 +509,28 @@ export function sortKeyIndex(
 const asNumber = (v: unknown): number =>
   typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : Number.NaN;
 
-const compareCells = (a: unknown, b: unknown): number => {
-  const na = asNumber(a);
-  const nb = asNumber(b);
-  if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-  return String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base' });
-};
+const isBlank = (v: unknown): boolean => v === null || v === undefined || v === '';
+
+/** Excel's type order for a sort: numbers, then text, then logicals (blanks handled apart). */
+const typeRank = (v: unknown): number =>
+  typeof v === 'number' ? 0 : typeof v === 'boolean' ? 2 : 1;
+
+/**
+ * True when `a` may come before `b` in an Excel sort with this direction (review H4). Blanks go last
+ * in both directions. Two texts that both look like numbers pass in either numeric or text order,
+ * since readback may type them either way ("100" < "20" as text; account numbers are text).
+ */
+function inOrder(a: unknown, b: unknown, ascending: boolean): boolean {
+  if (isBlank(b)) return true;
+  if (isBlank(a)) return false;
+  const dir = ascending ? 1 : -1;
+  const [ra, rb] = [typeRank(a), typeRank(b)];
+  if (ra !== rb) return (rb - ra) * dir > 0;
+  if (ra !== 1) return (Number(b) - Number(a)) * dir >= 0;
+  const text = String(b).localeCompare(String(a), undefined, { sensitivity: 'base' }) * dir >= 0;
+  const [na, nb] = [asNumber(a), asNumber(b)];
+  return text || (!Number.isNaN(na) && !Number.isNaN(nb) && (nb - na) * dir >= 0);
+}
 
 /**
  * A sort landed as reviewed when the data rows are the same rows in a new order (nothing changed
@@ -532,9 +552,7 @@ export function sortVerified(
       .map((row) => JSON.stringify(row))
       .sort();
   if (JSON.stringify(rows(before)) !== JSON.stringify(rows(after))) return false;
-  for (let r = start + 1; r < after.length; r++) {
-    const order = compareCells(after[r - 1]![keyIndex], after[r]![keyIndex]);
-    if (ascending ? order > 0 : order < 0) return false;
-  }
+  for (let r = start + 1; r < after.length; r++)
+    if (!inOrder(after[r - 1]![keyIndex], after[r]![keyIndex], ascending)) return false;
   return true;
 }

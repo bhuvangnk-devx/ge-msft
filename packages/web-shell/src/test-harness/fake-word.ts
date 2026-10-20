@@ -37,6 +37,10 @@ import {
 export interface WordParagraphSeed {
   text: string;
   styleBuiltIn: string;
+  /** Test-only: this paragraph sits in a table cell / ends a section / is in a locked control. */
+  inTable?: boolean;
+  sectionBreak?: boolean;
+  lockedControl?: boolean;
 }
 
 /** A document comment (the `getComments()` shape). */
@@ -140,7 +144,35 @@ class FakeParagraphBlock {
     );
   }
   get paragraphs(): { items: WordParagraphSeed[]; load(_props?: string): void } {
-    return { items: this.seed.paragraphs.slice(this.from, this.to + 1), load: () => undefined };
+    return { items: this.run(), load: () => undefined };
+  }
+  /** Tables, sections and locked controls the run touches (seeded per paragraph). */
+  get tables(): { items: unknown[]; load(_props?: string): void } {
+    return { items: this.run().filter((p) => p.inTable), load: () => undefined };
+  }
+  get sections(): { items: unknown[]; load(_props?: string): void } {
+    const breaks = this.run().filter((p) => p.sectionBreak).length;
+    return { items: Array.from({ length: breaks + 1 }), load: () => undefined };
+  }
+  get contentControls(): {
+    items: Array<{ cannotDelete: boolean }>;
+    load(_props?: string): void;
+  } {
+    return {
+      items: this.run()
+        .filter((p) => p.lockedControl)
+        .map(() => ({ cannotDelete: true })),
+      load: () => undefined,
+    };
+  }
+  /** Paragraph order (WordApi 1.3 `Range.compareLocationWith`). */
+  compareLocationWith(other: FakeParagraphBlock): { value: string } {
+    return {
+      value: this.from < other.from ? 'Before' : this.from === other.from ? 'Equal' : 'After',
+    };
+  }
+  private run(): WordParagraphSeed[] {
+    return this.seed.paragraphs.slice(this.from, this.to + 1);
   }
   /** A native table before the run: one paragraph per row, cells tab-separated. */
   insertTable(_rows: number, _cols: number, _location: string, values: string[][]): void {

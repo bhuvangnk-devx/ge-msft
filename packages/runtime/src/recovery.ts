@@ -130,6 +130,29 @@ function recoverableAddress(request: ActuationRequest): string {
   return rangeForGrid(request.params.target?.range ?? '', values.length, values[0]?.length ?? 0);
 }
 
+/**
+ * A sort landed when the range holds the same rows in a new order (header unmoved). Lets a sort
+ * whose readback was not verified settle as applied, so it can be undone instead of staying
+ * unresolved and blocking later writes (security review H4).
+ */
+function sameRowsReordered(
+  before: CellSnapshot,
+  current: CellSnapshot,
+  request: ActuationRequest,
+): boolean {
+  const start = request.params.sortRange?.hasHeaders === false ? 0 : 1;
+  const [b, c] = [before.values, current.values];
+  if (b.length !== c.length || b[0]?.length !== c[0]?.length) return false;
+  if (start === 1 && JSON.stringify(b[0]) !== JSON.stringify(c[0])) return false;
+  const rows = (grid: readonly (readonly unknown[])[]) =>
+    grid
+      .slice(start)
+      .map((row) => JSON.stringify(row))
+      .sort()
+      .join('\n');
+  return rows(b) === rows(c);
+}
+
 export class RecoveryCoordinator {
   private records: RecoveryRecord[] = [];
   private readonly prepared = new Map<string, CellSnapshot>();
@@ -392,7 +415,9 @@ export class RecoveryCoordinator {
           record.state = 'not-applied';
         } else if (
           !record.afterHash &&
-          cellsMatchRequest(current, record.request) &&
+          (record.request.kind === 'sort-range'
+            ? sameRowsReordered(record.before, current, record.request)
+            : cellsMatchRequest(current, record.request)) &&
           !hasFormulaErrors(current)
         ) {
           record.state = 'applied';

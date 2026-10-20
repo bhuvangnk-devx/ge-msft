@@ -293,6 +293,18 @@ describe('a read/help-only loop ends in an honest "not supported yet" (WS4a)', (
     ]);
   });
 
+  it('after a landed write, a stale loop ends as "could not finish", not "not supported" (review L3)', async () => {
+    const bridge = new RefusingBridge();
+    const { events } = await run(
+      [cmd('set Sheet2!A1 Region'), read, help, read, help],
+      bridge,
+      'x',
+    );
+    expect(events.filter((e) => e.type === 'needs-user')).toEqual([
+      { type: 'needs-user', turn: 5, blocker: { cause: 'no_progress' } },
+    ]);
+  });
+
   it('the nudge reaches the model after the first stale turn', async () => {
     const bridge = new RefusingBridge();
     const { fetch } = scriptedFetch([read, help, read, cmd('done "Cannot do that yet."')]);

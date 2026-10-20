@@ -381,6 +381,10 @@ describe('sort-range planning (WS4b, Argon mx-xl-unsupported-05)', () => {
     expect(sortKeyIndex('D', header, 'B')).toBe(2); // column D in a range that starts at B
     expect(sortKeyIndex('A', header, 'B')).toBeUndefined(); // left of the range
     expect(sortKeyIndex('Loans', header, 'B')).toBeUndefined();
+    // Without headers, row 1 is data: only a column letter names the key (review L4).
+    expect(sortKeyIndex('deposits', header, 'B', false)).toBeUndefined();
+    expect(sortKeyIndex('C', ['C', 'x'], 'A', true)).toBe(0);
+    expect(sortKeyIndex('C', ['C', 'x'], 'A', false)).toBeUndefined();
   });
 
   it('accepts only a reordering of the same rows with the key in order', () => {
@@ -395,6 +399,17 @@ describe('sort-range planning (WS4b, Argon mx-xl-unsupported-05)', () => {
     expect(sortVerified(before, before, 1, false, true)).toBe(false); // not in order
     const changed = [before[0]!, ['Bandung', 9], ['Jakarta', 5], ['Medan', 3]];
     expect(sortVerified(before, changed, 1, false, true)).toBe(false); // a value changed
+    // Excel's order: blanks last in both directions; numbers before text (review H4).
+    const blanks = [['k'], [3], [1], ['']];
+    expect(sortVerified([['k'], [1], [''], [3]], blanks, 0, false, true)).toBe(true);
+    expect(sortVerified([['k'], [3], [''], [1]], [['k'], [1], [3], ['']], 0, true, true)).toBe(
+      true,
+    );
+    expect(sortVerified([['k'], [1], ['x']], [['k'], [1], ['x']], 0, true, true)).toBe(true);
+    // Account numbers stored as text sort as text in Excel ("100" < "20").
+    expect(sortVerified([['k'], ['20'], ['100']], [['k'], ['100'], ['20']], 0, true, true)).toBe(
+      true,
+    );
     // Numbers read back as text still compare as numbers.
     const text = [
       ['Region', 'Q1'],

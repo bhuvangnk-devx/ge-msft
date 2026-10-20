@@ -257,6 +257,16 @@ class FakeRange {
   get worksheet(): FakeWorksheet {
     return new FakeWorksheet(this.seed, this.sheetName);
   }
+  /** ExcelApi 1.7: the contiguous data around this range — the sheet's used range here. */
+  getSurroundingRegion(): FakeRange {
+    const region = new FakeRange(
+      this.seed,
+      this.sheetName,
+      stripSheet(usedAddress(sheetByName(this.seed, this.sheetName))),
+    );
+    // Joins the batch like any other range, so its loads resolve at the next sync.
+    return this.tracker ? this.tracker.range(region) : region;
+  }
   /** Set by {@link registerRange}; lets child proxies (conditional formats) join the batch. */
   tracker: Tracker | undefined;
   get conditionalFormats(): FakeConditionalFormatCollection {

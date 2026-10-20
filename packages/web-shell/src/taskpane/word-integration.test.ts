@@ -278,4 +278,59 @@ describe('Word full-stack integration', () => {
       'The calendar month ends on the last day of the calendar month.',
     ]);
   });
+
+  describe('replacing paragraphs with a table fails safe (security review H2, M1, M4)', () => {
+    const doc = (
+      extra: Partial<Record<'inTable' | 'sectionBreak' | 'lockedControl', boolean>> = {},
+    ) =>
+      wordSeed({
+        paragraphs: [
+          { text: 'Intro', styleBuiltIn: 'Normal' },
+          { text: 'Budi - send the test results', styleBuiltIn: 'Normal', ...extra },
+          { text: 'Rina - review the test results', styleBuiltIn: 'Normal' },
+          { text: 'Outro', styleBuiltIn: 'Normal' },
+        ],
+      });
+    const convert = async (cmd: string, task = 'make a table') => {
+      ui = mountStack({
+        surface: 'word',
+        client: scriptedClient([`\`\`\`cmd\n${cmd}\n\`\`\``, '```cmd\ndone "ok"\n```']),
+      });
+      await ui!.flush();
+      let run!: Promise<void>;
+      await ui!.act(() => {
+        run = ui!.controller.runCommands(task);
+      });
+      await ui!.waitFor((s) => s.pendingPlan !== undefined);
+      await ui!.act(() => ui!.controller.approvePlan());
+      await ui!.waitFor((s) => !s.busy);
+      await run;
+      return sim!.snapshot().paragraphs.map((p) => p.text);
+    };
+    const table = 'rows="A\\tB\\n1\\t2"';
+
+    it('refuses on a host that cannot force Track Changes (WordApi < 1.6)', async () => {
+      sim = installFakeWord(doc(), { WordApi: 5 });
+      const texts = await convert(`/insert-table match="Budi" replaceThrough="Rina" ${table}`);
+      expect(texts).toHaveLength(4);
+    });
+
+    it('ends at the nearest paragraph: end text in the start paragraph replaces only that one', async () => {
+      sim = installFakeWord(doc());
+      const texts = await convert(
+        `/insert-table match="Budi - send" replaceThrough="test results" ${table}`,
+      );
+      expect(texts).toEqual(['Intro', 'A\tB', '1\t2', 'Rina - review the test results', 'Outro']);
+    });
+
+    it.each(['inTable', 'sectionBreak', 'lockedControl'] as const)(
+      'refuses a run that crosses %s, changing nothing',
+      async (flag) => {
+        sim = installFakeWord(doc({ [flag]: true }));
+        const texts = await convert(`/insert-table match="Budi" replaceThrough="Rina" ${table}`);
+        expect(texts).toHaveLength(4);
+        expect(sim.snapshot().tables ?? []).toEqual([]);
+      },
+    );
+  });
 });

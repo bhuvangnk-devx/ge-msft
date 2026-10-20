@@ -763,7 +763,9 @@ export class ExcelBridge implements DocBridge {
           // Outer and inner edges take their own weight when given (Excel draws them apart).
           const own = edge.startsWith('Inside') ? plan.insideWeight : plan.outsideWeight;
           const weight = own ?? plan.borderWeight;
-          if (weight === undefined && plan.borderColor === undefined) continue;
+          // A colour alone draws every edge; with side weights it colours only those sides (L2).
+          const sided = plan.outsideWeight !== undefined || plan.insideWeight !== undefined;
+          if (weight === undefined && (plan.borderColor === undefined || sided)) continue;
           const border = range.format.borders.getItem(edge);
           if (weight === 'None') {
             border.style = 'None';
@@ -809,7 +811,7 @@ export class ExcelBridge implements DocBridge {
         ...fail('unsupported_host', 'This host cannot sort ranges (ExcelApi < 1.2).'),
         degraded: true,
       };
-    return Excel.run(async (ctx) => {
+    const result: ActuationResult = await Excel.run(async (ctx) => {
       const { sheetName, rangeAddress } = parseAddress(plan.address as string);
       const sheet =
         sheetName !== undefined
@@ -819,17 +821,36 @@ export class ExcelBridge implements DocBridge {
       const refused = await protectedSheetRefusal(ctx, sheet, range, req, false);
       if (refused) return refused;
       const before = await snapshotRange(range, ctx, await excelDocumentId());
+      // Only the reviewed, captured range sorts: no pinned hash, no sort (review L5).
       const expected = req.preconditions?.find((p) => p.locator === before.locator);
       if (
-        expected &&
-        (expected.surface !== 'excel' ||
-          expected.documentId !== before.documentId ||
-          expected.hash !== before.hash)
+        !expected ||
+        expected.surface !== 'excel' ||
+        expected.documentId !== before.documentId ||
+        expected.hash !== before.hash
       )
         return fail('stale_target', 'The range changed after preview. Review a new plan.');
+      // Formulas would recalculate in their new rows, so the reviewed values would not just move.
+      if (before.formulas?.some((row) => row.some((f) => String(f ?? '').startsWith('='))))
+        return fail(
+          'has_formulas',
+          'This range has formulas, and sorting would change their results. Sort a range of values, or sort it in Excel.',
+        );
+      // A range narrower than its table would split rows from their other columns (review M3).
+      if (isSet('ExcelApi', '1.7')) {
+        const region = range.getSurroundingRegion();
+        region.load('columnCount,rowCount');
+        await ctx.sync();
+        const width = before.values[0]?.length ?? 0;
+        if (region.columnCount > width)
+          return fail(
+            'partial_table',
+            `The data around ${before.locator} is ${region.columnCount} columns wide. Sort the whole table range so every row stays together.`,
+          );
+      }
       const firstColumn = /^\$?([A-Za-z]{1,3})/.exec(rangeAddress)?.[1] ?? 'A';
       const header = before.values[0] ?? [];
-      const keyIndex = sortKeyIndex(plan.key, header, firstColumn);
+      const keyIndex = sortKeyIndex(plan.key, header, firstColumn, plan.hasHeaders);
       if (keyIndex === undefined)
         return fail(
           'unknown_key',
@@ -873,6 +894,12 @@ export class ExcelBridge implements DocBridge {
         },
       };
     });
+    // Durable provenance, as for every other Excel write (review M2).
+    if (result.ok) {
+      const flags = provFlags(req, await this.persistProvenance(req));
+      if (Object.keys(flags).length > 0) return { ...result, ...flags };
+    }
+    return result;
   }
 
   /**

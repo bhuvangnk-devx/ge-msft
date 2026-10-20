@@ -697,6 +697,39 @@ export class WordBridge implements DocBridge {
       (hitTexts) => chooseAnchorIndex([...hitTexts], plan.contextHint),
       plan.anchored ? plan.replaceThrough : undefined,
     );
+    if (outcome.status === 'untracked')
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        degraded: true,
+        error: {
+          code: 'unsupported_host',
+          message:
+            'Replacing paragraphs needs Track Changes (Word 2019+ / Microsoft 365, WordApi 1.6). Nothing was changed.',
+        },
+      };
+    if (outcome.status === 'blocked')
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        error: {
+          code: 'cannot_replace',
+          message: `The paragraphs to replace include ${outcome.reason}, which one tracked delete cannot remove cleanly. Nothing was changed.`,
+        },
+      };
+    if (outcome.status === 'unknown')
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        error: {
+          code: 'outcome_unknown',
+          message:
+            'The table may have been inserted without the paragraphs being removed. Check the document before trying again.',
+        },
+      };
     if (outcome.status === 'too_long') {
       return {
         ok: false,

@@ -33,7 +33,10 @@ export const HIGH_IMPACT_KINDS: ReadonlySet<string> = new Set([
 /** Any write that carries a file is checked too: it can take document content out with a reply. */
 export function isHighImpact(effect: PlanEffect): boolean {
   return (
-    HIGH_IMPACT_KINDS.has(effect.request.kind) || effect.request.params.attachment !== undefined
+    HIGH_IMPACT_KINDS.has(effect.request.kind) ||
+    effect.request.params.attachment !== undefined ||
+    // A table that replaces paragraphs deletes text (review H1).
+    effect.request.params.tableGrid?.replaceThrough !== undefined
   );
 }
 

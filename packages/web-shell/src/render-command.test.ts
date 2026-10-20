@@ -119,3 +119,55 @@ describe('renderCommandLine', () => {
     expect(renderCommandLine(req('write-cells', {}))).toBe('set <range>');
   });
 });
+
+describe('the card shows what a sort or a table replacement does (security review H1, H3, L1)', () => {
+  const req = (kind: ActuationRequest['kind'], params: ActuationRequest['params']) =>
+    ({ changeId: asChangeId('c'), surface: 'excel', kind, params }) as ActuationRequest;
+
+  it('renders the pinned sort range, key, order and headers', () => {
+    expect(
+      renderCommandLine(
+        req('sort-range', {
+          sortRange: {
+            range: "'Branch Performance'!A1:F21",
+            key: 'Deposits',
+            order: 'descending',
+            hasHeaders: true,
+          },
+        }),
+      ),
+    ).toBe(
+      `/sort-range range='Branch Performance'!A1:F21 key="Deposits" order=descending headers=true`,
+    );
+  });
+
+  it('says a table replaces paragraphs, and from which to which', () => {
+    const line = renderCommandLine(
+      req('insert-table', {
+        target: { matchText: 'Budi - send' },
+        tableGrid: {
+          rows: [
+            ['Owner', 'Action'],
+            ['Budi', 'Send'],
+          ],
+          hasHeaders: true,
+          replaceThrough: 'Rina - review',
+        },
+      }),
+    );
+    expect(line).toBe(
+      '/insert-table 2x2 table (first row: Owner | Action) REPLACES the paragraphs from "Budi - send" through "Rina - review"',
+    );
+  });
+
+  it('shows the outside and inside border weights', () => {
+    expect(
+      renderCommandLine(
+        req('format-cells', {
+          target: { range: 'A1:F50' },
+          format: { borderOutside: 'thick', borderInside: 'none' },
+        }),
+      ),
+    ).toBe('format A1:F50 borderOutside=thick borderInside=none');
+  });
+});

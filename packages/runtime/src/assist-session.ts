@@ -1755,13 +1755,16 @@ export class AssistSession {
       for (const line of lines) seenLines.add(line);
       staleTurns = stale ? staleTurns + 1 : 0;
       if (staleTurns >= 2) {
+        // After a change landed, "can't do this yet" would contradict it: say it could not finish.
+        const landedEarlier = (this.task?.effects ?? []).some((result) =>
+          ['verified', 'unverified', 'uncertain'].includes(assessActuationResult(result)),
+        );
         yield {
           type: 'needs-user',
           turn,
-          blocker: {
-            cause: 'not_supported',
-            available: capabilities.actuations.map((a) => a.kind),
-          },
+          blocker: landedEarlier
+            ? { cause: 'no_progress' }
+            : { cause: 'not_supported', available: capabilities.actuations.map((a) => a.kind) },
         };
         return;
       }
@@ -4571,6 +4574,12 @@ function effectTarget(req: ActuationRequest): string | undefined {
       return p.target?.range;
     case 'create-table':
       return p.table?.range;
+    case 'sort-range':
+      return p.sortRange?.range;
+    case 'insert-table':
+      return p.tableGrid?.replaceThrough && p.target?.matchText
+        ? `paragraphs "${p.target.matchText}" … "${p.tableGrid.replaceThrough}"`
+        : p.target?.matchText;
     case 'insert-chart':
       return p.chart?.sourceRange;
     case 'format-conditional':

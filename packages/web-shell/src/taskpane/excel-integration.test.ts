@@ -313,6 +313,28 @@ describe('Excel full-stack integration', () => {
     expect(sim.snapshot().sheets[0]!.values).toEqual(before);
   });
 
+  it.each([
+    ['a range narrower than its table', '/sort-range range=Sales!A1:C7 key=revenue'],
+    ['a key name when headers=false', '/sort-range range=Sales!A1:D7 key=revenue headers=false'],
+  ])('refuses %s, changing nothing (security review M3, L4)', async (_label, cmd) => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([`\`\`\`cmd\n${cmd}\n\`\`\``, '```cmd\ndone "No."\n```']),
+    });
+    await ui!.flush();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('sort it');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined || !s.busy);
+    if (ui!.controller.getState().pendingPlan) await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    expect(sim.snapshot().sheets[0]!.values).toEqual(before);
+  });
+
   it('a sort key that is not a column is refused before anything changes (WS4b)', async () => {
     sim = installFakeExcel();
     ui = mountStack({
