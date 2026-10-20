@@ -67,14 +67,27 @@ const runDir =
   join(DIR, '.results', new Date().toISOString().replace(/[:.]/g, '-'));
 /** Shared by every shard and app of one run (the gate passes each app its own subfolder). */
 const quotaFile = join(runDir, '..', 'QUOTA_EXHAUSTED');
+/** Written when Gemini refused a whole scenario (auth, outage): later ones are not run either. */
+const refusedFile = join(runDir, '..', 'GEMINI_REFUSED');
 
 describe.skipIf(!LIVE)('live scenarios', () => {
   for (const scenario of scenarios) {
     it(
       `${scenario.id}: ${scenario.title ?? scenario.prompt}`,
       async (ctx) => {
-        if (existsSync(quotaFile)) ctx.skip();
+        if (existsSync(quotaFile) || existsSync(refusedFile)) ctx.skip();
         const result = await runScenario(scenario);
+        if (result.notRun) {
+          // Not a model or pane result: record it as NOT RUN and stop spending the shared pool.
+          results.push(result);
+          mkdirSync(runDir, { recursive: true });
+          writeFileSync(join(runDir, `${scenario.id}.json`), JSON.stringify(result, null, 2));
+          writeFileSync(
+            refusedFile,
+            `${new Date().toISOString()} ${scenario.id} ${result.notRun}\n`,
+          );
+          ctx.skip();
+        }
         if (result.errors.some((e) => e.includes('(429)'))) {
           writeFileSync(quotaFile, `${new Date().toISOString()} ${scenario.id}\n`);
           ctx.skip();
@@ -92,16 +105,19 @@ describe.skipIf(!LIVE)('live scenarios', () => {
     if (!results.length) return;
     const rows = results.map(
       (r) =>
-        `| ${r.passed ? 'PASS' : 'FAIL'} | ${r.id} | ${r.status ?? '-'} | ${
+        `| ${r.notRun ? 'NOT RUN' : r.passed ? 'PASS' : 'FAIL'} | ${r.id} | ${r.status ?? '-'} | ${
           Object.entries(r.applied)
             .map(([k, n]) => `${k}×${n}`)
             .join(', ') || '-'
-        } | ${(r.durationMs / 1000).toFixed(1)}s | ${r.failures.join('; ') || '-'} |`,
+        } | ${(r.durationMs / 1000).toFixed(1)}s | ${r.notRun ?? (r.failures.join('; ') || '-')} |`,
     );
     const summary = [
       `# Scenario run ${new Date().toISOString()}`,
       '',
-      `${results.filter((r) => r.passed).length}/${results.length} passed`,
+      `${results.filter((r) => r.passed).length}/${results.filter((r) => !r.notRun).length} passed` +
+        (results.some((r) => r.notRun)
+          ? ` · ${results.filter((r) => r.notRun).length} not run (Gemini refused)`
+          : ''),
       '',
       '| Result | Scenario | Status | Applied | Time | Failures |',
       '| --- | --- | --- | --- | --- | --- |',

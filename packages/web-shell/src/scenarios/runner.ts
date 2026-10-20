@@ -64,6 +64,11 @@ export interface ScenarioExpect {
   /** Case-insensitive text that must NOT appear in the document afterwards. */
   documentExcludes?: string[];
   /**
+   * Excel: border edge → weight that one formatted range must carry, e.g. { "EdgeTop": "Thick" }.
+   * A uniform thin grid must not pass "thick outside" (WS5 T2, Argon mx-xl-format-10).
+   */
+  bordersInclude?: Record<string, string>;
+  /**
    * Other outcomes that are equally correct: the run passes when it meets `expect` OR any one of
    * these (e.g. a reply comment, or a clarifying question when the data has no answer).
    */
@@ -85,6 +90,20 @@ export interface Scenario {
   timeoutMs?: number;
 }
 
+/**
+ * Why a scenario never reached the model, or undefined when any Gemini call got an answer. A run
+ * refused by quota, auth or an outage says nothing about the model or the pane: it is NOT RUN,
+ * never FAIL (WS5 T3: a quota outage read as 23 PowerPoint failures, 2026-10-19).
+ */
+export function geminiRefusal(transcript: readonly TranscriptEntry[]): string | undefined {
+  if (transcript.length === 0) return 'no Gemini call was made';
+  if (transcript.some((t) => t.status === 200 && t.reply.trim() !== '')) return undefined;
+  const refused = [...new Set(transcript.filter((t) => t.status !== 200).map((t) => t.status))];
+  return refused.length > 0
+    ? `Gemini refused every call (HTTP ${refused.join(', ')})`
+    : 'Gemini answered nothing (HTTP 200, empty)';
+}
+
 export interface ScenarioResult {
   id: string;
   surface: string;
@@ -102,6 +121,8 @@ export interface ScenarioResult {
   runs: RunRecord[];
   transcript: TranscriptEntry[];
   document: unknown;
+  /** Set when Gemini never answered (see {@link geminiRefusal}): not a pass and not a failure. */
+  notRun?: string;
 }
 
 type Sim = { snapshot(): unknown; restore(): void };
@@ -262,6 +283,11 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     if (Date.now() - started >= timeoutMs) result.failures.push(`timed out after ${timeoutMs} ms`);
     result.failures.push(...check(scenario, result));
     result.passed = result.failures.length === 0;
+    const refusal = geminiRefusal(result.transcript);
+    if (refusal) {
+      result.notRun = refusal;
+      result.passed = false;
+    }
     return result;
   } finally {
     dispose();
@@ -333,6 +359,22 @@ function checkExpect(e: ScenarioExpect, r: ScenarioResult): string[] {
     for (const facet of e.formatsInclude) {
       if (!formats.some((f) => f[facet] !== undefined)) out.push(`no range was given ${facet}`);
     }
+  }
+  if (e.bordersInclude) {
+    const formats = Object.values(
+      (
+        r.document as {
+          formats?: Record<string, { borders?: Record<string, { weight?: string }> }>;
+        }
+      ).formats ?? {},
+    );
+    const wanted = Object.entries(e.bordersInclude);
+    if (
+      !formats.some((f) => wanted.every(([edge, weight]) => f.borders?.[edge]?.weight === weight))
+    )
+      out.push(
+        `no range has borders ${wanted.map(([edge, weight]) => `${edge}=${weight}`).join(', ')}`,
+      );
   }
   const doc = JSON.stringify(r.document).toLowerCase();
   for (const text of e.documentIncludes ?? []) {

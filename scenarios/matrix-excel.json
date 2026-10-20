@@ -2255,6 +2255,11 @@
     "expect": {
       "applied": {
         "format-cells": 1
+      },
+      "bordersInclude": {
+        "EdgeTop": "Thick",
+        "EdgeLeft": "Thick",
+        "InsideHorizontal": "Thin"
       }
     },
     "timeoutMs": 180000

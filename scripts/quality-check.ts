@@ -54,6 +54,8 @@ interface ScenarioResult {
   durationMs: number;
   failures: string[];
   transcript?: unknown[];
+  /** Gemini never answered (quota, auth, outage): neither a pass nor a failure. */
+  notRun?: string;
 }
 
 /** Group key: matrix ids are mx-<app>-<capability>-NN; any other scenario counts per file. */
@@ -175,13 +177,17 @@ async function main(): Promise<void> {
   const runDir = join(RESULTS, `quality-${new Date().toISOString().replace(/[:.]/g, '-')}`);
   await runLive(runDir, sample);
   const quotaHit = existsSync(join(runDir, 'QUOTA_EXHAUSTED'));
-  const results: ScenarioResult[] = SURFACES.flatMap((surface) => {
+  const refused = existsSync(join(runDir, 'GEMINI_REFUSED'));
+  const loaded: ScenarioResult[] = SURFACES.flatMap((surface) => {
     const dir = join(runDir, surface);
     if (!existsSync(dir)) return [];
     return readdirSync(dir)
       .filter((n) => n.endsWith('.json') && n !== 'summary.json')
       .map((n) => JSON.parse(readFileSync(join(dir, n), 'utf8')) as ScenarioResult);
   });
+  // A run Gemini refused says nothing about the model or the pane (WS5 T3).
+  const notRun = loaded.filter((r) => r.notRun);
+  const results = loaded.filter((r) => !r.notRun);
   const expected = sample?.length ?? all.length;
 
   const groups = new Map<string, ScenarioResult[]>();
@@ -229,6 +235,10 @@ async function main(): Promise<void> {
       (missing ? `, ${missing} scenario(s) produced no result` : '') +
       ` · ${queries} Gemini queries`,
   );
+  if (refused || notRun.length > 0)
+    console.log(
+      `⚠ Gemini refused ${notRun.length} scenario(s) before any answer (${notRun[0]?.notRun ?? 'see GEMINI_REFUSED'}): the run stopped; they are not run, not failed.`,
+    );
   if (quotaHit)
     console.log(
       '⚠ Gemini daily query quota reached (resets 14:00 WIB): the run stopped; scenarios without a result were not run.',

@@ -247,4 +247,35 @@ describe('Word full-stack integration', () => {
     await run;
     expect(sim.snapshot().paragraphs).toHaveLength(60);
   });
+
+  it('find-replace honours matchWholeWord: "monthly" stays, each "month" changes once (WS5 T2b)', async () => {
+    sim = installFakeWord(
+      wordSeed({
+        paragraphs: [
+          { text: 'Fees are billed each month and reported monthly.', styleBuiltIn: 'Normal' },
+          { text: 'The month ends on the last day of the month.', styleBuiltIn: 'Normal' },
+        ],
+      }),
+    );
+    ui = mountStack({
+      surface: 'word',
+      client: scriptedClient([
+        '```cmd\n/find-replace find="month" replace="calendar month" matchWholeWord=true\n```',
+        '```cmd\ndone "Replaced."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('replace month with calendar month');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    expect(sim.snapshot().paragraphs.map((p) => p.text)).toEqual([
+      'Fees are billed each calendar month and reported monthly.',
+      'The calendar month ends on the last day of the calendar month.',
+    ]);
+  });
 });

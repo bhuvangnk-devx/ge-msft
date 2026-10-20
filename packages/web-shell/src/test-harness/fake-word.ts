@@ -167,6 +167,8 @@ class FakeParagraphBlock {
 
 class FakeSearchResult {
   text: string;
+  /** Set for a find/replace hit: the exact occurrence a write replaces. */
+  position: { para: number; start: number; length: number } | undefined;
   /** For a word from `getTextRanges`: its position and the hit's words. */
   private index = 0;
   private words: string[] = [];
@@ -284,7 +286,10 @@ class FakeSearchResult {
       tracked: this.seed.changeTrackingMode === 'TrackAll',
     };
     this.seed.inserts.push(entry);
-    replaceFirst(this.seed, this.text, text);
+    const at = this.position;
+    const p = at ? this.seed.paragraphs[at.para] : undefined;
+    if (at && p) p.text = p.text.slice(0, at.start) + text + p.text.slice(at.start + at.length);
+    else replaceFirst(this.seed, this.text, text);
     return insertedRange(entry);
   }
   /** Comments-as-citations WRITE. */
@@ -305,7 +310,24 @@ let syncGeneration = 0;
 class FakeSearchResultCollection {
   private readonly hits: FakeSearchResult[];
   private readonly createdAt = syncGeneration;
-  constructor(seed: WordSeed, query: string, matchCase: boolean) {
+  constructor(seed: WordSeed, query: string, matchCase: boolean, matchWholeWord?: boolean) {
+    // A find/replace search (it always passes matchWholeWord): one hit per occurrence, at its exact
+    // position, honouring whole-word and case like Word. "month" never matches inside "monthly".
+    if (matchWholeWord !== undefined) {
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(
+        matchWholeWord ? `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])` : escaped,
+        matchCase ? 'gu' : 'giu',
+      );
+      this.hits = seed.paragraphs.flatMap((p, para) =>
+        [...p.text.matchAll(pattern)].map((m) => {
+          const hit = new FakeSearchResult(seed, m[0]);
+          hit.position = { para, start: m.index ?? 0, length: m[0].length };
+          return hit;
+        }),
+      );
+      return;
+    }
     const hay = (s: string): string => (matchCase ? s : s.toLowerCase());
     const needle = matchCase ? query : query.toLowerCase();
     // One hit per paragraph that contains the query (mirrors Office's per-occurrence ranges,
@@ -394,8 +416,16 @@ class FakeBody {
   get paragraphs(): FakeParagraphCollection {
     return new FakeParagraphCollection(this.seed);
   }
-  search(query: string, opts?: { matchCase?: boolean }): FakeSearchResultCollection {
-    return new FakeSearchResultCollection(this.seed, query, opts?.matchCase ?? false);
+  search(
+    query: string,
+    opts?: { matchCase?: boolean; matchWholeWord?: boolean },
+  ): FakeSearchResultCollection {
+    return new FakeSearchResultCollection(
+      this.seed,
+      query,
+      opts?.matchCase ?? false,
+      opts?.matchWholeWord,
+    );
   }
   getComments(): FakeCommentCollection {
     return new FakeCommentCollection(this.seed);
