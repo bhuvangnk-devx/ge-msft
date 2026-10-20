@@ -3233,6 +3233,8 @@ export class AssistSession {
   private knownSheets: string[] = [];
 
   private async renderAmbientDocState(deduplicate = true): Promise<string | undefined> {
+    // A failed or missing capture must not leave names from an earlier snapshot (renamed sheets).
+    this.knownSheets = [];
     if (!this.docStateEnabled || !this.bridge.captureDocState) return undefined;
     try {
       const captured = await this.toolOperation('context:snapshot', {}, () =>

@@ -2310,19 +2310,26 @@ function levenshtein(a: string, b: string): number {
  * exist in `sheetNames` change; text inside double-quoted values is left alone.
  */
 export function quoteSheetNames(text: string, sheetNames: readonly string[]): string {
+  // A name with = " ! could pass for command text (a sheet named `range=Sales`): never rewrite it.
   const names = sheetNames
-    .filter((name) => /[^\w.]/.test(name))
+    .filter((name) => /[^\w.]/.test(name) && !/[="!]/.test(name))
     .sort((a, b) => b.length - a.length);
   if (names.length === 0) return text;
   const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`(?<!['\\w])(${names.map(escape).join('|')})!`, 'g');
-  // Outside "…" segments only (a quoted value is user text, not a reference).
+  // Only where an argument or a reference starts: line start, a space, `=`, `(` or `,`.
+  const pattern = new RegExp(`(?<=^|[\\s=(,])(${names.map(escape).join('|')})!`, 'g');
+  // Line by line, outside "…" segments only (a quoted value is user text, not a reference).
   return text
-    .split(/("(?:[^"\\]|\\.)*")/)
-    .map((part, i) =>
-      i % 2 === 1
-        ? part
-        : part.replace(pattern, (_m, name: string) => `'${name.replace(/'/g, "''")}'!`),
+    .split('\n')
+    .map((line) =>
+      line
+        .split(/("(?:[^"\\]|\\.)*")/)
+        .map((part, i) =>
+          i % 2 === 1
+            ? part
+            : part.replace(pattern, (_m, name: string) => `'${name.replace(/'/g, "''")}'!`),
+        )
+        .join(''),
     )
-    .join('');
+    .join('\n');
 }

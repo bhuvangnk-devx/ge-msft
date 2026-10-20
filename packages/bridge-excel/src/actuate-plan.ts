@@ -532,59 +532,67 @@ function inOrder(a: unknown, b: unknown, ascending: boolean): boolean {
   return text || (!Number.isNaN(na) && !Number.isNaN(nb) && (nb - na) * dir >= 0);
 }
 
-/** Functions whose result depends on the cell's position or changes by itself. */
-const POSITION_FUNCTIONS = new Set([
-  'ROW',
-  'ROWS',
-  'COLUMN',
-  'COLUMNS',
-  'OFFSET',
-  'INDIRECT',
-  'INDEX',
-  'ADDRESS',
-  'CELL',
-  'RAND',
-  'RANDBETWEEN',
-  'RANDARRAY',
-  'NOW',
-  'TODAY',
-  'INFO',
-]);
+/**
+ * Built-in functions whose result depends only on their arguments. Anything else (a position or
+ * volatile function, a defined name, a LAMBDA or add-in function) makes a formula unsafe to move.
+ */
+const ROW_SAFE_FUNCTIONS = new Set(
+  (
+    'ABS AND AVERAGE AVERAGEA CEILING CHAR CONCAT CONCATENATE COUNT COUNTA COUNTBLANK DATE DAY ' +
+    'EXACT EXP FIND FLOOR IF IFERROR IFNA IFS INT ISBLANK ISERROR ISNUMBER ISTEXT LEFT LEN LN LOG ' +
+    'LOG10 LOWER MAX MAXA MEDIAN MID MIN MINA MOD MONTH N NOT OR POWER PRODUCT PROPER REPT RIGHT ' +
+    'ROUND ROUNDDOWN ROUNDUP SEARCH SIGN SQRT SUBSTITUTE SUM SWITCH TEXT TEXTJOIN TRIM TRUNC UPPER ' +
+    'VALUE XOR YEAR'
+  ).split(' '),
+);
+
+const columnIndex = (letters: string): number =>
+  [...letters.toUpperCase()].reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0);
 
 /**
- * True when every formula in the rows a sort moves uses only cells of its own row, by relative
- * row. Excel adjusts such references when it moves the row, so each result stays the same (as
- * `=E2/D2` → `=E5/D5`). Anything else is refused: another row, an absolute row (`E$2`), another
- * sheet, a table or whole-column/row reference, a defined name, or a position-dependent function.
- * `firstRow` is the sheet row of `formulas[0]`.
+ * True when every formula in the rows a sort moves uses only cells of its own row inside the sorted
+ * columns, by relative row, and only built-in functions from {@link ROW_SAFE_FUNCTIONS}. Excel
+ * adjusts such references when it moves the row, so each result stays the same (`=E2/D2` →
+ * `=E5/D5`). Everything else is refused: another row, a column outside the range, an absolute row
+ * (`E$2`), another sheet, a table, spill, trim or whole-column/row reference, a defined name, or any
+ * other function. Allow-list: once the known tokens are removed, only operators may remain.
+ * `firstRow`/`firstColumn` give the sheet position of `formulas[0][0]`.
  */
 export function formulasStayInRow(
   formulas: readonly (readonly unknown[])[],
   firstRow: number,
+  firstColumn: string,
   hasHeaders: boolean,
 ): boolean {
-  const ref =
-    /(?<![A-Za-z_\d.$])(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![\w(.])|(?<![\w.$])([A-Za-z_][\w.]*)(\s*\()?/g;
+  const left = columnIndex(firstColumn);
+  const right = left + (formulas[0]?.length ?? 0) - 1;
   for (let r = hasHeaders ? 1 : 0; r < formulas.length; r++) {
     const row = firstRow + r;
     for (const cell of formulas[r] ?? []) {
       const formula = String(cell ?? '');
       if (!formula.startsWith('=')) continue;
       // String literals are text, not references ("" escapes a quote).
-      const code = formula.replace(/"(?:[^"]|"")*"/g, '""');
-      if (
-        /[[\]!']/.test(code) ||
-        /(?:^|[^\w$])\$?[A-Za-z]{1,3}:\$?[A-Za-z]{1,3}(?![\w])/.test(code)
-      )
-        return false;
-      if (/(?:^|[^\w$.])\$?\d+:\$?\d+/.test(code)) return false;
-      for (const m of code.matchAll(ref)) {
-        if (m[2] !== undefined) {
-          if (m[3] === '$' || Number(m[4]) !== row) return false;
-        } else if (m[6] !== undefined) {
-          if (POSITION_FUNCTIONS.has(m[5]!.toUpperCase())) return false;
-        } else if (!/^(TRUE|FALSE)$/i.test(m[5]!)) return false;
-      }
+      let code = formula.slice(1).replace(/"(?:[^"]|"")*"/g, ' ');
+      if (/[[\]!'#\\@]|:\.|\.:/.test(code)) return false;
+      // A whole-row reference (`2:2`, `$3:$9`) spans every column of other rows' data.
+      if (/(?<![\w.$])\$?\d+:\$?\d+(?![\w.])/.test(code)) return false;
+      let safe = true;
+      code = code
+        .replace(
+          /(?<![\w.$])(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![\w(.])/g,
+          (_m, _c: string, col: string, rowLock: string, digits: string) => {
+            const at = columnIndex(col);
+            if (rowLock || Number(digits) !== row || at < left || at > right) safe = false;
+            return ' ';
+          },
+        )
+        .replace(/(?<![\w.])([A-Za-z_][\w.]*)\s*\(/g, (_m, name: string) => {
+          if (!ROW_SAFE_FUNCTIONS.has(name.toUpperCase())) safe = false;
+          return ' (';
+        })
+        .replace(/(?<![\w.])(?:TRUE|FALSE)(?![\w.(])/gi, ' ')
+        .replace(/(?<![\w.])\d+(?:\.\d+)?(?:E[+-]?\d+)?(?![\w.])/gi, ' ');
+      if (!safe || !/^[\s,()+\-*/^&=<>%:]*$/.test(code)) return false;
     }
   }
   return true;

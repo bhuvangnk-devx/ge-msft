@@ -20,7 +20,20 @@ describe('quoteSheetNames', () => {
       'set Sales!A1 1',
       'set Other Sheet!A1 1',
       'set Sales!A1 "see Branch Performance!A1"',
+      'set XBranch Performance!A1 1',
     ])
       expect(quoteSheetNames(line, sheets)).toBe(line);
+  });
+
+  it('never rewrites a sheet name that could pass for command text', () => {
+    const line = '/write-cells range=Sales!B2 1';
+    expect(quoteSheetNames(line, ['range=Sales', 'Sales'])).toBe(line);
+    expect(quoteSheetNames('set A"B C!A1 1', ['A"B C'])).toBe('set A"B C!A1 1');
+  });
+
+  it('keeps a broken quote on one line from changing the next line', () => {
+    expect(quoteSheetNames('set A1 "C:\\"\nset Branch Performance!A1 1', sheets)).toBe(
+      'set A1 "C:\\"\nset \'Branch Performance\'!A1 1',
+    );
   });
 });

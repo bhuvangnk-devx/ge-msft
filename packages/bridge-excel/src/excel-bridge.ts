@@ -864,7 +864,9 @@ export class ExcelBridge implements DocBridge {
       );
       if (
         before.formulas?.some((row) => row.some((f) => String(f ?? '').startsWith('='))) &&
-        !(firstRow > 0 && formulasStayInRow(before.formulas, firstRow, plan.hasHeaders))
+        !(
+          firstRow > 0 && formulasStayInRow(before.formulas, firstRow, firstColumn, plan.hasHeaders)
+        )
       )
         return fail(
           'has_formulas',
