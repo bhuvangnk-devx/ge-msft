@@ -3771,6 +3771,11 @@ export class AssistSession {
         await probe('context:read', { selector }, () => readRange(selector));
       }
     }
+    // Nothing matched (often a question in another language than the document): answer from the
+    // start of the document itself, within the same slice budget, never from headings alone
+    // (retest 2026-10-20: a Word summary was written from the outline).
+    if (out.length === 0)
+      await probe('context:document', {}, async () => (await this.wholeItemRead()) ?? []);
     return out;
   }
 

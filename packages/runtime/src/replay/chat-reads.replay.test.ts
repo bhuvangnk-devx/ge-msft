@@ -209,3 +209,58 @@ describe('a whole-document read returns the body, not only the outline', () => {
     expect(bodies[1]).toContain('quarterly reports soon');
   });
 });
+
+/**
+ * Retest 2026-10-20 (cx-wd-board-summary-en): "Summarize this policy in 3 bullet points" on a
+ * Bahasa Word document. No search term matched, so the chat turn carried only the headings and
+ * Gemini summarized a document it could not see ("only contains the section headers").
+ */
+describe('a chat question whose search finds nothing in a Word document', () => {
+  class WordBridge implements DocBridge {
+    readonly surface = 'word' as const;
+    getCapabilities(): CapabilityManifest {
+      return { surface: 'word', contextKinds: ['document'], reads: ['search'], actuations: [] };
+    }
+    listContext(): Promise<ContextRef[]> {
+      return Promise.resolve([
+        { id: 'word:document', kind: 'document', surface: 'word', title: 'Whole document' },
+      ]);
+    }
+    resolveContext(ref: ContextRef): Promise<ResolvedContext[]> {
+      return Promise.resolve([
+        {
+          ref: { ...ref, live: false },
+          value: {
+            as: 'text',
+            text: 'Solusi AI hanya boleh digunakan untuk keperluan kerja yang disetujui.',
+            mimeType: 'text/markdown',
+          },
+        },
+      ]);
+    }
+    actuate(request: ActuationRequest): Promise<ActuationResult> {
+      return Promise.resolve({ ok: true, changeId: request.changeId, kind: request.kind });
+    }
+    searchDocument(): Promise<ResolvedContext[]> {
+      return Promise.resolve([]);
+    }
+  }
+
+  it('carries the document body, so the answer is about the real text', async () => {
+    const bodies: string[] = [];
+    const fetchImpl = vi.fn(async (_url: string, init?: { body?: string }) => {
+      bodies.push(init?.body ?? '');
+      return new Response(streamOf('Summary'), { status: 200 });
+    });
+    const client = new StreamAssistClient(
+      { getAccessToken: () => Promise.resolve('t') },
+      { assistant: { project: 'p', location: 'eu', engine: 'e' }, identity: 'v.k@acme' },
+      fetchImpl as unknown as typeof fetch,
+    );
+    const session = new AssistSession(new WordBridge(), client, {
+      unit: { connectors: [], surfaceContext: { kind: 'word' as const } },
+    });
+    for await (const _e of session.ask('Summarize this policy in 3 bullet points for the board.'));
+    expect(bodies.join('\n')).toContain('Solusi AI hanya boleh digunakan');
+  });
+});
