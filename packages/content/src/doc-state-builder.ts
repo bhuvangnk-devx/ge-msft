@@ -289,9 +289,27 @@ export function renderDocState(snapshot: DocStateSnapshot): string {
 
   if (snapshot.selection !== undefined) {
     const sel = snapshot.selection;
-    const preview =
-      sel.preview !== undefined ? ` — "${safe(sel.preview, SELECTION_PREVIEW_CHARS)}"` : '';
-    lines.push(`selection: [${sel.kind}] "${safe(sel.title)}"${preview}`);
+    // Paragraphs stay apart: flattened to one line, two selected paragraphs came back merged.
+    // Each still passes through safe(), and all of them share the one preview budget.
+    const paragraphs = (sel.preview ?? '')
+      .split(/\r\n|[\r\n\u2029]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (paragraphs.length > 1) {
+      lines.push(
+        `selection: [${sel.kind}] "${safe(sel.title)}" — ${paragraphs.length} paragraphs:`,
+      );
+      let budget = SELECTION_PREVIEW_CHARS;
+      for (const [i, paragraph] of paragraphs.entries()) {
+        if (budget <= 0) break;
+        lines.push(`  ¶${i + 1} "${safe(paragraph, budget)}"`);
+        budget -= Array.from(paragraph).length;
+      }
+    } else {
+      const preview =
+        sel.preview !== undefined ? ` — "${safe(sel.preview, SELECTION_PREVIEW_CHARS)}"` : '';
+      lines.push(`selection: [${sel.kind}] "${safe(sel.title)}"${preview}`);
+    }
   }
 
   if (snapshot.outline.length > 0) {

@@ -118,6 +118,15 @@ describe('command-grammar — parseCommandLine (control + reads)', () => {
       selector: 'Sales!C2:C7',
     });
     expect(parseCommandLine('read')).toEqual({ verb: 'read', selector: '' });
+    // Argon wrote `read "Branch Performance!A1:F21"`, which resolved to nothing (WS3).
+    expect(parseCommandLine('read "Branch Performance!A1:F21"')).toEqual({
+      verb: 'read',
+      selector: 'Branch Performance!A1:F21',
+    });
+    expect(parseCommandLine("read 'Branch Performance'!A1:F21")).toEqual({
+      verb: 'read',
+      selector: "'Branch Performance'!A1:F21",
+    });
   });
 
   it('parses search text and strips wrapping quotes', () => {

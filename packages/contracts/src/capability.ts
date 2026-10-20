@@ -889,7 +889,8 @@ export type TaskBlocker =
     }
   | {
       cause: 'not_supported';
-      kind: ActuationKind;
+      /** The missing write, when known; absent when a read/help loop showed no way forward. */
+      kind?: ActuationKind;
       /** The writes this surface does offer, for the "what I can do instead" line. */
       available: ActuationKind[];
     }

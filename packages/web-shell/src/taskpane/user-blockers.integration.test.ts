@@ -92,6 +92,22 @@ describe('a task the user must unblock', () => {
     ).toBeUndefined();
   });
 
+  it('a read/help loop: says it is not supported yet, without an error card (WS4a)', async () => {
+    sim = installFakeExcel();
+    const { since, reply } = await runTask('Turn these rows into a pivot-style matrix', [
+      '```cmd\nhelp format\n```',
+      '```cmd\nhelp set\n```',
+      '```cmd\nhelp format\n```',
+      '```cmd\nhelp set\n```',
+    ]);
+    expect(reply.text).toContain("CN-GPT can't do this yet with the changes available here.");
+    expect(reply.text).toContain('I can help with: cells');
+    expect(ui!.container.querySelector('.error-card')).toBeNull();
+    expect(
+      classifyFailure(JSON.parse(ui!.controller.diagnostics({ surface: 'excel' })), since),
+    ).toBeUndefined();
+  });
+
   it('answers in Bahasa when the user writes in Bahasa', async () => {
     sim = installFakeExcel();
     const pivot =

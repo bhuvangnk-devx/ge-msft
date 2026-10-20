@@ -71,6 +71,7 @@ import {
   isProgramSkillDef,
   parseProgramBlock,
   stripFollowUpBlock,
+  extractCommandBlock,
   parsePlanBlock,
   renderPlanPrompt,
   derivePlanContextStrategy,
@@ -185,6 +186,14 @@ const DEFAULT_MAX_TURNS = 12;
 const MAX_REPAIR_TURNS = 2;
 /** Times one program that changes nothing may be sent before the task stops for the user. */
 const MAX_SAME_PROGRAM = 3;
+
+/**
+ * Said once, after a turn that wrote nothing and only repeated command lines already sent in this
+ * task. A second such turn ends the task as "not supported yet" (WS4a: Argon looped read ↔ help on
+ * a convert-to-table request it had no command for, until the 12-turn cap).
+ */
+const STALE_TURN_NUDGE =
+  'Nothing new was learned this turn. If this cannot be done with the listed commands, answer now: done "<one plain sentence: what cannot be done yet and what you can do instead>".';
 /** Per-turn ceilings so an injected mega-block can't fan out into unbounded host work (ADR-0004). */
 const DEFAULT_MAX_COMMANDS_PER_TURN = 32;
 /**
@@ -1613,6 +1622,8 @@ export class AssistSession {
     let failingReadTurns = 0;
     let failingWriteTurns = 0;
     const repeatedPrograms = new Map<string, number>();
+    const seenLines = new Set<string>();
+    let staleTurns = 0;
     let lastTurn = 0;
 
     for (let turn = 1; turn <= maxTurns || pendingNoFenceReprompt; turn++) {
@@ -1732,6 +1743,29 @@ export class AssistSession {
           return;
         }
       }
+      // A turn that wrote nothing and only repeated lines already sent learned nothing new (WS4a).
+      const lines = (extractCommandBlock(stripFollowUpBlock(turnText)) ?? '')
+        .split('\n')
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      const wroteNow = (this.task?.effects.length ?? 0) > effectsBefore;
+      // A failing program has its own bound (the repair budget below).
+      const stale =
+        !failed && !wroteNow && lines.length > 0 && lines.every((line) => seenLines.has(line));
+      for (const line of lines) seenLines.add(line);
+      staleTurns = stale ? staleTurns + 1 : 0;
+      if (staleTurns >= 2) {
+        yield {
+          type: 'needs-user',
+          turn,
+          blocker: {
+            cause: 'not_supported',
+            available: capabilities.actuations.map((a) => a.kind),
+          },
+        };
+        return;
+      }
+      if (staleTurns === 1) results.push(advisory({ note: STALE_TURN_NUDGE }));
       // Consecutive turns whose program had a failed line: a model that keeps repeating one mistake
       // stops here instead of spending every remaining turn. Failed reads and withheld writes keep
       // separate counts, so reads that missed cannot use up the corrections a rejected write gets
@@ -3750,6 +3784,15 @@ export class AssistSession {
           const reads = await withHostReadTimeout(`read ${intent.selector}`, () =>
             readRange(intent.selector),
           );
+          // An address that resolves to nothing is an error the model can fix, never a silent `[]`
+          // it reads as "no data" (Argon mx-xl-unsupported-05, 2026-10-19).
+          if (reads.length === 0)
+            return {
+              label: `read ${intent.selector}`,
+              result: {
+                error: `read ${intent.selector}: nothing found. Check the sheet and range or the name (quote a sheet name with spaces: 'My Sheet'!A1), or read a range under 10,000 cells.`,
+              },
+            };
           return { label: `read ${intent.selector}`, result: readsToData(reads) };
         }
         case 'search': {

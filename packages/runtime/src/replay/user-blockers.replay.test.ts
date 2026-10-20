@@ -275,6 +275,57 @@ describe('a refusal the user must fix ends the task at once', () => {
   });
 });
 
+describe('a read/help-only loop ends in an honest "not supported yet" (WS4a)', () => {
+  // Argon mx-wd-table-14 / mx-xl-condfmt-08: read ↔ help, alternating, until turn 12.
+  const read = cmd('help format');
+  const help = cmd('help set');
+
+  it('asks once for a plain answer, then stops as not supported', async () => {
+    const bridge = new RefusingBridge();
+    const { events, modelCalls } = await run([read, help, read, help, read], bridge, 'x');
+    expect(modelCalls).toBe(4);
+    expect(events.filter((e) => e.type === 'needs-user')).toEqual([
+      {
+        type: 'needs-user',
+        turn: 4,
+        blocker: { cause: 'not_supported', available: ['write-cells', 'format-cells'] },
+      },
+    ]);
+  });
+
+  it('the nudge reaches the model after the first stale turn', async () => {
+    const bridge = new RefusingBridge();
+    const { fetch } = scriptedFetch([read, help, read, cmd('done "Cannot do that yet."')]);
+    const client = new StreamAssistClient(
+      { getAccessToken: () => Promise.resolve('t') },
+      { assistant: { project: 'p', location: 'eu', engine: 'e' }, identity: 'v.k@acme' },
+      fetch,
+    );
+    const session = new AssistSession(bridge, client, {
+      unit: { connectors: [], surfaceContext: { kind: 'excel' as const } },
+      context: { docState: false },
+    });
+    for await (const _ of session.runCommands('x', { approvePlan: () => true })) void _;
+    const bodies = (
+      fetch as unknown as { mock: { calls: Array<[unknown, RequestInit]> } }
+    ).mock.calls.map(([, init]) => String(init.body));
+    expect(bodies[2]).not.toContain('cannot be done with the listed commands');
+    expect(bodies[3]).toContain('cannot be done with the listed commands');
+  });
+});
+
+describe('a read never comes back silently empty (WS3, Argon mx-xl-unsupported-05)', () => {
+  it('names the selector when nothing resolves', async () => {
+    const bridge = new RefusingBridge();
+    (bridge as unknown as { readRange: () => Promise<ResolvedContext[]> }).readRange = () =>
+      Promise.resolve([]);
+    const { events } = await run([cmd('read NoSuch!A1:F21'), cmd('done "x"')], bridge, 'read it');
+    const read = events.find((e) => e.type === 'read-result') as { result?: { error?: string } };
+    expect(read.result?.error).toMatch(/NoSuch!A1:F21/);
+    expect(read.result?.error).toMatch(/'My Sheet'!A1/);
+  });
+});
+
 describe('address selectors match however the sheet name is quoted', () => {
   const ref = {
     id: 'xl:comment:c2',

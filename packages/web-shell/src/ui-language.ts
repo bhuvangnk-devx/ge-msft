@@ -212,6 +212,10 @@ export function blockerText(blocker: TaskBlocker, lang: UiLanguage): string {
   const id = lang === 'id';
   if (blocker.cause === 'not_supported') {
     const can = blocker.available.map((kind) => kindLabel(kind, lang).toLowerCase()).join(', ');
+    if (blocker.kind === undefined)
+      return id
+        ? `CN-GPT belum bisa melakukan ini dengan perubahan yang tersedia di sini. Yang bisa saya bantu: ${can}.`
+        : `CN-GPT can't do this yet with the changes available here. I can help with: ${can}.`;
     const what = kindLabel(blocker.kind, lang);
     return id
       ? `CN-GPT belum bisa melakukan ini: ${what}. Yang bisa saya bantu: ${can}.`

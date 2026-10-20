@@ -143,6 +143,27 @@ describe('compact capability disclosure', () => {
   });
 });
 
+describe('every option in every help card (WS3, Argon mx-wd-findreplace-08)', () => {
+  it.each<Surface>(['excel', 'word', 'powerpoint', 'outlook'])(
+    'names the real keys of each implemented %s command',
+    (surface) => {
+      const current = manifest(surface);
+      for (const entry of registryEntriesForSurface(surface)) {
+        if (entry.status !== 'implemented' || entry.exposure !== 'specialized') continue;
+        const card = renderCommandHelp(current, entry.command);
+        expect(card, entry.command).not.toContain('[key=value ...]');
+        expect(card, entry.command).toMatch(new RegExp(`^Syntax: \\${entry.command} \\w+=`, 'm'));
+      }
+    },
+  );
+
+  it('documents matchWholeWord on /find-replace', () => {
+    expect(renderCommandHelp(manifest('word'), '/find-replace')).toMatch(
+      /Syntax: .*matchWholeWord=true\|false/,
+    );
+  });
+});
+
 describe('command discovery', () => {
   it('finds analysis by operation semantics, with exact syntax and a complete example', () => {
     const [card] = discoverCommands(manifest('excel'), 'reconcile invoices and payments');

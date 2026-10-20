@@ -8,6 +8,7 @@ import {
   fillRange,
   WRITE_VERB_TO_KIND,
   grammarFor,
+  SPECIALIZED_SYNTAX,
   powerpointGeometry,
   registryEntryForKindAndSurface,
   type ActuationKind,
@@ -1488,7 +1489,7 @@ function registryHelp(entry: CapabilityRegistryEntry): CommandHelpEntry {
   return {
     command: entry.command,
     useWhen: `${entry.title}: ${entry.useWhen}`,
-    syntax: `${entry.command} [key=value ...]`,
+    syntax: SPECIALIZED_SYNTAX[entry.kind] ?? `${entry.command} [key=value ...]`,
     discovery: entry.discovery,
     sequence: [
       ...entry.sequence,

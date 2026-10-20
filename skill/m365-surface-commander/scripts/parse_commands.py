@@ -504,6 +504,9 @@ def parse_line(line: str):
     if verb == "help":
         return {"verb": "help", **({"topic": rest} if rest else {})}
     if verb == "read":
+        # A wrapping pair of double quotes is not part of an Excel address (TS: command-grammar.ts).
+        if len(rest) >= 2 and rest.startswith('"') and rest.endswith('"'):
+            rest = rest[1:-1].strip()
         return {"verb": "read", "selector": rest}  # empty ⇒ whole doc
     if verb == "search":
         if not rest:
@@ -990,6 +993,8 @@ done
         failures.append("bare tail did not error")
     if "error" not in (parse_line("tail /work/notes.md abc") or {}):
         failures.append("tail with a non-numeric n did not error")
+    if parse_line('read "Branch Performance!A1:F21"') != {"verb": "read", "selector": "Branch Performance!A1:F21"}:
+        failures.append("read with a double-quoted selector kept its quotes")
     if parse_line('open "Sales!A1:C9"') != {"verb": "open", "selector": "Sales!A1:C9"}:
         failures.append("open selector did not parse")
     if parse_line('mail "See attached" attach="a.docx" text="Hi"') != {

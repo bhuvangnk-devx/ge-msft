@@ -486,7 +486,10 @@ export function parseCommandLine(line: string): ParsedCommand | CommandParseErro
     case 'read': {
       // Excel: an A1/NamedRange selector. Word: whole-doc (no selector) — empty string is fine,
       // the runtime read-intent treats an empty selector as "whole document".
-      return { verb: 'read', selector: rest };
+      // A wrapping pair of DOUBLE quotes is not part of an Excel address (sheet names are quoted
+      // with single quotes): `read "Branch Performance!A1:F21"` read nothing (Argon, 2026-10-19).
+      const quoted = rest.length >= 2 && rest.startsWith('"') && rest.endsWith('"');
+      return { verb: 'read', selector: quoted ? rest.slice(1, -1).trim() : rest };
     }
 
     case 'ls': {
@@ -2172,12 +2175,47 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
   }
 }
 
+/**
+ * The exact keys each specialized command reads (from its compile step in the runtime). Help cards
+ * and the grammar print these instead of `[key=value ...]`: an option the model never sees is an
+ * option it will not use (Argon mx-wd-findreplace-08 would not risk "calendar monthly" without
+ * matchWholeWord, 2026-10-19). Keep in step with `paramsFromInvoke` in runtime/command-protocol.ts.
+ */
+export const SPECIALIZED_SYNTAX: Partial<Record<ActuationKind, string>> = {
+  'insert-text':
+    '/insert-text text="..." [match="exact anchor text"] [bold=true] [italic=true] [underline=true] [font=<name>] [size=<pt>] [color=#RRGGBB]',
+  'replace-selection': '/replace-selection text="..."',
+  'insert-ooxml': '/insert-ooxml ooxml="<w:p>...</w:p>" [match="exact anchor text"]',
+  'fill-content-control': '/fill-content-control contentControlId=<id> text="..."',
+  'apply-style':
+    '/apply-style style="Heading 1" [match="exact paragraph text"] [builtIn=true|false]',
+  'insert-table':
+    '/insert-table rows="h1\\th2\\nv1\\tv2" [headers=true|false] [match="exact anchor text"]',
+  'insert-content-control':
+    '/insert-content-control type=richText|plainText [tag=<tag>] [title="..."] [match="exact anchor text"]',
+  'insert-hyperlink':
+    '/insert-hyperlink url=<https URL> [match="exact text to link"] [displayText="..."] [screenTip="..."]',
+  'find-replace':
+    '/find-replace find="..." replace="..." [matchCase=true|false] [matchWholeWord=true|false]',
+  'format-shape':
+    '/format-shape slide=<n> shape=<name|id> [fill=#RRGGBB] [line=#RRGGBB] [fontColor=#RRGGBB] [fontName=<name>] [fontSize=<pt>] [bold=true|false] [italic=true|false] [underline=true|false] [zOrder=front|back|forward|backward]',
+  'add-shape':
+    '/add-shape slide=<n> shapeType=textBox|geometric|line [geometryType=Rectangle|Ellipse|...] [text="..."] [fill=#RRGGBB] [connectorType=straight|elbow|curve] [left=<pt>] [top=<pt>] [width=<pt>] [height=<pt>]',
+  'add-table-slide':
+    '/add-table-slide slide=<n|new> rows="h1\\th2\\nv1\\tv2" [title="..."] [at=<n>] [headerFill=#RRGGBB] [left=<pt>] [top=<pt>] [width=<pt>] [height=<pt>]',
+  'add-attachment': '/add-attachment name="file.docx" text="file text"',
+  'set-body': '/set-body text="..." (or html="<p>...</p>")',
+  'set-recipients':
+    '/set-recipients to="a@x.com, b@y.com" [cc="..."] [bcc="..."] [recipientMode=set|add]',
+  'set-subject': '/set-subject subject="..."',
+};
+
 function specializedVerbSpec(kind: ActuationKind, surface: Surface): VerbSpec {
   const registry = registryEntryForKindAndSurface(kind, surface);
   if (registry) {
     return {
       verb: kind,
-      usage: `${registry.command} [key=value ...]`,
+      usage: SPECIALIZED_SYNTAX[kind] ?? `${registry.command} [key=value ...]`,
       hint: registry.useWhen,
     };
   }

@@ -226,6 +226,26 @@ describe('renderDocState', () => {
     expect(out).toContain('- "Dana": "check this" @"Availability"');
   });
 
+  it('keeps the paragraphs of a selection apart (WS3)', () => {
+    // Two selected paragraphs reached the model as one line and came back merged.
+    const out = renderDocState(
+      buildDocStateSnapshot({
+        surface: 'word',
+        version: 1,
+        blocks: [],
+        selection: {
+          kind: 'selection',
+          title: 'Selection',
+          preview: 'First clause applies.\rSecond clause <b>ends</b> "here".',
+        },
+      }),
+    );
+    expect(out).toContain('selection: [selection] "Selection" — 2 paragraphs:');
+    expect(out).toContain('  ¶1 "First clause applies."');
+    // Each paragraph still goes through the data guard.
+    expect(out).toContain('  ¶2 "Second clause &lt;b&gt;ends&lt;/b&gt; &quot;here&quot;."');
+  });
+
   it('names every table column and the addressable ref a command can use', () => {
     // Live 2026-09-30 regression: a 10-column sheet was clipped to "| Order ID | … | Unit Pri", so
     // the model never saw `Total`, and "(10 rows × 10 cols)" with no address produced A1:J10.

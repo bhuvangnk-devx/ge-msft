@@ -1425,8 +1425,8 @@ describe('renderGrammarPrompt', () => {
         },
       ],
     });
-    expect(prompt).toContain('/insert-text [key=value ...]');
-    expect(prompt).toContain('/fill-content-control [key=value ...]');
+    expect(prompt).toContain('/insert-text text="..."');
+    expect(prompt).toContain('/fill-content-control contentControlId=<id> text="..."');
   });
 
   it('uses registry metadata for advanced slash operations once advertised', () => {
