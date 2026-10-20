@@ -335,6 +335,31 @@ describe('Excel full-stack integration', () => {
     expect(sim.snapshot().sheets[0]!.values).toEqual(before);
   });
 
+  it('a thick outside and thin inside border land on the right edges (WS4b)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\nformat Sales!A1:D7 borderOutside=thick borderInside=thin\n```',
+        '```cmd\ndone\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('thick outside border, thin inside');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    const borders = sim.snapshot().formats.get('Sales!A1:D7')?.borders ?? {};
+    for (const edge of ['EdgeTop', 'EdgeBottom', 'EdgeLeft', 'EdgeRight'])
+      expect(borders[edge]?.weight, edge).toBe('Thick');
+    for (const edge of ['InsideHorizontal', 'InsideVertical'])
+      expect(borders[edge]?.weight, edge).toBe('Thin');
+  });
+
   it('an approved format effect records the facets against the targeted range', async () => {
     sim = installFakeExcel();
     ui = mountStack({

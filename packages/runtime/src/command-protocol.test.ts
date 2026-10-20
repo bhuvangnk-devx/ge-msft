@@ -194,6 +194,27 @@ describe('compileCommand', () => {
     ).toMatchObject({ error: expect.stringContaining('format align must be one of') });
   });
 
+  it('compiles separate outside and inside border weights (WS4b, Argon mx-xl-format-10)', () => {
+    const c = compileCommand(
+      {
+        verb: 'format',
+        range: 'Sheet1!A1:E11',
+        props: { borderOutside: 'Thick', borderInside: 'thin' },
+      },
+      { surface: 'excel', mintChangeId: mint },
+    );
+    expect(c).toMatchObject({
+      request: { params: { format: { borderOutside: 'thick', borderInside: 'thin' } } },
+    });
+    if ('request' in c) expect(() => ActuationRequestSchema.parse(c.request)).not.toThrow();
+    expect(
+      compileCommand(
+        { verb: 'format', range: 'A1', props: { borderInside: 'double' } },
+        { surface: 'excel', mintChangeId: mint },
+      ),
+    ).toMatchObject({ error: expect.stringContaining('format borderInside must be one of') });
+  });
+
   it('rejects an unknown format key, naming every supported key, instead of dropping it', () => {
     const cases: Array<Record<string, string>> = [{ bold: 'true', wibble: 'x' }, { wibble: 'x' }];
     for (const props of cases) {

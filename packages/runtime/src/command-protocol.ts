@@ -1091,7 +1091,11 @@ function formatFromProps(props: Record<string, string>): FormatParams | { error:
     const key = FORMAT_KEY_ALIASES[rawKey] ?? rawKey;
     const lower = rawValue.toLowerCase();
     const value =
-      key === 'align' || key === 'valign' || key === 'border'
+      key === 'align' ||
+      key === 'valign' ||
+      key === 'border' ||
+      key === 'borderOutside' ||
+      key === 'borderInside'
         ? key === 'valign' && lower === 'middle'
           ? 'center'
           : lower
@@ -1130,6 +1134,12 @@ function formatFromProps(props: Record<string, string>): FormatParams | { error:
         parsed = (BORDERS as readonly string[]).includes(value)
           ? value
           : { error: `format border must be one of ${BORDERS.join(', ')}, got "${value}"` };
+        break;
+      case 'borderOutside':
+      case 'borderInside':
+        parsed = (BORDERS as readonly string[]).includes(value)
+          ? value
+          : { error: `format ${key} must be one of ${BORDERS.join(', ')}, got "${value}"` };
         break;
       case 'autofit':
         parsed =
@@ -1179,7 +1189,8 @@ function compileWrite(
  */
 // 5.5 KB: the honest-stop rules (2026-10-16) plus the most relevant command card must both fit.
 // +128 B for the suggested_questions line (2026-10-19), so the format card still fits.
-export const COMMAND_BOOTSTRAP_MAX_BYTES = 5760;
+// +128 B for borderOutside/borderInside in the format keys (2026-10-20), so the format card fits.
+export const COMMAND_BOOTSTRAP_MAX_BYTES = 5888;
 
 /** What to do when the request needs an operation the live command list does not have. */
 const CANNOT_DO_RULE =

@@ -239,6 +239,10 @@ export const ActuationParamsSchema = z.object({
       wrap: z.boolean().optional(),
       /** Applied to all six edges (outside and inside); `none` clears them. */
       border: z.enum(['thin', 'medium', 'thick', 'none']).optional(),
+      /** The four outer edges only; overrides `border` there (WS4b: thick outside, thin inside). */
+      borderOutside: z.enum(['thin', 'medium', 'thick', 'none']).optional(),
+      /** The inner horizontal and vertical lines only; overrides `border` there. */
+      borderInside: z.enum(['thin', 'medium', 'thick', 'none']).optional(),
       borderColor: z
         .string()
         .regex(/^#[0-9A-F]{6}$/)

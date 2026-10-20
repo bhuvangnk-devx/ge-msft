@@ -753,15 +753,24 @@ export class ExcelBridge implements DocBridge {
         range.format.verticalAlignment = plan.verticalAlignment;
       }
       if (plan.wrapText !== undefined) range.format.wrapText = plan.wrapText;
-      if (plan.borderWeight !== undefined || plan.borderColor !== undefined) {
+      if (
+        plan.borderWeight !== undefined ||
+        plan.borderColor !== undefined ||
+        plan.outsideWeight !== undefined ||
+        plan.insideWeight !== undefined
+      ) {
         for (const edge of BORDER_EDGES) {
+          // Outer and inner edges take their own weight when given (Excel draws them apart).
+          const own = edge.startsWith('Inside') ? plan.insideWeight : plan.outsideWeight;
+          const weight = own ?? plan.borderWeight;
+          if (weight === undefined && plan.borderColor === undefined) continue;
           const border = range.format.borders.getItem(edge);
-          if (plan.borderWeight === 'None') {
+          if (weight === 'None') {
             border.style = 'None';
             continue;
           }
           border.style = 'Continuous';
-          if (plan.borderWeight !== undefined) border.weight = plan.borderWeight;
+          if (weight !== undefined) border.weight = weight;
           if (plan.borderColor !== undefined) border.color = plan.borderColor;
         }
       }

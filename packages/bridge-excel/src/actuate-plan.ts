@@ -49,6 +49,10 @@ export interface FormatCellsPlan {
   wrapText?: boolean;
   /** Applied to all six edges; `None` clears them. */
   borderWeight?: 'Thin' | 'Medium' | 'Thick' | 'None';
+  /** Outer-edge weight when it differs from `borderWeight`. */
+  outsideWeight?: 'Thin' | 'Medium' | 'Thick' | 'None';
+  /** Inner-line weight when it differs from `borderWeight`. */
+  insideWeight?: 'Thin' | 'Medium' | 'Thick' | 'None';
   borderColor?: string;
   autofit?: boolean;
   /** True iff at least one format facet is set — the bridge degrades a no-op format. */
@@ -74,6 +78,8 @@ export function planFormatCells(req: ActuationRequest): FormatCellsPlan {
     ...(f.valign !== undefined ? { verticalAlignment: VERTICAL[f.valign] } : {}),
     ...(f.wrap !== undefined ? { wrapText: f.wrap } : {}),
     ...(f.border !== undefined ? { borderWeight: WEIGHT[f.border] } : {}),
+    ...(f.borderOutside !== undefined ? { outsideWeight: WEIGHT[f.borderOutside] } : {}),
+    ...(f.borderInside !== undefined ? { insideWeight: WEIGHT[f.borderInside] } : {}),
     ...(f.borderColor !== undefined ? { borderColor: f.borderColor } : {}),
     ...(f.autofit ? { autofit: true } : {}),
     hasOps: false,

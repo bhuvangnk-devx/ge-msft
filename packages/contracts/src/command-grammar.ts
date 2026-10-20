@@ -1004,6 +1004,7 @@ function parseComment(rest: string): ParsedCommand | CommandParseError {
 export const FORMAT_KEYS_USAGE =
   'bold=true|false italic=true|false fill=#RRGGBB fontColor=#RRGGBB fontSize=6-96 ' +
   'align=left|center|right|justify valign=top|center|bottom wrap=true|false border=thin|medium|thick|none ' +
+  'borderOutside=thin|medium|thick|none borderInside=thin|medium|thick|none ' +
   'borderColor=#RRGGBB autofit=true numberFormat="<Excel code>" (quote any value with spaces)';
 
 /**
