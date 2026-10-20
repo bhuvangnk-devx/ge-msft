@@ -279,6 +279,16 @@ export class ExcelBridge implements DocBridge {
     }
   }
 
+  /** Every sheet name, VeryHidden included and uncapped (see {@link DocBridge.listSheetNames}). */
+  async listSheetNames(): Promise<string[]> {
+    return Excel.run(async (ctx) => {
+      const sheets = ctx.workbook.worksheets;
+      sheets.load('items/name');
+      await ctx.sync();
+      return sheets.items.map((s) => s.name);
+    });
+  }
+
   async captureDocState(): Promise<DocStateSnapshot | undefined> {
     // `getUsedRangeOrNullObject` → ExcelApi 1.4 (typings l.37235): degrades on an empty sheet
     // instead of throwing. On an older host (<1.4) fall back to `getUsedRange` (1.1).

@@ -451,6 +451,21 @@ describe('Excel full-stack integration', () => {
     expect(sim.snapshot().sheets[0]!.values.map((row) => row.slice(0, 4))).toEqual(before);
   });
 
+  it('a sheet named with a stray leading space is found when the command drops the space', async () => {
+    sim = installFakeExcel(
+      excelSeed({
+        sheets: [
+          { name: 'Branch Performance', origin: 'A1', values: [['branch'], ['Medan']] },
+          { name: ' Ringkasan Cabang', origin: 'A1', values: [['']] },
+        ],
+      }),
+    );
+    const steps = await runBatch(`grid 'Ringkasan Cabang'!A1:B2 = "Cabang\\tTotal\\nMedan\\t10"`);
+    expect(steps).not.toMatch(/prepare_failed|prerequisite_failed/);
+    const summary = sim.snapshot().sheets.find((s) => s.name === ' Ringkasan Cabang')!;
+    expect(summary.values[1]).toEqual(['Medan', '10']);
+  });
+
   it('a change outside the batch after preview still stops the sort', async () => {
     sim = installFakeExcel();
     const steps = await runBatch(

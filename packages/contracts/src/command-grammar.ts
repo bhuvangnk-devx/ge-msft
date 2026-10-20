@@ -2333,3 +2333,59 @@ export function quoteSheetNames(text: string, sheetNames: readonly string[]): st
     )
     .join('\n');
 }
+
+/**
+ * Use the workbook's real sheet name where a command wrote it without its stray leading or
+ * trailing spaces (`'Ringkasan Cabang'!A1` for a sheet named ` Ringkasan Cabang`): Excel would
+ * not find it (CIMB retest 2026-10-20). Only a name that is not a sheet itself and matches exactly
+ * one sheet after trimming changes; names with = " ! are never used, and quoted values stay as
+ * they are. Run before {@link quoteSheetNames}.
+ */
+export function canonicalSheetNames(text: string, sheetNames: readonly string[]): string {
+  // Excel compares sheet names case-insensitively by upper case; only ASCII spaces are "stray"
+  // (a non-breaking or ideographic space would make an invisible look-alike, so it never matches).
+  const fold = (name: string): string => name.toUpperCase();
+  const strip = (name: string): string => name.replace(/^ +| +$/g, '');
+  const usable = sheetNames.filter((name) => !/[="!]/.test(name));
+  const exact = new Set(sheetNames.map(fold));
+  const byTrim = new Map<string, string[]>();
+  for (const name of usable) {
+    const key = fold(strip(name));
+    byTrim.set(key, [...(byTrim.get(key) ?? []), name]);
+  }
+  const real = (written: string): string | undefined => {
+    if (exact.has(fold(written))) return undefined;
+    const hits = byTrim.get(fold(strip(written)));
+    return hits?.length === 1 ? hits[0] : undefined;
+  };
+  const quote = (name: string): string => `'${name.replace(/'/g, "''")}'!`;
+  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Every name, longest first, so a bare `Data Cabang!` is never read as its last word `Cabang!`.
+  const candidates = [...new Set(usable.map(strip).filter(Boolean))].sort(
+    (a, b) => b.length - a.length,
+  );
+  const bare = candidates.length
+    ? new RegExp(`(?<=^|[\\s=(,])(${candidates.map(escape).join('|')})!`, 'gi')
+    : undefined;
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .split(/("(?:[^"\\]|\\.)*")/)
+        .map((part, i) => {
+          if (i % 2 === 1) return part;
+          let out = part.replace(/'((?:[^']|'')+)'!/g, (match, inner: string) => {
+            const name = real(inner.replace(/''/g, "'"));
+            return name ? quote(name) : match;
+          });
+          if (bare)
+            out = out.replace(bare, (match, written: string) => {
+              const name = real(written);
+              return name ? quote(name) : match;
+            });
+          return out;
+        })
+        .join(''),
+    )
+    .join('\n');
+}

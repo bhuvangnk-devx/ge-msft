@@ -72,6 +72,7 @@ import {
   isProgramSkillDef,
   parseProgramBlock,
   quoteSheetNames,
+  canonicalSheetNames,
   stripFollowUpBlock,
   extractCommandBlock,
   parsePlanBlock,
@@ -1663,6 +1664,7 @@ export class AssistSession {
       // ADR-0005 Phase 3 — parse the block scoped to the live skill registry, so a line whose first
       // token is a registered skill parses as a CALL (not an unknown verb) and `def … end` groups.
       // The engine's own trailing suggested_questions block is not part of the program.
+      await this.refreshSheetNames();
       const { found, entries } = this.parseExecutableProgram(stripFollowUpBlock(turnText));
 
       // No fenced block → re-prompt ONCE (not an error). A second consecutive no-fence ends the loop.
@@ -1925,8 +1927,21 @@ export class AssistSession {
     return inspect(entries, 0);
   }
 
+  /** Every sheet name, read live just before a program is parsed (see {@link refreshSheetNames}). */
+  private knownSheets: string[] = [];
+
+  /** Read every sheet name live; on failure no name is rewritten (the command fails as written). */
+  private async refreshSheetNames(): Promise<void> {
+    this.knownSheets = [];
+    try {
+      this.knownSheets = (await this.bridge.listSheetNames?.()) ?? [];
+    } catch {
+      this.knownSheets = [];
+    }
+  }
+
   private parseExecutableProgram(raw: string): ReturnType<typeof parseProgramBlock> {
-    const text = quoteSheetNames(raw, this.knownSheets);
+    const text = quoteSheetNames(canonicalSheetNames(raw, this.knownSheets), this.knownSheets);
     const parsed = parseProgramBlock(text, this.skills.names());
     return this.containsVerifiedFinish(parsed.entries)
       ? parseProgramBlock(text, this.skills.names(), { requireCompleteFrame: true })
@@ -1950,6 +1965,7 @@ export class AssistSession {
 
     const turn = 1;
     yield { type: 'turn-start', turn };
+    await this.refreshSheetNames();
     const { entries } = this.parseExecutableProgram(`\`\`\`cmd\n${body}\n\`\`\``);
     const { stopped } = yield* this.executeProgramTurn(
       entries,
@@ -3229,28 +3245,13 @@ export class AssistSession {
   }
 
   /** Capture + render the ambient `<doc_state>` for a command turn, defensively (skip on failure). */
-  /** The workbook's sheet names from the last snapshot, to quote ones Gemini wrote bare. */
-  private knownSheets: string[] = [];
-
   private async renderAmbientDocState(deduplicate = true): Promise<string | undefined> {
-    // A failed or missing capture must not leave names from an earlier snapshot (renamed sheets).
-    this.knownSheets = [];
     if (!this.docStateEnabled || !this.bridge.captureDocState) return undefined;
     try {
       const captured = await this.toolOperation('context:snapshot', {}, () =>
         this.bridge.captureDocState!(),
       );
       if (!captured) return undefined;
-      if (captured.surface === 'excel')
-        // Inventory ids carry the sheet: `range:Branch Performance!A1:C3`, `range:'Q1 Sales'!A1`.
-        this.knownSheets = [
-          ...new Set(
-            captured.inventory.flatMap((e) => {
-              const ref = /^range:(.+)!/.exec(e.id)?.[1];
-              return ref ? [ref.replace(/^'(.*)'$/, '$1').replace(/''/g, "'")] : [];
-            }),
-          ),
-        ];
       // Once this task has changed the document, the live selection no longer describes what the
       // user asked about: after a rewrite it holds the model's own output (and, with tracked changes,
       // the struck-through original too), which reads as "not done yet" and invites a second rewrite

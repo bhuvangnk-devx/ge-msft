@@ -79,6 +79,12 @@ export interface DocBridge {
   captureDocState?(): Promise<DocStateSnapshot | undefined>;
 
   /**
+   * Every sheet name in the workbook, hidden ones included, read live (Excel). Used only to match a
+   * sheet the model named without its stray spaces; never sent to the model.
+   */
+  listSheetNames?(): Promise<string[]>;
+
+  /**
    * Lazily read the working-document slices relevant to a query (ADR-0003, Layer B element 2):
    * content-anchored reads pulled on demand instead of pre-chunking the whole document. The
    * runtime calls this per turn (bounded), attaching the results as ephemeral data parts.
