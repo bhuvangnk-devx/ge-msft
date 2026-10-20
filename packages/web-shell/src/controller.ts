@@ -2252,11 +2252,8 @@ export class PanelController {
             requests.get(event.changeId),
             this.state.language ?? 'en',
           );
-          // Undo only where the recovery journal holds the prior cells (Excel cell writes).
-          if (
-            event.result.kind === 'write-cells' &&
-            this.session.recovery?.list().some((r) => r.id === event.changeId && r.canUndo)
-          )
+          // Undo only where the recovery journal holds the prior cells (Excel cell writes, sorts).
+          if (this.session.recovery?.list().some((r) => r.id === event.changeId && r.canUndo))
             change.undoable = true;
           changes.push(change);
           if (tracked) this.resumeStore?.landed(change.label);

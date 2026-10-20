@@ -2184,6 +2184,8 @@ function writeVerbSpec(verb: WriteVerb, isExcelLike: boolean): VerbSpec {
 export const SPECIALIZED_SYNTAX: Partial<Record<ActuationKind, string>> = {
   'insert-text':
     '/insert-text text="..." [match="exact anchor text"] [bold=true] [italic=true] [underline=true] [font=<name>] [size=<pt>] [color=#RRGGBB]',
+  'sort-range':
+    '/sort-range range=<Sheet!A1:F21> key=<header name or column letter> [order=ascending|descending] [headers=true|false]',
   'replace-selection': '/replace-selection text="..."',
   'insert-ooxml': '/insert-ooxml ooxml="<w:p>...</w:p>" [match="exact anchor text"]',
   'fill-content-control': '/fill-content-control contentControlId=<id> text="..."',

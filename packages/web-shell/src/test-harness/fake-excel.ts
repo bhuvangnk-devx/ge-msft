@@ -289,6 +289,23 @@ class FakeRange {
   numberFormat: unknown[][] = [];
   private readonly edges = new Map<string, Record<string, string>>();
   private autofitted = false;
+  /** Queued `range.sort.apply` (ExcelApi 1.2), applied to the seed grid at `sync()`. */
+  private pendingSort: { key: number; ascending: boolean; hasHeaders: boolean } | undefined;
+  readonly sort = {
+    apply: (
+      fields: Array<{ key: number; ascending?: boolean }>,
+      _matchCase?: boolean,
+      hasHeaders?: boolean,
+    ): void => {
+      const field = fields[0];
+      if (field)
+        this.pendingSort = {
+          key: field.key,
+          ascending: field.ascending !== false,
+          hasHeaders: hasHeaders === true,
+        };
+    },
+  };
   readonly format = {
     protection: { locked: true, load(_props?: string): void {} },
     font: {
@@ -414,6 +431,26 @@ class FakeRange {
     this.commitFormat();
     const sheet = sheetByName(this.seed, this.sheetName);
     const span = parseA1(this.rangeA1);
+    if (this.pendingSort) {
+      const { key, ascending, hasHeaders } = this.pendingSort;
+      this.pendingSort = undefined;
+      const grid = readGrid(sheet, span.startRow, span.startCol, span.rows, span.cols);
+      const head = hasHeaders ? grid.slice(0, 1) : [];
+      const num = (v: string) => (v.trim() !== '' ? Number(v) : Number.NaN);
+      const body = grid.slice(head.length).sort((a, b) => {
+        const [x, y] = [a[key] ?? '', b[key] ?? ''];
+        const order =
+          !Number.isNaN(num(x)) && !Number.isNaN(num(y))
+            ? num(x) - num(y)
+            : x.localeCompare(y, undefined, { sensitivity: 'base' });
+        return ascending ? order : -order;
+      });
+      [...head, ...body].forEach((row, r) =>
+        row.forEach((value, c) => writeCell(sheet, span.startRow + r, span.startCol + c, value)),
+      );
+      // The host re-reads values after a sort; a later load of this range sees the new order.
+      this._valuesCache = undefined;
+    }
     // A formula write takes precedence per cell (Excel routes `=` cells to `.formulas`); literal
     // cells fall through to `.values`. We record the resolved string into the seed grid.
     for (let r = 0; r < span.rows; r++) {

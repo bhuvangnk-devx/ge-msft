@@ -2557,9 +2557,9 @@
     {
       "kind": "sort-range",
       "surface": "excel",
-      "status": "promotable",
+      "status": "implemented",
       "exposure": "specialized",
-      "priority": "p1",
+      "priority": "p0",
       "command": "/sort-range",
       "title": "Excel native sort",
       "useWhen": "sort a range or table in place using Excel sort semantics",
@@ -2588,7 +2588,8 @@
         "Emit one /sort-range command."
       ],
       "examples": [
-        "/sort-range range=Sales!A1:G500 key=Revenue order=descending"
+        "/sort-range range=Sales!A1:G500 key=Revenue order=descending",
+        "/sort-range range=Sales!A1:G500 key=C headers=true"
       ],
       "preview": [
         "affected range/table",

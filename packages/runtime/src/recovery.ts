@@ -117,6 +117,19 @@ function overlaps(left: CellSnapshot, right: CellSnapshot): boolean {
 }
 
 /** Durable effect receipts, never persisted approval authority. Only bounded cell writes are replayable. */
+/**
+ * Writes whose prior cells are captured before approval and restored on undo: a cell write, and a
+ * native sort (WS4b), whose inverse is the rows in their earlier order.
+ */
+const RECOVERABLE_KINDS: ReadonlySet<string> = new Set(['write-cells', 'sort-range']);
+
+/** The cells a recoverable write changes: a write's target grid, or the range a sort reorders. */
+function recoverableAddress(request: ActuationRequest): string {
+  if (request.kind === 'sort-range') return request.params.sortRange?.range ?? '';
+  const values = gridForRequest(request);
+  return rangeForGrid(request.params.target?.range ?? '', values.length, values[0]?.length ?? 0);
+}
+
 export class RecoveryCoordinator {
   private records: RecoveryRecord[] = [];
   private readonly prepared = new Map<string, CellSnapshot>();
@@ -204,7 +217,7 @@ export class RecoveryCoordinator {
 
   /** Capture before approval. An absolute, versioned destination replaces the live selection. */
   async prepare(request: ActuationRequest): Promise<ActuationRequest> {
-    if (request.kind !== 'write-cells' || !this.bridge.captureCells) return request;
+    if (!RECOVERABLE_KINDS.has(request.kind) || !this.bridge.captureCells) return request;
     const prepared = this.prepared.get(request.changeId);
     if (prepared) {
       await this.locked(async () => {
@@ -213,13 +226,7 @@ export class RecoveryCoordinator {
       });
       return request;
     }
-    const values = gridForRequest(request);
-    const address = rangeForGrid(
-      request.params.target?.range ?? '',
-      values.length,
-      values[0]?.length ?? 0,
-    );
-    const before = await this.bridge.captureCells(address);
+    const before = await this.bridge.captureCells(recoverableAddress(request));
     const conditions = request.preconditions ?? [];
     for (const expected of conditions) {
       const current =
@@ -240,9 +247,14 @@ export class RecoveryCoordinator {
       this.assertNoUnresolvedOverlap(before);
       this.prepared.set(request.changeId, before);
     });
+    // Pin the reviewed, absolute range: a write's target, or the range a sort reorders.
+    const params =
+      request.kind === 'sort-range' && request.params.sortRange
+        ? { ...request.params, sortRange: { ...request.params.sortRange, range: before.locator } }
+        : { ...request.params, target: { ...request.params.target, range: before.locator } };
     return ActuationRequestSchema.parse({
       ...request,
-      params: { ...request.params, target: { ...request.params.target, range: before.locator } },
+      params,
       preconditions: [
         ...conditions.filter((c) => c.locator !== before.locator),
         sourceVersion(before),
@@ -260,7 +272,7 @@ export class RecoveryCoordinator {
     actuate: () => Promise<ActuationResult>,
   ): Promise<ActuationResult> {
     const before = this.prepared.get(request.changeId);
-    if (request.kind !== 'write-cells' || !before)
+    if (!RECOVERABLE_KINDS.has(request.kind) || !before)
       return validateActuationResult(request, await actuate());
     return this.locked(async () => {
       await this.load();

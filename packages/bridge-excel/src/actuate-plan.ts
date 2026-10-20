@@ -450,3 +450,85 @@ export function formatSourceComment(sources: SourceRef[], maxChars = 500): strin
   if (maxChars <= 1) return text.slice(0, maxChars);
   return `${text.slice(0, maxChars - 1)}…`;
 }
+
+/** `sort-range` (WS4b): a native in-place sort of one range by one key column. */
+export interface SortRangePlan {
+  address?: string;
+  key: string;
+  ascending: boolean;
+  hasHeaders: boolean;
+}
+
+export function planSortRange(req: ActuationRequest): SortRangePlan {
+  const s = req.params.sortRange;
+  const address = s?.range?.trim();
+  return {
+    ...(address ? { address } : {}),
+    key: s?.key?.trim() ?? '',
+    ascending: s?.order !== 'descending',
+    hasHeaders: s?.hasHeaders ?? true,
+  };
+}
+
+const colToIndex = (letters: string): number =>
+  [...letters.toUpperCase()].reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+
+/**
+ * The key's column offset within the range: a header name (case-insensitive, exact) wins; else a
+ * column letter, relative to the range's first column. Undefined when neither names a column.
+ */
+export function sortKeyIndex(
+  key: string,
+  header: readonly unknown[],
+  firstColumn: string,
+): number | undefined {
+  const wanted = key.trim().toLowerCase();
+  const byName = header.findIndex(
+    (cell) =>
+      String(cell ?? '')
+        .trim()
+        .toLowerCase() === wanted,
+  );
+  if (byName >= 0) return byName;
+  if (!/^[A-Za-z]{1,3}$/.test(key.trim())) return undefined;
+  const offset = colToIndex(key.trim()) - colToIndex(firstColumn);
+  return offset >= 0 && offset < header.length ? offset : undefined;
+}
+
+/** A number, or a non-empty string that is one ("98000"); else NaN. */
+const asNumber = (v: unknown): number =>
+  typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : Number.NaN;
+
+const compareCells = (a: unknown, b: unknown): number => {
+  const na = asNumber(a);
+  const nb = asNumber(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+  return String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base' });
+};
+
+/**
+ * A sort landed as reviewed when the data rows are the same rows in a new order (nothing changed
+ * or lost) and the key column is in the requested order. The header row must not move.
+ */
+export function sortVerified(
+  before: readonly (readonly unknown[])[],
+  after: readonly (readonly unknown[])[],
+  keyIndex: number,
+  ascending: boolean,
+  hasHeaders: boolean,
+): boolean {
+  if (before.length !== after.length) return false;
+  const start = hasHeaders ? 1 : 0;
+  if (hasHeaders && JSON.stringify(before[0]) !== JSON.stringify(after[0])) return false;
+  const rows = (grid: readonly (readonly unknown[])[]) =>
+    grid
+      .slice(start)
+      .map((row) => JSON.stringify(row))
+      .sort();
+  if (JSON.stringify(rows(before)) !== JSON.stringify(rows(after))) return false;
+  for (let r = start + 1; r < after.length; r++) {
+    const order = compareCells(after[r - 1]![keyIndex], after[r]![keyIndex]);
+    if (ascending ? order > 0 : order < 0) return false;
+  }
+  return true;
+}

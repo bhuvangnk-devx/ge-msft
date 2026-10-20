@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { asChangeId, type ActuationRequest } from '@ge/contracts';
 import {
+  planSortRange,
+  sortKeyIndex,
+  sortVerified,
   planAddComment,
   planConditional,
   planCreateTable,
@@ -354,5 +357,50 @@ describe('planConditional (ADR-0007 cf verb)', () => {
       ),
     );
     expect(ok.unsafe).toBeUndefined();
+  });
+});
+
+describe('sort-range planning (WS4b, Argon mx-xl-unsupported-05)', () => {
+  const sortReq = (sortRange: Record<string, unknown>): ActuationRequest => ({
+    changeId: asChangeId('s1'),
+    surface: 'excel',
+    kind: 'sort-range',
+    params: { sortRange: { order: 'ascending', hasHeaders: true, ...sortRange } } as never,
+  });
+
+  it('plans the range, direction and header handling', () => {
+    expect(
+      planSortRange(sortReq({ range: 'Sales!A1:C4', key: 'Deposits', order: 'descending' })),
+    ).toEqual({ address: 'Sales!A1:C4', key: 'Deposits', ascending: false, hasHeaders: true });
+    expect(planSortRange(sortReq({ range: '', key: 'x' })).address).toBeUndefined();
+  });
+
+  it('finds the key column by header name (any case) or by column letter', () => {
+    const header = ['Branch', 'Region', 'Deposits'];
+    expect(sortKeyIndex('deposits', header, 'B')).toBe(2);
+    expect(sortKeyIndex('D', header, 'B')).toBe(2); // column D in a range that starts at B
+    expect(sortKeyIndex('A', header, 'B')).toBeUndefined(); // left of the range
+    expect(sortKeyIndex('Loans', header, 'B')).toBeUndefined();
+  });
+
+  it('accepts only a reordering of the same rows with the key in order', () => {
+    const before = [
+      ['Branch', 'Deposits'],
+      ['Jakarta', 5],
+      ['Medan', 2],
+      ['Bandung', 9],
+    ];
+    const sorted = [before[0]!, before[3]!, before[1]!, before[2]!];
+    expect(sortVerified(before, sorted, 1, false, true)).toBe(true);
+    expect(sortVerified(before, before, 1, false, true)).toBe(false); // not in order
+    const changed = [before[0]!, ['Bandung', 9], ['Jakarta', 5], ['Medan', 3]];
+    expect(sortVerified(before, changed, 1, false, true)).toBe(false); // a value changed
+    // Numbers read back as text still compare as numbers.
+    const text = [
+      ['Region', 'Q1'],
+      ['North', '120000'],
+      ['South', '98000'],
+    ];
+    expect(sortVerified(text, text, 1, false, true)).toBe(true);
   });
 });

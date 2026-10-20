@@ -290,9 +290,9 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
   entry({
     kind: 'sort-range',
     surface: 'excel',
-    status: 'promotable',
+    status: 'implemented',
     exposure: 'specialized',
-    priority: 'p1',
+    priority: 'p0',
     command: '/sort-range',
     title: 'Excel native sort',
     useWhen: 'sort a range or table in place using Excel sort semantics',
@@ -305,7 +305,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
       'Preview the sort key, direction, and affected rows.',
       'Emit one /sort-range command.',
     ],
-    examples: ['/sort-range range=Sales!A1:G500 key=Revenue order=descending'],
+    examples: [
+      '/sort-range range=Sales!A1:G500 key=Revenue order=descending',
+      '/sort-range range=Sales!A1:G500 key=C headers=true',
+    ],
     preview: ['affected range/table', 'sort key', 'direction', 'header handling'],
     inverse: 'restore prior row order from captured values when within write budget',
     provenance: 'record source hash, sort key, order, and changeId',

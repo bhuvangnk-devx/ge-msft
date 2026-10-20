@@ -42,6 +42,9 @@ import {
   planConditional,
   planCreateTable,
   planFormatCells,
+  planSortRange,
+  sortKeyIndex,
+  sortVerified,
   planInsertChart,
   planWriteCells,
   splitFormulaGrid,
@@ -72,6 +75,7 @@ export class ExcelBridge implements DocBridge {
     {
       'write-cells': (host, request) => host.applyWriteCells(request),
       'format-cells': (host, request) => host.applyFormatCells(request),
+      'sort-range': (host, request) => host.applySortRange(request),
       'create-table': (host, request) => host.applyCreateTable(request),
       'insert-chart': (host, request) => host.applyInsertChart(request),
       'format-conditional': (host, request) => host.applyConditional(request),
@@ -771,6 +775,95 @@ export class ExcelBridge implements DocBridge {
       if (Object.keys(flags).length > 0) return { ...result, ...flags };
     }
     return result;
+  }
+
+  /**
+   * `sort-range` (WS4b): Excel's native in-place sort of one range by one key column (a header name
+   * or a column letter). Same guards as a cell write: protected sheet refused, the reviewed range
+   * pinned by hash, readback verified (the same rows, reordered, key in order), and the prior
+   * cells kept as the undo. A model that cannot sort rewrote whole tables in sorted order instead
+   * (Argon mx-xl-unsupported-05, 2026-10-19).
+   */
+  private async applySortRange(req: ActuationRequest): Promise<ActuationResult> {
+    const plan = planSortRange(req);
+    const fail = (code: string, message: string): ActuationResult => ({
+      ok: false,
+      changeId: req.changeId,
+      kind: req.kind,
+      error: { code, message },
+    });
+    if (!plan.address)
+      return fail('no_anchor', 'sort-range needs a range, e.g. range=Sales!A1:F21');
+    if (!plan.key) return fail('no_key', 'sort-range needs key=<header name or column letter>');
+    if (!isSet('ExcelApi', '1.2'))
+      return {
+        ...fail('unsupported_host', 'This host cannot sort ranges (ExcelApi < 1.2).'),
+        degraded: true,
+      };
+    return Excel.run(async (ctx) => {
+      const { sheetName, rangeAddress } = parseAddress(plan.address as string);
+      const sheet =
+        sheetName !== undefined
+          ? ctx.workbook.worksheets.getItem(sheetName)
+          : ctx.workbook.worksheets.getActiveWorksheet();
+      const range = sheet.getRange(rangeAddress);
+      const refused = await protectedSheetRefusal(ctx, sheet, range, req, false);
+      if (refused) return refused;
+      const before = await snapshotRange(range, ctx, await excelDocumentId());
+      const expected = req.preconditions?.find((p) => p.locator === before.locator);
+      if (
+        expected &&
+        (expected.surface !== 'excel' ||
+          expected.documentId !== before.documentId ||
+          expected.hash !== before.hash)
+      )
+        return fail('stale_target', 'The range changed after preview. Review a new plan.');
+      const firstColumn = /^\$?([A-Za-z]{1,3})/.exec(rangeAddress)?.[1] ?? 'A';
+      const header = before.values[0] ?? [];
+      const keyIndex = sortKeyIndex(plan.key, header, firstColumn);
+      if (keyIndex === undefined)
+        return fail(
+          'unknown_key',
+          `No column "${plan.key}" in ${before.locator}. Use a header name or a column letter inside the range.`,
+        );
+      range.sort.apply([{ key: keyIndex, ascending: plan.ascending }], false, plan.hasHeaders);
+      range.load('address');
+      await ctx.sync();
+      let verification: NonNullable<ActuationResult['verification']>;
+      try {
+        const after = await snapshotRange(range, ctx, before.documentId);
+        const ok =
+          sortVerified(before.values, after.values, keyIndex, plan.ascending, plan.hasHeaders) &&
+          !hasFormulaErrors(after);
+        verification = {
+          status: ok ? 'verified' : 'mismatch',
+          beforeHash: before.hash,
+          afterHash: after.hash,
+          ...(ok
+            ? {}
+            : { message: 'The rows changed in more than order, or the key is not in order.' }),
+        };
+      } catch {
+        verification = {
+          status: 'unknown',
+          beforeHash: before.hash,
+          message: 'The sort landed, but readback could not complete.',
+        };
+      }
+      return {
+        ok: true,
+        changeId: req.changeId,
+        kind: req.kind,
+        location: range.address,
+        verification,
+        inverse: {
+          op: 'restore-cells' as const,
+          range: before.locator,
+          values: before.values,
+          formulas: before.formulas,
+        },
+      };
+    });
   }
 
   /**

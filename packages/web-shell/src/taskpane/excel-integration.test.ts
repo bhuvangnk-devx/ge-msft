@@ -270,6 +270,71 @@ describe('Excel full-stack integration', () => {
     expect(steps.length).toBeGreaterThan(0);
   });
 
+  it('sorts a range natively, verifies it, and Undo restores the earlier order (WS4b)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\n/sort-range range=Sales!A1:D7 key=revenue order=descending\n```',
+        '```cmd\ndone\n```',
+      ]),
+    });
+    await ui!.flush();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('sort by revenue, highest first');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    await ui!.flush();
+
+    const revenue = () =>
+      sim!
+        .snapshot()
+        .sheets[0]!.values.slice(1)
+        .map((row) => row[2]);
+    expect(revenue()).toEqual(['300', '250', '220', '180', '140', '90']);
+    expect(sim.snapshot().sheets[0]!.values[0]).toEqual(['region', 'rep', 'revenue', 'cost']);
+    const reply = ui!.controller.getState().messages.at(-1)!;
+    expect(reply.changes?.[0]?.undoable).toBe(true);
+
+    let undo!: Promise<void>;
+    await ui!.act(() => {
+      undo = ui!.controller.undoChanges(reply.id);
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await undo;
+    expect(sim.snapshot().sheets[0]!.values).toEqual(before);
+  });
+
+  it('a sort key that is not a column is refused before anything changes (WS4b)', async () => {
+    sim = installFakeExcel();
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\n/sort-range range=Sales!A1:D7 key=Deposits\n```',
+        '```cmd\ndone "There is no Deposits column."\n```',
+      ]),
+    });
+    await ui!.flush();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('sort by deposits');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined || !s.busy);
+    if (ui!.controller.getState().pendingPlan) await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    expect(sim.snapshot().sheets[0]!.values).toEqual(before);
+  });
+
   it('an approved format effect records the facets against the targeted range', async () => {
     sim = installFakeExcel();
     ui = mountStack({

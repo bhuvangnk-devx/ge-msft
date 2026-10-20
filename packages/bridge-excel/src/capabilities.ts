@@ -67,5 +67,12 @@ export const EXCEL_CAPABILITIES: CapabilityManifest = {
       reversible: true,
       appliesTo: ['comment'],
     },
+    {
+      kind: 'sort-range',
+      surface: 'excel',
+      title: 'Sort a range',
+      reversible: true,
+      appliesTo: ['range', 'table'],
+    },
   ],
 };
