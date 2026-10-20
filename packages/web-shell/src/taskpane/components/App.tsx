@@ -67,6 +67,9 @@ export interface AppProps {
   reporter?: Reporter;
   /** The signed-in user's name for the home greeting; the greeting has no name without it. */
   userName?: string;
+  /** Build-time model override; blank leaves model choice to the engine. */
+  initialModelId?: string;
+  onModelChange?: (modelId: string | undefined) => void;
 }
 
 /** Commit and build time in every Copy diagnostics, so a pasted report names its build. */
@@ -336,6 +339,8 @@ export function App({
   diagnosticsScope,
   reporter,
   userName,
+  initialModelId,
+  onModelChange,
 }: AppProps): JSX.Element {
   const state = usePanelState(controller);
   const savedStore = useMemo(
@@ -423,6 +428,7 @@ export function App({
   const [paramFill, setParamFill] = useState<QuickAction | undefined>(undefined);
   // Answer format and style live in Settings; a new surface starts from the defaults.
   const [answerOptions, setAnswerOptions] = useState<AnswerOptionsValue>({});
+  const [modelId, setModelId] = useState(initialModelId ?? '');
   useEffect(() => setAnswerOptions({}), [surface]);
   const hasBlockingGate = Boolean(
     state.pendingCommandPlan ?? state.pendingPlan ?? state.pendingWrite ?? state.pendingShare,
@@ -575,11 +581,31 @@ export function App({
         primaryActionIds={primaryActionIds}
         hasSettings
         settingsPanel={
-          <AnswerOptions
-            value={answerOptions}
-            disabled={actionBlocked}
-            onChange={setAnswerOptions}
-          />
+          <>
+            <label className="field">
+              <span className="field-label">Model</span>
+              <select
+                className="field-control"
+                aria-label="Model"
+                value={modelId}
+                disabled={actionBlocked}
+                onChange={(event) => {
+                  if (actionBlocked) return;
+                  const next = event.target.value;
+                  setModelId(next);
+                  onModelChange?.(next || undefined);
+                }}
+              >
+                <option value="">Default engine</option>
+                <option value="gemini-4-argon">Gemini 4 Argon</option>
+              </select>
+            </label>
+            <AnswerOptions
+              value={answerOptions}
+              disabled={actionBlocked}
+              onChange={setAnswerOptions}
+            />
+          </>
         }
         tools={
           <>

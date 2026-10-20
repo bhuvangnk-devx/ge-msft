@@ -193,7 +193,7 @@ function parseEnv(env: RawEnv): z.infer<typeof RawEnvShape> {
     ...(env.VITE_GE_WIDGET_SERVER_TOKEN
       ? { VITE_GE_WIDGET_SERVER_TOKEN: env.VITE_GE_WIDGET_SERVER_TOKEN.trim() }
       : {}),
-    ...(env.VITE_GE_MODEL_ID ? { VITE_GE_MODEL_ID: env.VITE_GE_MODEL_ID.trim() } : {}),
+    ...(env.VITE_GE_MODEL_ID?.trim() ? { VITE_GE_MODEL_ID: env.VITE_GE_MODEL_ID.trim() } : {}),
     ...(env.VITE_GE_SKILL_IDS ? { VITE_GE_SKILL_IDS: splitList(env.VITE_GE_SKILL_IDS) } : {}),
     ...(env.VITE_GE_COMMAND_PLANNER_SKILL
       ? { VITE_GE_COMMAND_PLANNER_SKILL: env.VITE_GE_COMMAND_PLANNER_SKILL.trim() }
@@ -361,6 +361,14 @@ export function wifFromEnv(env: RawEnv): WifConfig {
  */
 export function modelIdFromEnv(value: string | undefined): string | undefined {
   return value?.trim() || undefined;
+}
+
+/** The one model the pane offers besides the engine default. */
+export const PANE_MODEL_ID = 'gemini-4-argon';
+
+/** The pane sends Argon for any configured model id; blank keeps the engine default. */
+export function paneModelId(modelId: string | undefined): string | undefined {
+  return modelId?.trim() ? PANE_MODEL_ID : undefined;
 }
 
 export function shellConfigFromEnv(env: RawEnv, b: Brand = brand): ShellConfig {

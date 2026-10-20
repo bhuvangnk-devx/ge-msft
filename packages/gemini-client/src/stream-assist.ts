@@ -191,6 +191,11 @@ export class StreamAssistClient {
     private readonly retryOpts: RetryOptions = {},
   ) {}
 
+  /** Applies to subsequent turns; undefined returns model choice to the engine. */
+  setModelId(modelId: string | undefined): void {
+    this.config = { ...this.config, modelId: modelId?.trim() || undefined };
+  }
+
   configureRouting(
     update: Partial<
       Pick<

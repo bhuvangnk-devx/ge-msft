@@ -19,6 +19,7 @@ import {
   widgetFromEnv,
   type RawEnv,
   modelIdFromEnv,
+  paneModelId,
 } from './config.js';
 
 const SHA_A = 'a'.repeat(64);
@@ -305,7 +306,23 @@ describe('config from env', () => {
   });
 });
 
+describe('paneModelId', () => {
+  it('sends Argon for any configured model and the engine default when blank', () => {
+    expect(paneModelId(undefined)).toBeUndefined();
+    expect(paneModelId('  ')).toBeUndefined();
+    expect(paneModelId('gemini-4-argon')).toBe('gemini-4-argon');
+    expect(paneModelId('gemini-3.5-flash')).toBe('gemini-4-argon');
+  });
+});
+
 describe('modelIdFromEnv', () => {
+  it.each([undefined, '', '  \t '])(
+    'uses the engine default through full config parsing for %j',
+    (value) => {
+      expect(shellConfigFromEnv({ ...full, VITE_GE_MODEL_ID: value }).modelId).toBeUndefined();
+    },
+  );
+
   it('sends no model id when blank (the engine default answers) and honours an override', () => {
     expect(modelIdFromEnv(undefined)).toBeUndefined();
     expect(modelIdFromEnv('  ')).toBeUndefined();

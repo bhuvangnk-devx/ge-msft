@@ -41,6 +41,7 @@ import {
   authOptionsFromEnv,
   msalConfigFromEnv,
   notebookIdFromEnv,
+  paneModelId,
   releaseProfileFromEnv,
   warmUpSkillsFromEnv,
   type RawEnv,
@@ -437,6 +438,8 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
     const { assistantRules: _rules, draftGreeting: _greeting, ...catalogConfig } = config;
     const catalogClient = new DiscoveryCatalogClient(tokens, catalogConfig);
     await applyBootCatalogRouting(client, catalogClient);
+    const initialModelId = paneModelId(config.modelId);
+    client.setModelId(initialModelId);
     const controller = new PanelController(session, prepared.bridge);
     controller.setDiscoveredCatalog(availableAgents, availableDataStores);
     const drift = skillDriftNotice(warmUp);
@@ -509,6 +512,8 @@ async function finishBoot(prepared: PreparedBoot, opts: BootOptions = {}): Promi
         controller={controller}
         surface={prepared.surface}
         allowedIntents={allowedIntents}
+        initialModelId={initialModelId}
+        onModelChange={(modelId) => client.setModelId(modelId)}
         {...(savedScope ? { diagnosticsScope: savedScope } : {})}
         {...(reporter ? { reporter } : {})}
         {...(identity?.displayName ? { userName: identity.displayName } : {})}

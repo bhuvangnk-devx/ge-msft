@@ -726,6 +726,35 @@ describe('StreamAssistClient', () => {
     }
   });
 
+  it('switches Argon and the engine default on subsequent chat, planner and command requests', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const client = new StreamAssistClient(tokens, cfg(), async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(
+        streamOf([
+          JSON.stringify([
+            {
+              answer: {
+                state: 'SUCCEEDED',
+                replies: [{ groundedContent: { content: { text: 'Ready.' } } }],
+              },
+            },
+          ]),
+        ]),
+        { status: 200 },
+      );
+    });
+    for (const modelId of ['gemini-4-argon', undefined, '  ']) {
+      client.setModelId(modelId);
+      for (const route of ['default', 'planner', 'command'] as const) {
+        await collect(client.stream(assistReq(), { skillRoute: route }));
+        expect(bodies.at(-1)?.generationSpec).toEqual(
+          modelId === 'gemini-4-argon' ? { modelId: 'gemini-4-argon' } : undefined,
+        );
+      }
+    }
+  });
+
   it('carries the grounding chunk text onto the citation as a whitespace-collapsed excerpt', async () => {
     const chunk = {
       sessionInfo: { session: 'sess_x' },
