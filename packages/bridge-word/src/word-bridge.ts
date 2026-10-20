@@ -46,7 +46,12 @@ import {
   selectionChangedEvent,
 } from './events.js';
 import { isSet } from './capabilities-runtime.js';
-import { canRevealWordContext, OfficeWordHost, type WordHost } from './host-port.js';
+import {
+  canRevealWordContext,
+  MAX_TABLE_REPLACE_PARAGRAPHS,
+  OfficeWordHost,
+  type WordHost,
+} from './host-port.js';
 
 const MAX_LISTED_PARAGRAPHS = 12;
 
@@ -671,6 +676,18 @@ export class WordBridge implements DocBridge {
         },
       };
     }
+    // Replacing paragraphs needs both ends named; never fall back to inserting at the selection.
+    if (plan.replaceThrough !== undefined && !plan.anchored) {
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        error: {
+          code: 'no_anchor',
+          message: 'replaceThrough= needs match="<text in the first paragraph to replace>"',
+        },
+      };
+    }
     const outcome = await this.host.insertTable(
       plan.anchored ? plan.matchText : undefined,
       { matchCase: false },
@@ -678,7 +695,19 @@ export class WordBridge implements DocBridge {
       plan.rows[0]?.length ?? 0,
       plan.rows,
       (hitTexts) => chooseAnchorIndex([...hitTexts], plan.contextHint),
+      plan.anchored ? plan.replaceThrough : undefined,
     );
+    if (outcome.status === 'too_long') {
+      return {
+        ok: false,
+        changeId: req.changeId,
+        kind: req.kind,
+        error: {
+          code: 'too_many_paragraphs',
+          message: `A table can replace at most ${MAX_TABLE_REPLACE_PARAGRAPHS} paragraphs; this run has ${outcome.paragraphs}. Narrow match= and replaceThrough=.`,
+        },
+      };
+    }
     if (outcome.status === 'drift') {
       return {
         ok: false,

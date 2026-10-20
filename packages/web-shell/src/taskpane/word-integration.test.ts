@@ -179,4 +179,72 @@ describe('Word full-stack integration', () => {
     expect(insert?.text).toBe('AI COE');
     expect(insert?.font).toEqual({ bold: true, name: 'Arial', size: 16 });
   });
+
+  it('turns paragraphs into a table: one tracked edit replaces them (WS4b, Argon mx-wd-table-14)', async () => {
+    sim = installFakeWord(
+      wordSeed({
+        paragraphs: [
+          { text: 'Action items', styleBuiltIn: 'Heading2' },
+          { text: 'Budi - send the test results - 21 Oct', styleBuiltIn: 'Normal' },
+          { text: 'Rina - review the SLA - 24 Oct', styleBuiltIn: 'Normal' },
+          { text: 'Next steps follow.', styleBuiltIn: 'Normal' },
+        ],
+      }),
+    );
+    ui = mountStack({
+      surface: 'word',
+      client: scriptedClient([
+        '```cmd\n/insert-table match="Budi - send" replaceThrough="Rina - review" rows="Owner\\tAction\\tDue\\nBudi\\tSend the test results\\t21 Oct\\nRina\\tReview the SLA\\t24 Oct" headers=true\n```',
+        '```cmd\ndone "Converted."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('turn the action items into a table: owner, action, due');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    const doc = sim.snapshot();
+    expect(doc.tables?.at(-1)?.[0]).toEqual(['Owner', 'Action', 'Due']);
+    const texts = doc.paragraphs.map((p) => p.text);
+    expect(texts).not.toContain('Budi - send the test results - 21 Oct');
+    expect(texts).not.toContain('Rina - review the SLA - 24 Oct');
+    expect(texts[0]).toBe('Action items');
+    expect(texts.at(-1)).toBe('Next steps follow.');
+    // The source paragraphs went out as tracked deletions (the user's own mode is restored after).
+    const removed = doc.inserts.filter((i) => i.text === '');
+    expect(removed.map((i) => i.anchor)).toEqual([
+      'Budi - send the test results - 21 Oct',
+      'Rina - review the SLA - 24 Oct',
+    ]);
+    expect(removed.every((i) => i.tracked)).toBe(true);
+  });
+
+  it('refuses to replace more than 50 paragraphs with a table (WS4b)', async () => {
+    const paragraphs = Array.from({ length: 60 }, (_, i) => ({
+      text: `Line ${i + 1}`,
+      styleBuiltIn: 'Normal',
+    }));
+    sim = installFakeWord(wordSeed({ paragraphs }));
+    ui = mountStack({
+      surface: 'word',
+      client: scriptedClient([
+        '```cmd\n/insert-table match="Line 1" replaceThrough="Line 60" rows="A\\tB\\n1\\t2"\n```',
+        '```cmd\ndone "Too long."\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('table everything');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    expect(sim.snapshot().paragraphs).toHaveLength(60);
+  });
 });

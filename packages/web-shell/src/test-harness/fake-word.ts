@@ -124,6 +124,47 @@ class FakeParagraphProxy {
   }
 }
 
+/** A run of whole paragraphs [from, to] (`Paragraph.getRange('Whole').expandTo(...)`). */
+class FakeParagraphBlock {
+  private inserted = 0;
+  constructor(
+    private readonly seed: WordSeed,
+    private readonly from: number,
+    private readonly to: number,
+  ) {}
+  expandTo(other: FakeParagraphBlock): FakeParagraphBlock {
+    return new FakeParagraphBlock(
+      this.seed,
+      Math.min(this.from, other.from),
+      Math.max(this.to, other.to),
+    );
+  }
+  get paragraphs(): { items: WordParagraphSeed[]; load(_props?: string): void } {
+    return { items: this.seed.paragraphs.slice(this.from, this.to + 1), load: () => undefined };
+  }
+  /** A native table before the run: one paragraph per row, cells tab-separated. */
+  insertTable(_rows: number, _cols: number, _location: string, values: string[][]): void {
+    insertParagraphsAfter(
+      this.seed,
+      this.from - 1,
+      values.map((row) => row.join('\t')),
+    );
+    this.inserted += values.length;
+    this.seed.tables = [...(this.seed.tables ?? []), values];
+  }
+  /** Remove the run's paragraphs (tracked when Track Changes is on: recorded as an insert of ''). */
+  delete(): void {
+    const at = this.from + this.inserted;
+    const removed = this.seed.paragraphs.splice(at, this.to - this.from + 1);
+    for (const p of removed)
+      this.seed.inserts.push({
+        anchor: p.text,
+        text: '',
+        tracked: this.seed.changeTrackingMode === 'TrackAll',
+      });
+  }
+}
+
 class FakeSearchResult {
   text: string;
   /** For a word from `getTextRanges`: its position and the hit's words. */
@@ -172,19 +213,31 @@ class FakeSearchResult {
   getTrackedChanges(): { items: Array<{ type: string }>; load(): void } {
     return { items: [], load: () => undefined };
   }
+  /** WordApi 1.3: where this hit sits relative to another (paragraph granularity). */
+  compareLocationWith(other: FakeSearchResult): { value: string } {
+    const [a, b] = [this.anchorIndex(), other.anchorIndex()];
+    return { value: a < b ? 'Before' : a === b ? 'Equal' : 'After' };
+  }
   get paragraphs(): {
+    getFirst(): { getRange(where: string): FakeParagraphBlock };
+    getLast(): { getRange(where: string): FakeParagraphBlock } & {
+      getRange(_where: string): { insertOoxml(ooxml: string, _loc: string): void };
+    };
     getFirstOrNullObject(): FakeParagraphProxy;
     getLast(): { getRange(_where: string): { insertOoxml(ooxml: string, _loc: string): void } };
   } {
     const index = this.anchorIndex();
     const containing = this.seed.paragraphs[index];
     return {
+      getFirst: () => ({ getRange: () => new FakeParagraphBlock(this.seed, index, index) }),
       getFirstOrNullObject: () => new FakeParagraphProxy(containing?.text, this.seed, index),
       // Block content goes after the anchor's paragraph, as its own paragraph(s).
       getLast: () => ({
-        getRange: () => ({
-          insertOoxml: (ooxml: string) => insertParagraphsAfter(this.seed, index, ooxmlText(ooxml)),
-        }),
+        getRange: () =>
+          Object.assign(new FakeParagraphBlock(this.seed, index, index), {
+            insertOoxml: (ooxml: string) =>
+              insertParagraphsAfter(this.seed, index, ooxmlText(ooxml)),
+          }),
       }),
     };
   }
@@ -513,6 +566,7 @@ export interface WordSnapshot {
   inserts: ReadonlyArray<WordInsertRecord>;
   addedComments: ReadonlyArray<{ anchor: string; text: string }>;
   changeTrackingMode?: string;
+  tables?: ReadonlyArray<string[][]>;
 }
 
 /** The installed Word simulator. */
@@ -552,6 +606,7 @@ export function installFakeWord(
     snapshot: () => ({
       bodyText: bodyText(seed),
       paragraphs: seed.paragraphs.map((p) => ({ ...p })),
+      ...(seed.tables ? { tables: seed.tables.map((t) => t.map((row) => [...row])) } : {}),
       comments: seed.comments.map((c) => ({ ...c, replies: [...c.replies] })),
       inserts: seed.inserts.map((i) => ({ ...i })),
       addedComments: seed.addedComments.map((c) => ({ ...c })),

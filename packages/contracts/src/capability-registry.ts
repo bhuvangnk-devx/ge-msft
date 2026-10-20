@@ -616,6 +616,8 @@ export const CAPABILITY_REGISTRY: readonly CapabilityRegistryEntry[] = [
     examples: [
       '/insert-table rows="#\\tAktivitas\\tDeliverable\\n\\t\\t\\n\\t\\t"',
       '/insert-table match="Appendix" rows="Metric\\tValue\\nRevenue\\t100"',
+      // Turn existing paragraphs into a table: the table replaces them as one tracked edit.
+      '/insert-table match="Budi - send" replaceThrough="Rina - review" rows="Owner\\tAction\\nBudi\\tSend results\\nRina\\tReview SLA" headers=true',
     ],
     preview: ['anchor', 'row/column count', 'first rows'],
     inverse: 'delete the inserted table when a stable inserted range can be re-resolved',

@@ -127,7 +127,12 @@ export type ApplyStyleOutcome =
  */
 export type InsertTableOutcome =
   | { readonly status: 'applied'; readonly location: string }
-  | { readonly status: 'drift' };
+  | { readonly status: 'drift' }
+  /** The paragraphs to replace run past {@link MAX_TABLE_REPLACE_PARAGRAPHS}: nothing changed. */
+  | { readonly status: 'too_long'; readonly paragraphs: number };
+
+/** A table replaces at most this many paragraphs, so a loose anchor cannot wipe a document. */
+export const MAX_TABLE_REPLACE_PARAGRAPHS = 50;
 
 /**
  * The outcome of an `insert-content-control` (ADR-0007). On success it carries the host-MINTED
@@ -300,6 +305,8 @@ export interface WordHost {
     columnCount: number,
     values: readonly (readonly string[])[],
     choose: ChooseHit,
+    /** Replace the paragraphs from the anchor's through the one containing this text. */
+    replaceThrough?: string,
   ): Promise<InsertTableOutcome>;
 
   /**
@@ -863,8 +870,48 @@ export class OfficeWordHost implements WordHost {
     columnCount: number,
     values: readonly (readonly string[])[],
     choose: ChooseHit,
+    replaceThrough?: string,
   ): Promise<InsertTableOutcome> {
     return this.edit(async (ctx) => {
+      if (query !== undefined && replaceThrough !== undefined) {
+        const starts = ctx.document.body.search(query, { matchCase: opts.matchCase });
+        const ends = ctx.document.body.search(replaceThrough, { matchCase: opts.matchCase });
+        starts.load('items/text');
+        ends.load('items/text');
+        await ctx.sync();
+        const liveStarts = await withoutTrackedDeletions(ctx, starts.items);
+        const start = liveStarts[choose(liveStarts.map((r) => r.text))];
+        if (!start) return { status: 'drift' };
+        // The first end at or after the start (WordApi 1.3 compareLocationWith).
+        const liveEnds = await withoutTrackedDeletions(ctx, ends.items);
+        const relations = liveEnds.map((end) => start.compareLocationWith(end));
+        await ctx.sync();
+        const end = liveEnds.find((_, i) =>
+          [
+            'Before',
+            'AdjacentBefore',
+            'Equal',
+            'InsideStart',
+            'ContainsStart',
+            'InsideEnd',
+            'Inside',
+          ].includes(String(relations[i]?.value)),
+        );
+        if (!end) return { status: 'drift' };
+        const block = start.paragraphs
+          .getFirst()
+          .getRange('Whole')
+          .expandTo(end.paragraphs.getLast().getRange('Whole'));
+        block.paragraphs.load('items');
+        await ctx.sync();
+        const count = block.paragraphs.items.length;
+        if (count > MAX_TABLE_REPLACE_PARAGRAPHS) return { status: 'too_long', paragraphs: count };
+        // One tracked edit: the table goes in before the run, then the run is deleted.
+        block.insertTable(rowCount, columnCount, Word.InsertLocation.before, values as string[][]);
+        block.delete();
+        await ctx.sync();
+        return { status: 'applied', location: 'insert-table' };
+      }
       if (query === undefined) {
         const sel = ctx.document.getSelection();
         sel.insertTable(rowCount, columnCount, Word.InsertLocation.after, values as string[][]);

@@ -221,6 +221,8 @@ export interface InsertTablePlan {
   anchored: boolean;
   rows: string[][];
   hasRows: boolean;
+  /** The last paragraph's text when the table replaces a run of paragraphs. */
+  replaceThrough?: string;
 }
 
 export function planInsertTable(req: ActuationRequest): InsertTablePlan {
@@ -232,6 +234,7 @@ export function planInsertTable(req: ActuationRequest): InsertTablePlan {
     anchored: Boolean(p.target?.matchText),
     rows,
     hasRows: rows.length > 0 && (rows[0]?.length ?? 0) > 0,
+    ...(p.tableGrid?.replaceThrough ? { replaceThrough: p.tableGrid.replaceThrough } : {}),
   };
 }
 

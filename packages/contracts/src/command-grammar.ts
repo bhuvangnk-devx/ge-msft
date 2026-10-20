@@ -2193,7 +2193,7 @@ export const SPECIALIZED_SYNTAX: Partial<Record<ActuationKind, string>> = {
   'apply-style':
     '/apply-style style="Heading 1" [match="exact paragraph text"] [builtIn=true|false]',
   'insert-table':
-    '/insert-table rows="h1\\th2\\nv1\\tv2" [headers=true|false] [match="exact anchor text"]',
+    '/insert-table rows="h1\\th2\\nv1\\tv2" [headers=true|false] [match="exact anchor text"] [replaceThrough="text in the last paragraph to turn into the table"]',
   'insert-content-control':
     '/insert-content-control type=richText|plainText [tag=<tag>] [title="..."] [match="exact anchor text"]',
   'insert-hyperlink':

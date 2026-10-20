@@ -4444,7 +4444,8 @@
       ],
       "examples": [
         "/insert-table rows=\"#\\tAktivitas\\tDeliverable\\n\\t\\t\\n\\t\\t\"",
-        "/insert-table match=\"Appendix\" rows=\"Metric\\tValue\\nRevenue\\t100\""
+        "/insert-table match=\"Appendix\" rows=\"Metric\\tValue\\nRevenue\\t100\"",
+        "/insert-table match=\"Budi - send\" replaceThrough=\"Rina - review\" rows=\"Owner\\tAction\\nBudi\\tSend results\\nRina\\tReview SLA\" headers=true"
       ],
       "preview": [
         "anchor",

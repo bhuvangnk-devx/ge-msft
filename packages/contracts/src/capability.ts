@@ -398,6 +398,11 @@ export const ActuationParamsSchema = z.object({
     .object({
       rows: z.array(z.array(z.string())),
       hasHeaders: z.boolean().default(false),
+      /**
+       * Word: the table REPLACES the paragraphs from the `target.matchText` paragraph through the
+       * paragraph containing this text, as one tracked edit ("turn these paragraphs into a table").
+       */
+      replaceThrough: z.string().min(1).optional(),
       /** PowerPoint: the header row's fill (#RRGGBB), with white bold text — the deck's colour. */
       headerFill: z
         .string()

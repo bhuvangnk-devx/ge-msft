@@ -436,6 +436,7 @@ function paramsFromInvoke(
       p.tableGrid = {
         rows: rowsFromProp(props.rows ?? props.tsv ?? ''),
         hasHeaders: boolFromProp(props.headers, false),
+        ...(props.replaceThrough ? { replaceThrough: props.replaceThrough } : {}),
         ...numberProp(props, 'left'),
         ...numberProp(props, 'top'),
         ...numberProp(props, 'width'),
