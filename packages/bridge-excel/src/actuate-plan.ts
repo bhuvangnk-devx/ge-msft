@@ -532,6 +532,64 @@ function inOrder(a: unknown, b: unknown, ascending: boolean): boolean {
   return text || (!Number.isNaN(na) && !Number.isNaN(nb) && (nb - na) * dir >= 0);
 }
 
+/** Functions whose result depends on the cell's position or changes by itself. */
+const POSITION_FUNCTIONS = new Set([
+  'ROW',
+  'ROWS',
+  'COLUMN',
+  'COLUMNS',
+  'OFFSET',
+  'INDIRECT',
+  'INDEX',
+  'ADDRESS',
+  'CELL',
+  'RAND',
+  'RANDBETWEEN',
+  'RANDARRAY',
+  'NOW',
+  'TODAY',
+  'INFO',
+]);
+
+/**
+ * True when every formula in the rows a sort moves uses only cells of its own row, by relative
+ * row. Excel adjusts such references when it moves the row, so each result stays the same (as
+ * `=E2/D2` → `=E5/D5`). Anything else is refused: another row, an absolute row (`E$2`), another
+ * sheet, a table or whole-column/row reference, a defined name, or a position-dependent function.
+ * `firstRow` is the sheet row of `formulas[0]`.
+ */
+export function formulasStayInRow(
+  formulas: readonly (readonly unknown[])[],
+  firstRow: number,
+  hasHeaders: boolean,
+): boolean {
+  const ref =
+    /(?<![A-Za-z_\d.$])(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![\w(.])|(?<![\w.$])([A-Za-z_][\w.]*)(\s*\()?/g;
+  for (let r = hasHeaders ? 1 : 0; r < formulas.length; r++) {
+    const row = firstRow + r;
+    for (const cell of formulas[r] ?? []) {
+      const formula = String(cell ?? '');
+      if (!formula.startsWith('=')) continue;
+      // String literals are text, not references ("" escapes a quote).
+      const code = formula.replace(/"(?:[^"]|"")*"/g, '""');
+      if (
+        /[[\]!']/.test(code) ||
+        /(?:^|[^\w$])\$?[A-Za-z]{1,3}:\$?[A-Za-z]{1,3}(?![\w])/.test(code)
+      )
+        return false;
+      if (/(?:^|[^\w$.])\$?\d+:\$?\d+/.test(code)) return false;
+      for (const m of code.matchAll(ref)) {
+        if (m[2] !== undefined) {
+          if (m[3] === '$' || Number(m[4]) !== row) return false;
+        } else if (m[6] !== undefined) {
+          if (POSITION_FUNCTIONS.has(m[5]!.toUpperCase())) return false;
+        } else if (!/^(TRUE|FALSE)$/i.test(m[5]!)) return false;
+      }
+    }
+  }
+  return true;
+}
+
 /**
  * A sort landed as reviewed when the data rows are the same rows in a new order (nothing changed
  * or lost) and the key column is in the requested order. The header row must not move.

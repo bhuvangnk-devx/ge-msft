@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { ActuationRequest, ChangeId } from '@ge/contracts';
 import { approvalClassOf, isReversibleKind } from '@ge/contracts';
-import { analyseEffectDependencies, propagateFailure, effectResources } from './planning.js';
+import {
+  analyseEffectDependencies,
+  propagateFailure,
+  effectResources,
+  changesCoveredBy,
+} from './planning.js';
 
 const cid = (s: string) => s as ChangeId;
 
@@ -177,5 +182,65 @@ describe('planning — dependency DAG (ADR-0008 §7)', () => {
       req('write-cells', { target: { range: 'Report!B2' }, cells }, 'c1'),
     );
     expect(writes).toEqual([{ kind: 'range', id: 'Report!B2:E4' }]);
+  });
+});
+
+describe('changesCoveredBy — cells an earlier effect of the batch produced', () => {
+  const at = (locator: string, values: unknown[][], formulas?: unknown[][]) => ({
+    locator,
+    values,
+    ...(formulas ? { formulas } : {}),
+  });
+  const before = at('S!A1:B2', [
+    ['a', 1],
+    ['b', 2],
+  ]);
+  const after = at('S!A1:B2', [
+    ['a', 9],
+    ['b', 2],
+  ]);
+
+  it('accepts a changed cell that holds what the batch wrote there', () => {
+    expect(changesCoveredBy(before, after, [at('S!B1', [[9]])])).toBe(true);
+    const quoted = { ...before, locator: "'My Sheet'!A1:B2" };
+    expect(
+      changesCoveredBy(quoted, { ...after, locator: quoted.locator }, [at('my sheet!B1', [[9]])]),
+    ).toBe(true);
+  });
+
+  it('refuses a changed cell that holds something else than the batch wrote', () => {
+    expect(changesCoveredBy(before, after, [at('S!B1', [[8]])])).toBe(false);
+  });
+
+  it('refuses a change outside every landed capture', () => {
+    const edited = at('S!A1:B2', [
+      ['a', 9],
+      ['x', 2],
+    ]);
+    expect(changesCoveredBy(before, edited, [at('S!B1', [[9]])])).toBe(false);
+  });
+
+  it('refuses a capture on another sheet, or one without a sheet', () => {
+    expect(changesCoveredBy(before, after, [at('T!B1', [[9]])])).toBe(false);
+    expect(changesCoveredBy(before, after, [at('B1', [[9]])])).toBe(false);
+    const obrien = { ...before, locator: "'O''Brien'!A1:B2" };
+    expect(
+      changesCoveredBy(obrien, { ...after, locator: obrien.locator }, [at('OBrien!B1', [[9]])]),
+    ).toBe(false);
+  });
+
+  it('counts a formula change as a change', () => {
+    const formula = at('S!A1:B2', before.values as unknown[][], [
+      ['', '=1'],
+      ['', ''],
+    ]);
+    expect(changesCoveredBy(before, formula, [])).toBe(false);
+  });
+
+  it('refuses a different shape, and captures with no changed cell', () => {
+    expect(changesCoveredBy(before, at('S!A1:B2', [['a', 1]]), [at('S!A1:B2', [['a', 1]])])).toBe(
+      false,
+    );
+    expect(changesCoveredBy(before, before, [at('S!B1', [[1]])])).toBe(false);
   });
 });

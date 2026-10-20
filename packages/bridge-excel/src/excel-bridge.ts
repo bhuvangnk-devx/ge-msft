@@ -45,6 +45,7 @@ import {
   planSortRange,
   sortKeyIndex,
   sortVerified,
+  formulasStayInRow,
   planInsertChart,
   planWriteCells,
   splitFormulaGrid,
@@ -830,11 +831,44 @@ export class ExcelBridge implements DocBridge {
         expected.hash !== before.hash
       )
         return fail('stale_target', 'The range changed after preview. Review a new plan.');
-      // Formulas would recalculate in their new rows, so the reviewed values would not just move.
-      if (before.formulas?.some((row) => row.some((f) => String(f ?? '').startsWith('='))))
+      const firstColumn = /^\$?([A-Za-z]{1,3})/.exec(rangeAddress)?.[1] ?? 'A';
+      const header = before.values[0] ?? [];
+      const keyIndex = sortKeyIndex(plan.key, header, firstColumn, plan.hasHeaders);
+      if (keyIndex === undefined)
+        return fail(
+          'unknown_key',
+          `No column "${plan.key}" in ${before.locator}. Use a header name or a column letter inside the range.`,
+        );
+      // Rows already in order: the sort is done without moving anything, so formulas cannot change.
+      if (sortVerified(before.values, before.values, keyIndex, plan.ascending, plan.hasHeaders)) {
+        range.load('address');
+        await ctx.sync();
+        return {
+          ok: true,
+          changeId: req.changeId,
+          kind: req.kind,
+          location: range.address,
+          verification: { status: 'verified', beforeHash: before.hash, afterHash: before.hash },
+          inverse: {
+            op: 'restore-cells' as const,
+            range: before.locator,
+            values: before.values,
+            formulas: before.formulas,
+          },
+        };
+      }
+      // A formula that uses another row would recalculate in its new row, so the reviewed values
+      // would not just move. Formulas that use only their own row move with it (Excel adjusts them).
+      const firstRow = Number(
+        /(\d+)/.exec(before.locator.slice(before.locator.lastIndexOf('!') + 1))?.[1],
+      );
+      if (
+        before.formulas?.some((row) => row.some((f) => String(f ?? '').startsWith('='))) &&
+        !(firstRow > 0 && formulasStayInRow(before.formulas, firstRow, plan.hasHeaders))
+      )
         return fail(
           'has_formulas',
-          'This range has formulas, and sorting would change their results. Sort a range of values, or sort it in Excel.',
+          'This range has formulas that use other rows, and sorting would change their results. Sort a range of values, or sort it in Excel.',
         );
       // A range narrower than its table would split rows from their other columns (review M3).
       if (isSet('ExcelApi', '1.7')) {
@@ -848,14 +882,6 @@ export class ExcelBridge implements DocBridge {
             `The data around ${before.locator} is ${region.columnCount} columns wide. Sort the whole table range so every row stays together.`,
           );
       }
-      const firstColumn = /^\$?([A-Za-z]{1,3})/.exec(rangeAddress)?.[1] ?? 'A';
-      const header = before.values[0] ?? [];
-      const keyIndex = sortKeyIndex(plan.key, header, firstColumn, plan.hasHeaders);
-      if (keyIndex === undefined)
-        return fail(
-          'unknown_key',
-          `No column "${plan.key}" in ${before.locator}. Use a header name or a column letter inside the range.`,
-        );
       range.sort.apply([{ key: keyIndex, ascending: plan.ascending }], false, plan.hasHeaders);
       range.load('address');
       await ctx.sync();

@@ -335,6 +335,167 @@ describe('Excel full-stack integration', () => {
     expect(sim.snapshot().sheets[0]!.values).toEqual(before);
   });
 
+  it('a sort of rows already in order succeeds without moving them, even over formulas', async () => {
+    sim = installFakeExcel(
+      excelSeed({
+        sheets: [
+          {
+            name: 'Summary',
+            origin: 'A1',
+            values: [
+              ['branch', 'growth'],
+              ['Medan', '=18.25'],
+              ['Surabaya', '=16.22'],
+              ['Jakarta', '=12.17'],
+            ],
+          },
+        ],
+      }),
+    );
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        '```cmd\n/sort-range range=Summary!A1:B4 key=growth order=descending\n```',
+        '```cmd\ndone\n```',
+      ]),
+    });
+    await ui!.flush();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('sort by growth, highest first');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    await ui!.flush();
+
+    expect(sim.snapshot().sheets[0]!.values).toEqual(before);
+    const steps = ui!.controller
+      .getState()
+      .steps.map((s) => s.text ?? '')
+      .join('\n');
+    expect(steps).not.toContain('has_formulas');
+    expect(ui!.controller.getState().messages.at(-1)!.changes?.[0]?.kind).toBe('sort-range');
+  });
+
+  // One batch, run in order: a later effect sees the cells an earlier effect of the SAME batch
+  // wrote. That is not a stale target. A change from outside the batch still is.
+  async function runBatch(cmd: string, beforeApprove?: () => void): Promise<string> {
+    ui = mountStack({
+      surface: 'excel',
+      client: scriptedClient([
+        `\`\`\`cmd\n${cmd}\n\`\`\``,
+        '```cmd\ndone\n```',
+        '```cmd\ndone\n```',
+      ]),
+    });
+    await ui!.flush();
+    let run!: Promise<void>;
+    await ui!.act(() => {
+      run = ui!.controller.runCommands('do it');
+    });
+    await ui!.waitFor((s) => s.pendingPlan !== undefined);
+    beforeApprove?.();
+    await ui!.act(() => ui!.controller.approvePlan());
+    await ui!.waitFor((s) => !s.busy);
+    await run;
+    await ui!.flush();
+    return ui!.controller
+      .getState()
+      .steps.map((s) => s.text ?? '')
+      .join('\n');
+  }
+
+  it('a write over cells an earlier write of the same batch wrote lands', async () => {
+    sim = installFakeExcel();
+    const steps = await runBatch('set Sales!C2 999\nset Sales!C2 1000');
+    expect(steps).not.toContain('stale_target');
+    expect(sim.snapshot().sheets[0]!.values[1]![2]).toBe('1000');
+  });
+
+  it('a sort after a write of the same batch sorts the written rows', async () => {
+    sim = installFakeExcel();
+    const steps = await runBatch(
+      'set Sales!C2 999\n/sort-range range=Sales!A1:D7 key=revenue order=descending',
+    );
+    expect(steps).not.toContain('stale_target');
+    const revenue = sim
+      .snapshot()
+      .sheets[0]!.values.slice(1)
+      .map((row) => row[2]);
+    expect(revenue).toEqual(['999', '250', '220', '180', '140', '90']);
+  });
+
+  it('a sort after a same-row formula column of the same batch sorts the rows', async () => {
+    sim = installFakeExcel();
+    const steps = await runBatch(
+      'set Sales!E1 "ratio"\nset Sales!E2:E7 =C2/D2\n/sort-range range=Sales!A1:E7 key=revenue order=descending',
+    );
+    expect(steps).not.toMatch(/stale_target|has_formulas/);
+    const revenue = sim
+      .snapshot()
+      .sheets[0]!.values.slice(1)
+      .map((row) => row[2]);
+    expect(revenue).toEqual(['300', '250', '220', '180', '140', '90']);
+  });
+
+  it('a sort over a formula that uses another row is still refused', async () => {
+    sim = installFakeExcel();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+    const steps = await runBatch(
+      'set Sales!E1 "running"\nset Sales!E2:E7 =C2+E1\n/sort-range range=Sales!A1:E7 key=revenue order=descending',
+    );
+    expect(steps).toContain('has_formulas');
+    expect(sim.snapshot().sheets[0]!.values.map((row) => row.slice(0, 4))).toEqual(before);
+  });
+
+  it('a change outside the batch after preview still stops the sort', async () => {
+    sim = installFakeExcel();
+    const steps = await runBatch(
+      'set Sales!C2 999\n/sort-range range=Sales!A1:D7 key=revenue order=descending',
+      () => {
+        // The user edits a cell the batch does not write, between preview and Apply.
+        sim!.seed.sheets[0]!.values[3]![3] = '5';
+      },
+    );
+    expect(steps).toContain('stale_target');
+    expect(sim.snapshot().sheets[0]!.values[1]![0]).toBe('East');
+  });
+
+  it('a format of the range does not hide an outside edit from the sort (security review H1)', async () => {
+    sim = installFakeExcel();
+    const steps = await runBatch(
+      'format Sales!A1:D7 bold=true\n/sort-range range=Sales!A1:D7 key=revenue order=descending',
+      () => {
+        sim!.seed.sheets[0]!.values[3]![3] = '5';
+      },
+    );
+    expect(steps).toContain('stale_target');
+    expect(sim.snapshot().sheets[0]!.values[1]![0]).toBe('East');
+  });
+
+  it('one Undo restores two overlapping changes of the same batch (security review M3)', async () => {
+    sim = installFakeExcel();
+    const before = sim.snapshot().sheets[0]!.values.map((row) => [...row]);
+    await runBatch('set Sales!C2 999\nset Sales!C2 1000');
+    expect(sim.snapshot().sheets[0]!.values[1]![2]).toBe('1000');
+    const reply = ui!.controller.getState().messages.find((m) => (m.changes?.length ?? 0) === 2)!;
+    let undo!: Promise<void>;
+    await ui!.act(() => {
+      undo = ui!.controller.undoChanges(reply.id);
+    });
+    for (let i = 0; i < 2; i++) {
+      await ui!.waitFor((s) => s.pendingPlan !== undefined);
+      await ui!.act(() => ui!.controller.approvePlan());
+      await ui!.waitFor((s) => s.pendingPlan === undefined);
+    }
+    await ui!.waitFor((s) => !s.busy);
+    await undo;
+    expect(sim.snapshot().sheets[0]!.values).toEqual(before);
+  });
+
   it('a sort key that is not a column is refused before anything changes (WS4b)', async () => {
     sim = installFakeExcel();
     ui = mountStack({

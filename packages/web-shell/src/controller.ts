@@ -1988,7 +1988,8 @@ export class PanelController {
     if (undoable.length === 0) return;
     // One journal undo per change, each through its own approval card. Only changes the journal
     // then reports as undone are marked (a rejected or failed restore leaves its Undo in place).
-    for (const change of undoable) {
+    // Newest first: a later change of the same batch may sit on top of an earlier one's cells.
+    for (const change of [...undoable].reverse()) {
       await this.runAnalysis({ kind: 'undo', id: change.changeId });
       if (this.state.pendingPlan || this.state.busy) break;
     }

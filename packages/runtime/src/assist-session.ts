@@ -41,6 +41,7 @@ import type {
   ActuationResult,
   ApprovalClass,
   EffectPlanNode,
+  CellSnapshot,
   CapabilityManifest,
   ChangeId,
   ContextKind,
@@ -70,6 +71,7 @@ import {
   isProgramSkillCall,
   isProgramSkillDef,
   parseProgramBlock,
+  quoteSheetNames,
   stripFollowUpBlock,
   extractCommandBlock,
   parsePlanBlock,
@@ -1923,7 +1925,8 @@ export class AssistSession {
     return inspect(entries, 0);
   }
 
-  private parseExecutableProgram(text: string): ReturnType<typeof parseProgramBlock> {
+  private parseExecutableProgram(raw: string): ReturnType<typeof parseProgramBlock> {
+    const text = quoteSheetNames(raw, this.knownSheets);
     const parsed = parseProgramBlock(text, this.skills.names());
     return this.containsVerifiedFinish(parsed.entries)
       ? parseProgramBlock(text, this.skills.names(), { requireCompleteFrame: true })
@@ -3075,12 +3078,16 @@ export class AssistSession {
     // references earlier node ids (`e1`…). Inferred by the compiler — never authored by the model.
     const dag = analyseEffectDependencies(effects.map((e) => e.request));
     const failedNodes = new Set<string>();
+    // The cells earlier effects of this batch produced: a later effect may find them changed.
+    const landed: CellSnapshot[] = [];
 
     for (let k = 0; k < planSlots.length; k++) {
       opts.signal?.throwIfAborted();
       const { index, effect } = planSlots[k]!;
       const nodeId = dag[k]?.id ?? `e${k + 1}`;
       const failedPrereqs = (dag[k]?.dependsOn ?? []).filter((d) => failedNodes.has(d));
+      if (planApproved !== false && failedPrereqs.length === 0 && landed.length > 0)
+        effect.request = await this.recovery.rebase(effect.request, landed);
       let result: ActuationResult;
       if (planApproved === false) {
         result = {
@@ -3112,6 +3119,10 @@ export class AssistSession {
         await this.recordEffect(effect.request, result);
       if (!['verified', 'unverified'].includes(assessActuationResult(result)))
         failedNodes.add(nodeId);
+      else if (assessActuationResult(result) === 'verified' && k < planSlots.length - 1) {
+        const cells = await this.recovery.landed(effect.request);
+        if (cells) landed.push(cells);
+      }
       results[index] = result;
       yield { type: 'write-result', turn, changeId: effect.request.changeId, result };
     }
@@ -3218,6 +3229,9 @@ export class AssistSession {
   }
 
   /** Capture + render the ambient `<doc_state>` for a command turn, defensively (skip on failure). */
+  /** The workbook's sheet names from the last snapshot, to quote ones Gemini wrote bare. */
+  private knownSheets: string[] = [];
+
   private async renderAmbientDocState(deduplicate = true): Promise<string | undefined> {
     if (!this.docStateEnabled || !this.bridge.captureDocState) return undefined;
     try {
@@ -3225,6 +3239,16 @@ export class AssistSession {
         this.bridge.captureDocState!(),
       );
       if (!captured) return undefined;
+      if (captured.surface === 'excel')
+        // Inventory ids carry the sheet: `range:Branch Performance!A1:C3`, `range:'Q1 Sales'!A1`.
+        this.knownSheets = [
+          ...new Set(
+            captured.inventory.flatMap((e) => {
+              const ref = /^range:(.+)!/.exec(e.id)?.[1];
+              return ref ? [ref.replace(/^'(.*)'$/, '$1').replace(/''/g, "'")] : [];
+            }),
+          ),
+        ];
       // Once this task has changed the document, the live selection no longer describes what the
       // user asked about: after a rewrite it holds the model's own output (and, with tracked changes,
       // the struck-through original too), which reads as "not done yet" and invites a second rewrite

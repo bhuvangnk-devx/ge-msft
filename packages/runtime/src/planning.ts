@@ -34,6 +34,13 @@ function colToNum(col: string): number {
   return n;
 }
 
+/** A sheet name as Excel means it: `'O''Brien'` is O'Brien. */
+function sheetName(raw: string): string {
+  const name = raw.trim();
+  const quoted = /^'(.*)'$/.exec(name);
+  return quoted ? quoted[1]!.replace(/''/g, "'") : name;
+}
+
 function parseRange(ref: string): ParsedRange | undefined {
   const m = RANGE_RE.exec(ref.trim());
   if (!m) return undefined;
@@ -42,7 +49,7 @@ function parseRange(ref: string): ParsedRange | undefined {
   const c2 = m[4] ? colToNum(m[4]) : c1;
   const r2 = m[5] ? Number(m[5]) : r1;
   return {
-    sheet: (m[1] ?? '').replace(/'/g, '').trim(),
+    sheet: sheetName(m[1] ?? ''),
     c1: Math.min(c1, c2),
     r1: Math.min(r1, r2),
     c2: Math.max(c1, c2),
@@ -87,6 +94,59 @@ function refsTouch(a: ResourceRef, b: ResourceRef): boolean {
   return a.kind === b.kind && a.id === b.id;
 }
 
+type Grid = readonly (readonly unknown[])[];
+interface CellCapture {
+  locator: string;
+  values: Grid;
+  formulas?: Grid;
+}
+
+/** The value and formula of one cell of a capture, comparable across captures. */
+const cellKey = (grid: CellCapture, r: number, c: number): string =>
+  JSON.stringify([grid.values[r]?.[c], grid.formulas?.[r]?.[c] ?? '']);
+
+/**
+ * True when `after` differs from `before` (two captures of `locator`) and every differing cell holds
+ * exactly what a capture in `landed` holds for that cell: the cells an earlier effect of the same
+ * batch produced. Fails closed: an unparseable locator, another sheet or a different shape is never
+ * covered, and neither is a cell whose content differs from what the batch produced.
+ */
+export function changesCoveredBy(
+  before: CellCapture,
+  after: CellCapture,
+  landed: readonly CellCapture[],
+): boolean {
+  const origin = parseRange(before.locator);
+  if (!origin?.sheet || before.values.length !== after.values.length) return false;
+  const areas = landed.flatMap((capture) => {
+    const area = parseRange(capture.locator);
+    return area && area.sheet.toLowerCase() === origin.sheet.toLowerCase()
+      ? [{ area, capture }]
+      : [];
+  });
+  let changed = 0;
+  for (let r = 0; r < before.values.length; r++) {
+    const width = before.values[r]!.length;
+    if (after.values[r]!.length !== width) return false;
+    for (let c = 0; c < width; c++) {
+      if (cellKey(before, r, c) === cellKey(after, r, c)) continue;
+      changed++;
+      const row = origin.r1 + r;
+      const col = origin.c1 + c;
+      const covered = areas.some(
+        ({ area, capture }) =>
+          area.r1 <= row &&
+          row <= area.r2 &&
+          area.c1 <= col &&
+          col <= area.c2 &&
+          cellKey(capture, row - area.r1, col - area.c1) === cellKey(after, r, c),
+      );
+      if (!covered) return false;
+    }
+  }
+  return changed > 0;
+}
+
 // ───────────────────────────── resource extraction ─────────────────────────────
 
 /**
@@ -117,6 +177,8 @@ export function effectResources(req: ActuationRequest): {
     }
     case 'format-cells':
       return { reads: [], writes: p.target?.range ? [range(p.target.range)] : [] };
+    case 'sort-range':
+      return { reads: [], writes: p.sortRange?.range ? [range(p.sortRange.range)] : [] };
     case 'create-table':
       return {
         reads: p.table?.range ? [range(p.table.range)] : [],

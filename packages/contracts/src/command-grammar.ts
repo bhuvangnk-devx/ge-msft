@@ -2302,3 +2302,27 @@ function levenshtein(a: string, b: string): number {
   }
   return prev[n]!;
 }
+
+/**
+ * Quote the workbook's own sheet names where a command wrote one unquoted before `!`
+ * (`Branch Performance!A1` → `'Branch Performance'!A1`). Without quotes the command splits at the
+ * space (CIMB retest 2026-10-20: sorts and writes failed prepare). Only names that need quotes and
+ * exist in `sheetNames` change; text inside double-quoted values is left alone.
+ */
+export function quoteSheetNames(text: string, sheetNames: readonly string[]): string {
+  const names = sheetNames
+    .filter((name) => /[^\w.]/.test(name))
+    .sort((a, b) => b.length - a.length);
+  if (names.length === 0) return text;
+  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(?<!['\\w])(${names.map(escape).join('|')})!`, 'g');
+  // Outside "…" segments only (a quoted value is user text, not a reference).
+  return text
+    .split(/("(?:[^"\\]|\\.)*")/)
+    .map((part, i) =>
+      i % 2 === 1
+        ? part
+        : part.replace(pattern, (_m, name: string) => `'${name.replace(/'/g, "''")}'!`),
+    )
+    .join('');
+}

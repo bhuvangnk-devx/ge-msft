@@ -15,6 +15,7 @@ import {
   type CellSnapshot,
 } from '@ge/contracts';
 import type { DocBridge } from './bridge.js';
+import { changesCoveredBy } from './planning.js';
 
 const RecordSchema = z.object({
   version: z.literal(1),
@@ -283,6 +284,58 @@ export class RecoveryCoordinator {
         sourceVersion(before),
       ],
     });
+  }
+  /**
+   * Inside one approved batch, accept the cells that earlier effects of the batch produced. The
+   * prepared capture moves to the current cells only when every changed cell holds exactly what a
+   * capture in `landed` holds; any other change keeps the old pin, so the bridge reports a stale
+   * target. A failed capture also keeps the old pin.
+   */
+  async rebase(
+    request: ActuationRequest,
+    landed: readonly CellSnapshot[],
+  ): Promise<ActuationRequest> {
+    const before = this.prepared.get(request.changeId);
+    if (!before || landed.length === 0 || !this.bridge.captureCells) return request;
+    let current: CellSnapshot;
+    try {
+      current = await this.bridge.captureCells(before.locator);
+    } catch {
+      return request;
+    }
+    if (
+      current.hash === before.hash ||
+      current.locator !== before.locator ||
+      current.documentId !== before.documentId ||
+      current.surface !== before.surface ||
+      current.objectId !== before.objectId ||
+      !changesCoveredBy(
+        before,
+        current,
+        landed.filter((l) => l.documentId === before.documentId && l.objectId === before.objectId),
+      )
+    )
+      return request;
+    this.prepared.set(request.changeId, current);
+    return ActuationRequestSchema.parse({
+      ...request,
+      preconditions: [
+        ...(request.preconditions ?? []).filter((c) => c.locator !== before.locator),
+        sourceVersion(current),
+      ],
+    });
+  }
+  /** The cells a verified recoverable effect produced, captured after it landed. */
+  async landed(request: ActuationRequest): Promise<CellSnapshot | undefined> {
+    const before = this.prepared.get(request.changeId);
+    if (!before || !this.bridge.captureCells) return undefined;
+    try {
+      // Not matched to the receipt's afterHash: a formula write's readback hash differs from a later
+      // capture of the same cells (retest 2026-10-20), so no formula write would ever count.
+      return await this.bridge.captureCells(before.locator);
+    } catch {
+      return undefined;
+    }
   }
   clearPrepared(): void {
     this.prepared.clear();
