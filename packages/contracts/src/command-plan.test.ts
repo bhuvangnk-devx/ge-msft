@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   commandIntentText,
+  confirmedPlanChanges,
+  planChanges,
   editIntentFor,
   planDescribesChange,
   CONFIRMED_PLAN_CLOSE,
@@ -238,6 +240,20 @@ describe('renderPlanPrompt', () => {
     expect(prompt).toContain('capability-shaped steps');
     expect(prompt).toContain('one rectangular grid/table materialization step');
   });
+
+  it('reads as a task with no role or override wording, and allows the engine follow-up block', () => {
+    // CIMB 2026-10-19: "emit only the plan" against the engine's "always add suggested_questions"
+    // made Gemini 3.8 reason about overriding system instructions; Model Armor blocked it.
+    const prompt = renderPlanPrompt('excel');
+    expect(prompt).not.toMatch(/You are|Do NOT|emit only|block only/);
+    expect(prompt).toContain('A suggested_questions block after the plan is fine');
+  });
+
+  it('parses the plan when the engine adds its follow-up block after it', () => {
+    const reply =
+      '```plan\nintent rewrite\nsurface excel\nstep add a growth column\n```\n\n```suggested_questions\n["Add a chart?"]\n```';
+    expect(parsePlanBlock(reply).plan).toMatchObject({ intent: 'rewrite', surface: 'excel' });
+  });
 });
 
 describe('commandIntentText', () => {
@@ -336,5 +352,61 @@ describe('intent effects (fix G)', () => {
     expect(editIntentFor('outlook')).toBe('draft');
     expect(editIntentFor('teams')).toBe('notes');
     expect(editIntentFor('not-a-surface' as never)).toBeUndefined();
+  });
+});
+
+describe('changes: the planner states the effect (WS1, 2026-10-20)', () => {
+  const plan = (body: string) =>
+    parsePlanBlock(`\`\`\`plan\nintent   ask\nsurface  excel\n${body}\n\`\`\``);
+
+  it('parses changes yes|no into a boolean', () => {
+    expect(plan('changes  yes\nstep     leave a note on the lowest region').plan?.changes).toBe(
+      true,
+    );
+    expect(plan('changes  No\nstep     filter rows where Region is Kalimantan').plan?.changes).toBe(
+      false,
+    );
+    expect(plan('step     answer').plan?.changes).toBeUndefined();
+  });
+
+  it('rejects any other value', () => {
+    const { errors } = plan('changes  maybe\nstep     answer');
+    expect(errors.join(' ')).toMatch(/changes must be yes\|no/);
+  });
+
+  it('trusts the stated effect over the step keywords, and falls back only without it', () => {
+    // Argon mx-xl-read-14: an analysis step with "filter" + "rows" is not a change.
+    const analysis = { steps: ['filter rows where Region is Kalimantan and compare totals'] };
+    expect(planChanges({ ...analysis, changes: false })).toEqual({ changes: false, stated: true });
+    expect(planChanges(analysis)).toEqual({ changes: true, stated: false });
+    // u-xl-note-on-lowest: a question that also leaves a note is a change.
+    expect(planChanges({ steps: ['find the lowest region'], changes: true })).toEqual({
+      changes: true,
+      stated: true,
+    });
+  });
+
+  it('reads the stated effect back from a confirmed-plan task', () => {
+    const task = (line: string) =>
+      [
+        CONFIRMED_PLAN_OPEN,
+        'original_request: changes: yes please',
+        'intent: ask',
+        line,
+        'step 1: x',
+        CONFIRMED_PLAN_CLOSE,
+      ].join('\n');
+    expect(confirmedPlanChanges(task('changes: no'))).toBe(false);
+    expect(confirmedPlanChanges(task('changes: yes'))).toBe(true);
+    // The user's own words never count: only the plan's line after the request.
+    expect(confirmedPlanChanges(task('confidence: high'))).toBeUndefined();
+    expect(confirmedPlanChanges('changes: yes')).toBeUndefined();
+  });
+
+  it('asks the planner for it and defines it by effect', () => {
+    const prompt = renderPlanPrompt('excel');
+    expect(prompt).toContain('changes  <yes|no>');
+    expect(prompt).toMatch(/question or analysis is no/i);
+    expect(prompt).toMatch(/don't change anything/i);
   });
 });

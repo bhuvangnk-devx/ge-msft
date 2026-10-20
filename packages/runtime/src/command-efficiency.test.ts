@@ -288,6 +288,21 @@ describe('command efficiency acceptance: actual WASM and simulated Office/model'
     f.session.dispose();
   });
 
+  it('completes when the engine adds its suggested_questions block after the program', async () => {
+    const text = compileAnalysisProgram(program);
+    const f = fixture(
+      undefined,
+      `\`\`\`cmd\n${text}\n\`\`\`\n\n\`\`\`suggested_questions\n["Add a chart?"]\n\`\`\``,
+    );
+    const events = await collect(
+      f.session.runCommands('Reconcile invoices and payments', { approvePlan: f.approvePlan }),
+    );
+    expect(completed(events)).toBe(true);
+    expect(f.queries).toHaveLength(1);
+    expect(f.landed).toHaveLength(1);
+    f.session.dispose();
+  });
+
   it.each([{ maxCommandsPerTurn: 1 }, { maxWritesPerTurn: 0 }])(
     'preflights uppercase FINISH before effects: %j',
     async (limits) => {

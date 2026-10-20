@@ -79,6 +79,30 @@ def extract_command_block(text: str):
     return inner
 
 
+def strip_follow_up_block(text: str) -> str:
+    """Mirror of the TS `stripFollowUpBlock`: drop the engine's trailing ```suggested_questions
+    block, only when it is the last block and directly follows a closed fence."""
+    lines = text.rstrip().split("\n")
+
+    def bare(line):
+        return line is not None and re.fullmatch(r"```[^\S\n]*", line.rstrip()) is not None
+
+    if len(lines) < 3 or not bare(lines[-1]):
+        return text
+    opener = len(lines) - 2
+    while opener >= 0 and not lines[opener].startswith("```"):
+        opener -= 1
+    if opener < 0 or not re.fullmatch(r"```suggested_questions[^\S\n]*", lines[opener].rstrip(), re.I):
+        return text
+    above = opener - 1
+    while above >= 0 and lines[above].strip() == "":
+        above -= 1
+    if above < 0 or not bare(lines[above]):
+        return text
+    offset = sum(len(line) + 1 for line in lines[:opener])
+    return text[:offset].rstrip()
+
+
 def extract_command_block_meta(text: str):
     """Return `(inner, closed)`: the inner text of the first ```cmd fence (trimmed) and whether the
     fence was properly CLOSED with a trailing ```.
@@ -916,6 +940,15 @@ done
     # An unclosed fence is never complete even with a clean `done`.
     if block_is_complete(parse_block("```cmd\nread Sales!C2:C7\ndone")):
         failures.append("unclosed fence reported complete")
+
+    # The engine's trailing follow-up block is dropped only after a closed fence.
+    closed_cmd = "```cmd\nread Sales!C2:C7\ndone\n```"
+    follow = "```suggested_questions\n[\"Add a chart?\"]\n```"
+    if strip_follow_up_block(closed_cmd + "\n\n" + follow) != closed_cmd:
+        failures.append("trailing suggested_questions block after a closed fence was not dropped")
+    unclosed = "```cmd\nread Sales!C2:C7\ndone\n" + follow
+    if strip_follow_up_block(unclosed) != unclosed:
+        failures.append("follow-up block after an unclosed fence was dropped")
 
     # A clean, closed, done-bearing block IS complete.
     if not block_is_complete(parse_block("```cmd\nread Sales!C2:C7\ndone\n```")):

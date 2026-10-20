@@ -5,6 +5,7 @@ import {
   ParsedCommandSchema,
   WRITE_VERB_TO_KIND,
   extractCommandBlock,
+  stripFollowUpBlock,
   parseCommandLine,
   parseCommandBlock,
   grammarFor,
@@ -1463,5 +1464,46 @@ describe('command-grammar — the /<kind> specialized surface (ADR-0008 §two-ti
 
   it('a bare / is corrective', () => {
     expect(isCommandParseError(parseCommandLine('/'))).toBe(true);
+  });
+});
+
+describe('stripFollowUpBlock', () => {
+  const cmd = '```cmd\nset A1 1\nfinish when=verified\n```';
+  const follow = '```suggested_questions\n["Add a chart?"]\n```';
+
+  it('drops the engine follow-up block after the reply', () => {
+    expect(stripFollowUpBlock(`${cmd}\n\n${follow}\n`)).toBe(cmd);
+  });
+
+  it('keeps a reply without a trailing follow-up block unchanged', () => {
+    expect(stripFollowUpBlock(cmd)).toBe(cmd);
+    const jsonAfter = `${cmd}\n\n\`\`\`json\n{"a":1}\n\`\`\``;
+    expect(stripFollowUpBlock(jsonAfter)).toBe(jsonAfter);
+  });
+
+  it('never drops a follow-up block that something else follows', () => {
+    const before = `${follow}\n${cmd}`;
+    expect(stripFollowUpBlock(before)).toBe(before);
+    const secondProgram = `${cmd}\n${follow}\n\`\`\`cmd\nset B1 2\n\`\`\``;
+    expect(stripFollowUpBlock(secondProgram)).toBe(secondProgram);
+  });
+
+  it('never touches a program that is not closed before the follow-up block', () => {
+    const unclosed = '```cmd\nset A1 1\nfinish when=verified\n' + follow;
+    expect(stripFollowUpBlock(unclosed)).toBe(unclosed);
+    const inside = '```cmd\nset A1 1\n```suggested_questions\nfinish when=verified\n```';
+    expect(stripFollowUpBlock(inside)).toBe(inside);
+  });
+
+  it('keeps everything when the follow-up block holds a fence or a tagged opener', () => {
+    const nested = `${cmd}\n\`\`\`suggested_questions\n\`\`\`cmd\nset B1 2\n\`\`\``;
+    expect(stripFollowUpBlock(nested)).toBe(nested);
+    const tagged = `${cmd}\n\`\`\`suggested_questions json\n[]\n\`\`\``;
+    expect(stripFollowUpBlock(tagged)).toBe(tagged);
+  });
+
+  it('keeps CRLF line endings of the program it returns', () => {
+    const crlf = '```cmd\r\nset A1 1\r\n```\r\n```suggested_questions\r\n[]\r\n```\r\n';
+    expect(stripFollowUpBlock(crlf)).toBe('```cmd\r\nset A1 1\r\n```');
   });
 });

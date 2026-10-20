@@ -79,11 +79,15 @@ export function loadShellEnv(): Record<string, string> {
 
 let cachedToken: { value: string; at: number } | undefined;
 
-/** A Google access token from `gcloud` (or GE_ACCESS_TOKEN), refreshed every 45 minutes. */
+/**
+ * A Google access token from `gcloud` (or GE_ACCESS_TOKEN), refreshed every 5 minutes. `gcloud`
+ * hands back its own cached token, which can already be most of an hour old: with a 45-minute
+ * refresh, a long run got HTTP 401 on every request after it expired (2026-10-19, 14 scenarios).
+ */
 export function googleAccessToken(): string {
   const inline = process.env.GE_ACCESS_TOKEN;
   if (inline) return inline;
-  if (!cachedToken || Date.now() - cachedToken.at > 45 * 60_000) {
+  if (!cachedToken || Date.now() - cachedToken.at > 5 * 60_000) {
     const value = execFileSync('gcloud', ['auth', 'print-access-token'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -176,8 +180,16 @@ export function replayFetch(
         request: typeof init.body === 'string' ? init.body : '',
         reply: text,
       });
+      // The transcript joins thought summaries ("**Analyzing…**") into the reply text; live, they
+      // arrive as separate thought parts. Send leading summary lines back as thoughts, or a reply
+      // like `**Heading**\n```cmd\ndone "…"` replays as prose with no command block.
+      const thoughts = /^(?:[^\S\n]*\*\*[^\n]*\*\*[^\S\n]*\n)+/.exec(text)?.[0] ?? '';
+      const parts = [
+        ...(thoughts ? [{ groundedContent: { content: { text: thoughts, thought: true } } }] : []),
+        { groundedContent: { content: { text: text.slice(thoughts.length) } } },
+      ];
       const chunk = {
-        answer: { state: 'SUCCEEDED', replies: [{ groundedContent: { content: { text } } }] },
+        answer: { state: 'SUCCEEDED', replies: parts },
         sessionInfo: { session: 'projects/replay/locations/global/sessions/replay' },
       };
       return new Response(JSON.stringify([chunk]), {

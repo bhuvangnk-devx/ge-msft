@@ -30,6 +30,7 @@ import {
   isReversibleKind,
   isAnalysisBindingKind,
   planDescribesChange,
+  confirmedPlanChanges,
   registryEntryForKindAndSurface,
   VERBS_BY_SURFACE,
 } from '@ge/contracts';
@@ -69,6 +70,7 @@ import {
   isProgramSkillCall,
   isProgramSkillDef,
   parseProgramBlock,
+  stripFollowUpBlock,
   parsePlanBlock,
   renderPlanPrompt,
   derivePlanContextStrategy,
@@ -364,6 +366,8 @@ export type CommandLoopEvent =
       message?: string;
       incomplete?: true;
       answerOnly?: true;
+      /** The confirmed plan asked for a change and nothing was written: the pane says so. */
+      unchanged?: true;
     }
   /** The loop hit `maxTurns` without `done`. */
   | { type: 'exhausted'; turns: number; answer: string }
@@ -427,6 +431,8 @@ interface PlanState {
   landedInline: string[];
   /** Host reads executed this turn, whose results the model has not seen yet. */
   readsThisTurn: number;
+  /** Reads this turn that returned data (not an error). */
+  readsOkThisTurn: number;
   /** The user rejected this turn's plan: the task ends instead of asking the model again. */
   rejected?: boolean;
 }
@@ -968,6 +974,10 @@ export class AssistSession {
    * without any write refused. Cleared once that refusal is given, so a second `done` stands.
    */
   private changeAwaited = false;
+  /** The confirmed plan asks for a change (unlike {@link changeAwaited}, never cleared mid-task). */
+  private changeExpected = false;
+  /** A read returned data earlier in this task, so an answer can rest on it (security review M2). */
+  private readOkInTask = false;
   /** Whether this task was already asked once to answer instead of ending with a bare `done`. */
   private answerAsked = false;
   /**
@@ -1586,9 +1596,13 @@ export class AssistSession {
     this.shareCountThisTask = 0;
     // Only a planner-confirmed task can be a question that took the edit route.
     this.answerAsked = !task.includes(CONFIRMED_PLAN_OPEN);
+    // The plan's own `changes` line decides; the step-keyword guess is only for a plan without it.
     this.changeAwaited =
       task.includes(CONFIRMED_PLAN_OPEN) &&
-      planDescribesChange({ steps: commandIntentText(task).split('\n') });
+      (confirmedPlanChanges(task) ??
+        planDescribesChange({ steps: commandIntentText(task).split('\n') }));
+    this.changeExpected = this.changeAwaited;
+    this.readOkInTask = false;
     this.answerOnlyIntent = answerOnlyIntent(task);
     this.tableSizeAsked = tableSizeAsked(commandIntentText(task));
 
@@ -1635,7 +1649,8 @@ export class AssistSession {
 
       // ADR-0005 Phase 3 — parse the block scoped to the live skill registry, so a line whose first
       // token is a registered skill parses as a CALL (not an unknown verb) and `def … end` groups.
-      const { found, entries } = this.parseExecutableProgram(turnText);
+      // The engine's own trailing suggested_questions block is not part of the program.
+      const { found, entries } = this.parseExecutableProgram(stripFollowUpBlock(turnText));
 
       // No fenced block → re-prompt ONCE (not an error). A second consecutive no-fence ends the loop.
       if (!found) {
@@ -1651,7 +1666,12 @@ export class AssistSession {
           // not acted on ("hi", "thanks", a question the planner sent here). End as an answer; the
           // pane says nothing changed if the text claims a change. Not when the user confirmed a
           // plan that changes the document: that run stays incomplete, never a "completed" no-op.
-          if (!ranProgram && !this.task?.effects.length && !this.changeAwaited && turnText.trim()) {
+          if (
+            !ranProgram &&
+            !this.task?.effects.length &&
+            !this.changeExpected &&
+            turnText.trim()
+          ) {
             yield { type: 'done', turn, answer: turnText, answerOnly: true };
             return;
           }
@@ -1676,7 +1696,19 @@ export class AssistSession {
       );
 
       if (done) {
-        yield { type: 'done', turn, answer, ...(message !== undefined ? { message } : {}) };
+        // Nothing landed or may have landed: a failed write or a share is not a change (M1).
+        const unchanged =
+          this.changeExpected &&
+          !(this.task?.effects ?? []).some((result) =>
+            ['verified', 'unverified', 'uncertain'].includes(assessActuationResult(result)),
+          );
+        yield {
+          type: 'done',
+          turn,
+          answer,
+          ...(message !== undefined ? { message } : {}),
+          ...(unchanged ? { unchanged: true as const } : {}),
+        };
         return;
       }
       if (stopped) return;
@@ -1691,7 +1723,8 @@ export class AssistSession {
         .some((result) => ['verified', 'unverified'].includes(assessActuationResult(result)));
       if (landedNow) repeatedPrograms.clear();
       else if (!failed) {
-        const program = turnText.replace(/\s+/g, ' ').trim();
+        // Keyed without the follow-up block: its questions change every turn, the program may not.
+        const program = stripFollowUpBlock(turnText).replace(/\s+/g, ' ').trim();
         const seen = (repeatedPrograms.get(program) ?? 0) + 1;
         repeatedPrograms.set(program, seen);
         if (seen >= MAX_SAME_PROGRAM) {
@@ -1936,6 +1969,7 @@ export class AssistSession {
       done: false,
       landedInline: [],
       readsThisTurn: 0,
+      readsOkThisTurn: 0,
     };
     if (entries.length > maxCommands) {
       yield {
@@ -1997,8 +2031,18 @@ export class AssistSession {
     // verified block stopped the task with no chance to correct it). A direct or SDK program has
     // no model to repair it.
     const dryRunErrors = plan.results.filter(isValidationFailure).length;
+    // A `done` answer in a block whose only failures are read-only lines, with no write, stands:
+    // nothing is withheld, and repairing the reads only looped (Argon mx-xl-read-14, 2026-10-19).
+    const readOnlyAnswer =
+      plan.done &&
+      this.readOkInTask &&
+      plan.readsOkThisTurn === 0 &&
+      !plan.finishVerified &&
+      plan.planSlots.length === 0 &&
+      plan.results.every((r) => !isValidationFailure(r) || READ_FAILURES.has(r as object));
     if (
       dryRunErrors > 0 &&
+      !readOnlyAnswer &&
       this.task?.mode === 'command' &&
       (plan.finishVerified || plan.planSlots.length > 0 || plan.done || plan.doneIgnored === true)
     ) {
@@ -2123,12 +2167,19 @@ export class AssistSession {
             'Verified completion requires successful operations, and a matching readback wherever the host returns one. Review the receipts; do not replay a landed write.',
         });
         if (this.task) this.task.status = 'incomplete';
-        yield {
-          type: 'error',
-          code: 'verification_incomplete',
-          message:
-            'Some operations failed or could not be confirmed. Review the receipts; a landed write must not be replayed.',
-        };
+        // A host refusal only the user can fix, with nothing landed, ends below as a plain
+        // needs-user stop; a second "could not be confirmed" card would contradict it (P5,
+        // Argon mx-xl-refused-02 2026-10-19). Anything that landed or is uncertain keeps the card.
+        const refusedOnly =
+          plan.results.some(isHostRefusal) &&
+          effects.every((result) => assessActuationResult(result) === 'failed');
+        if (!refusedOnly)
+          yield {
+            type: 'error',
+            code: 'verification_incomplete',
+            message:
+              'Some operations failed or could not be confirmed. Review the receipts; a landed write must not be replayed.',
+          };
       }
     }
 
@@ -2349,9 +2400,21 @@ export class AssistSession {
     // Control + reads run inline (pure / non-actuating), exactly as ADR-0004.
     if (command.verb === 'done') {
       if (command.message !== undefined) plan.doneMessage = command.message;
+      // An answer, an honest "cannot" or a question ends the task as it is (WS2, 2026-10-20): a
+      // refusal pushed models into approximations (uniform borders for "thick outside") or loops.
+      const answered = (command.message ?? '').trim() !== '';
       // A done after lines that failed would end the task on errors the model never saw (every
-      // `format` rejected, then "0 changes"). Keep going so it can read them and correct.
-      if (plan.results.some((r) => typeof r === 'object' && r !== null && 'error' in r)) {
+      // `format` rejected, then "0 changes"). Keep going so it can read them and correct. A failed
+      // read-only line does not count: its error is still reported, and the answer stands.
+      if (
+        plan.results.some(
+          (r) =>
+            typeof r === 'object' &&
+            r !== null &&
+            'error' in r &&
+            !(this.readOkInTask && READ_FAILURES.has(r)),
+        )
+      ) {
         // The failed lines already count toward repair; this note is not a further failure.
         plan.doneIgnored = true;
         plan.results.push(
@@ -2375,7 +2438,7 @@ export class AssistSession {
       // model's `inspect` + `done` stands (live 2026-10-13: refusing it led to set-body on the
       // received message, which failed and marked a delivered draft as not done).
       if (
-        plan.readsThisTurn > 0 &&
+        (plan.readsOkThisTurn > 0 || (!answered && plan.readsThisTurn > 0)) &&
         this.task?.mode === 'command' &&
         !this.draftOpenedThisTask(plan)
       ) {
@@ -2392,6 +2455,7 @@ export class AssistSession {
       // imported and verified."`, with nothing added, and was reported complete). Refused once; a
       // write the user rejected, or a share, still counts as tried, so neither brings it back.
       if (
+        !answered &&
         this.changeAwaited &&
         this.task?.mode === 'command' &&
         this.task.effects.length === 0 &&
@@ -2439,12 +2503,20 @@ export class AssistSession {
       });
       yield { type: 'command', turn, command, compiled };
       if (isCompileError(compiled) || compiled.kind !== 'read') {
-        plan.results.push({ error: isCompileError(compiled) ? compiled.error : 'expected a read' });
+        plan.results.push(
+          readFailure({ error: isCompileError(compiled) ? compiled.error : 'expected a read' }),
+        );
         return;
       }
       const { label, result } = await this.runReadIntent(compiled.intent);
       plan.readsThisTurn += 1;
-      plan.results.push(result);
+      if (!isValidationFailure(result)) {
+        plan.readsOkThisTurn += 1;
+        this.readOkInTask = true;
+      }
+      plan.results.push(
+        result !== null && typeof result === 'object' ? readFailure(result) : result,
+      );
       yield { type: 'read-result', turn, intentLabel: label, result };
       return;
     }
@@ -4630,6 +4702,14 @@ const WHOLE_ITEM_KINDS = new Set<ContextKind>(['document', 'mail-item', 'page'])
  * after a write. The rest of the program is still valid, so they never trigger a repair turn.
  */
 const ADVISORY_RESULTS = new WeakSet<object>();
+
+/** Errors of read-only commands (`read`, `inspect`, `search`, …): reported, but they never void a `done`. */
+const READ_FAILURES = new WeakSet<object>();
+
+function readFailure<T extends object>(result: T): T {
+  if ('error' in result && (result as { error: unknown }).error != null) READ_FAILURES.add(result);
+  return result;
+}
 
 function advisory<T extends object>(result: T): T {
   ADVISORY_RESULTS.add(result);

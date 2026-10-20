@@ -14,6 +14,7 @@ import {
 } from './capability-catalog.js';
 import {
   COMMAND_BOOTSTRAP_MAX_BYTES,
+  HELP_INLINE_MAX_BYTES,
   renderCommandBootstrap,
   renderCommandHelp,
   renderGrammarPrompt,
@@ -43,7 +44,13 @@ describe('compact capability disclosure', () => {
       const bytes = (text: string) => new TextEncoder().encode(text).byteLength;
       expect(bytes(compact)).toBeLessThanOrEqual(COMMAND_BOOTSTRAP_MAX_BYTES);
       expect(bytes(compact)).toBeLessThan(bytes(full) * 0.6);
-      expect(renderCommandHelp(current, 'full')).toBe(full);
+      // help full is an index the model can read inline, not the 16 KB grammar (WS3, Argon
+      // mx-xl-condfmt-08 looped on a spilled `help full`).
+      const index = renderCommandHelp(current, 'full');
+      expect(bytes(index)).toBeLessThanOrEqual(HELP_INLINE_MAX_BYTES);
+      for (const spec of grammarFor(current)) expect(index).toContain(spec.usage);
+      expect(index).toContain('help <verb>');
+      expect(renderCommandHelp(current, 'transform')).toMatch(/let \$x = read/);
       expect(renderCommandHelp(current)).toBe(renderCommandBootstrap(current));
     },
   );
@@ -195,6 +202,11 @@ describe('command discovery', () => {
       actuations: [],
     };
     expect(renderCommandBootstrap(current)).toContain('Program control: finish when=verified');
+    // No exclusivity wording that fights the engine's follow-up block (CIMB Model Armor, 2026-10-19).
+    expect(renderCommandBootstrap(current)).not.toMatch(/no prose or other fences|You are/);
+    expect(renderCommandBootstrap(current)).toContain(
+      'A suggested_questions block after it is fine',
+    );
     const help = renderCommandHelp(current, 'finish');
     expect(help).toContain('Syntax: finish when=verified');
     expect(help).toContain('An uncertain, failed or mismatched write cannot satisfy');

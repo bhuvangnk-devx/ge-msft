@@ -1043,6 +1043,28 @@ describe('command route answers', () => {
     expect(reply?.text).toBe('The last row is Samarth\nPlan: Pro');
   });
 
+  it('says plainly that nothing was changed when a change plan ends with an answer (WS2)', async () => {
+    const assist = new FakeAssist();
+    assist.commandScript = [
+      ev({ type: 'done', turn: 1, answer: '', message: 'The slide is imported.', unchanged: true }),
+    ];
+    const c = new PanelController(assist, lister([]));
+    await c.runCommands('add a summary slide');
+    expect(c.getState().messages.at(-1)?.text).toBe(
+      'The slide is imported.\n\nNo changes were made.',
+    );
+
+    const id = new FakeAssist();
+    id.commandScript = [
+      ev({ type: 'done', turn: 1, answer: '', message: 'Belum bisa.', unchanged: true }),
+    ];
+    const b = new PanelController(id, lister([]));
+    await b.runCommands('tambahkan slide ringkasan untuk data ini');
+    expect(b.getState().messages.at(-1)?.text).toBe(
+      'Belum bisa.\n\nTidak ada perubahan yang dibuat.',
+    );
+  });
+
   it('a bare done still shows no invented text', async () => {
     const assist = new FakeAssist();
     assist.commandScript = [ev({ type: 'done', turn: 1, answer: '' })];
@@ -2047,6 +2069,81 @@ describe('PanelController — planner pre-stage (EXPERIENCE.md §F)', () => {
     await c.proposePlan('the region with the highest total', undefined);
     await tick();
     expect(c.getState().pendingCommandPlan).toBeUndefined();
+  });
+
+  it("routes by the plan's stated changes, whatever the intent label says (WS1)", async () => {
+    // u-xl-note-on-lowest: a question that also leaves a note is labelled ask but changes: yes.
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: {
+        ...wordPlan,
+        intent: 'ask',
+        surface: 'excel',
+        steps: ['find the region with the lowest total'],
+        changes: true,
+      },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('which region is lowest? leave a note on it', undefined);
+    expect(assist.asked).toEqual([]);
+    expect(c.getState().pendingCommandPlan?.plan.intent).toBe('rewrite');
+
+    // mx-xl-read-14: "filter rows" in an analysis step, but changes: no → answered, not staged.
+    const read = new FakeAssist();
+    read.planned = {
+      plan: {
+        ...wordPlan,
+        intent: 'ask',
+        surface: 'excel',
+        steps: ['filter rows where Region is Kalimantan and compare the totals'],
+        changes: false,
+      },
+      errors: [],
+      needsClarification: false,
+    };
+    const r = new PanelController(read, lister([]));
+    await r.proposePlan("which Kalimantan branch is lowest? don't change anything", undefined);
+    await tick();
+    expect(r.getState().pendingCommandPlan).toBeUndefined();
+    expect(read.runTasks).toEqual([]);
+  });
+
+  it('stages a write-intent plan that says changes: no, as a change (security review M3)', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, intent: 'rewrite', changes: false },
+      errors: [],
+      needsClarification: false,
+    };
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('make the SLA 99.9%', undefined);
+    expect(assist.asked).toEqual([]);
+    expect(c.getState().pendingCommandPlan?.plan.changes).toBe(true);
+    expect(c.diagnostics({ surface: 'word' })).toContain('changes:conflict');
+  });
+
+  it('carries changes into the confirmed task, and logs the keyword fallback when absent', async () => {
+    const assist = new FakeAssist();
+    assist.planned = {
+      plan: { ...wordPlan, changes: true },
+      errors: [],
+      needsClarification: false,
+    };
+    assist.commandScript = [{ plan: [planEffect('w1')] }];
+    const c = new PanelController(assist, lister([]));
+    await c.proposePlan('/rewrite the SLA', undefined);
+    c.confirmCommandPlan();
+    await tick();
+    await tick();
+    expect(assist.runTasks[0]).toMatch(/^intent: rewrite\n(?:.*\n)*changes: yes$/m);
+
+    const old = new FakeAssist();
+    old.planned = { plan: wordPlan, errors: [], needsClarification: false };
+    const o = new PanelController(old, lister([]));
+    await o.proposePlan('/rewrite the SLA', undefined);
+    expect(o.diagnostics({ surface: 'word' })).toContain('changes:guessed');
   });
 
   it('cancel discards the plan and runs nothing', async () => {

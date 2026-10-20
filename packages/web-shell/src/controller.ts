@@ -31,7 +31,7 @@ import {
   CONFIRMED_PLAN_OPEN,
   deriveOutput,
   editIntentFor,
-  planDescribesChange,
+  planChanges,
   extractCommandBlock,
   IntentSchema,
 } from '@ge/contracts';
@@ -452,6 +452,7 @@ function renderConfirmedPlanTask(pending: PendingCommandPlan): string {
   for (const hint of plan.context) lines.push(`context: ${hint}`);
   for (const [i, step] of plan.steps.entries()) lines.push(`step ${i + 1}: ${step}`);
   for (const exclude of plan.excludes) lines.push(`exclude: ${exclude}`);
+  if (plan.changes !== undefined) lines.push(`changes: ${plan.changes ? 'yes' : 'no'}`);
   if (plan.confidence) lines.push(`confidence: ${plan.confidence}`);
   lines.push(CONFIRMED_PLAN_CLOSE);
   return lines.join('\n');
@@ -1249,14 +1250,27 @@ export class PanelController {
         });
         return;
       }
-      // A chat intent over steps that change the document is a mislabel, not a question: chat
-      // cannot write and has claimed writes it never made. Stage it for confirmation as an edit.
+      // The plan's `changes` line decides the route, whatever its intent label says: a question
+      // that also leaves a note is a change; an analysis that "filters rows" is not. Chat cannot
+      // write and has claimed writes it never made. Only a plan without the line (an older planner
+      // skill) falls back to the step-keyword guess, and that fallback is logged.
+      const effect = planChanges(plan);
+      if (!effect.stated)
+        this.logRoute('planner', `changes:guessed:${effect.changes ? 'yes' : 'no'}`);
       const edit = editIntentFor(plan.surface);
-      const staged =
-        deriveOutput(plan.intent) === 'chat' && planDescribesChange(plan) && edit
+      const chatLabel = deriveOutput(plan.intent) === 'chat';
+      // `changes no` under a write intent contradicts itself (drift, or injected document text):
+      // stage it as a change the user can still decline, never answer it in chat (review M3).
+      const conflict = effect.stated && !effect.changes && !chatLabel;
+      if (conflict) this.logRoute('planner', 'changes:conflict');
+      const staged = conflict
+        ? { ...plan, changes: true }
+        : chatLabel && effect.changes && edit
           ? { ...plan, intent: edit }
           : plan;
-      if (deriveOutput(staged.intent) === 'chat') {
+      const answerOnly =
+        effect.stated && !conflict ? !effect.changes : deriveOutput(staged.intent) === 'chat';
+      if (answerOnly) {
         // The user picked a write verb (`/visualize …`): a "chat" verdict must not downgrade it to
         // the read-only route, where the model can only describe a chart it cannot make.
         continuation = explicitlyActuating(t) ? 'commands' : 'ask';
@@ -1585,7 +1599,13 @@ export class PanelController {
         }
         // A read-only question ends with `done "<answer>"`: show the answer, not just a step.
         if ('message' in ev && ev.message) {
-          const message = ev.message.replace(/\\n/g, '\n');
+          // A change plan that ended with an answer and no write says so, so an answer can never
+          // read as a change that was made (WS2, 2026-10-20).
+          const note =
+            'unchanged' in ev && ev.unchanged
+              ? `\n\n${uiStrings(this.state.language ?? 'en').noChangeMade}`
+              : '';
+          const message = ev.message.replace(/\\n/g, '\n') + note;
           this.patchMessage(replyId, (m) => ({
             text: `${m.text}${m.text ? '\n\n' : ''}${message}`,
           }));

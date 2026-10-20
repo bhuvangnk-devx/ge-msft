@@ -63,6 +63,11 @@ export interface ScenarioExpect {
   documentIncludes?: string[];
   /** Case-insensitive text that must NOT appear in the document afterwards. */
   documentExcludes?: string[];
+  /**
+   * Other outcomes that are equally correct: the run passes when it meets `expect` OR any one of
+   * these (e.g. a reply comment, or a clarifying question when the data has no answer).
+   */
+  alternatives?: Omit<ScenarioExpect, 'alternatives'>[];
 }
 
 export interface Scenario {
@@ -295,7 +300,13 @@ async function dispatchLikeComposer(
 }
 
 function check(scenario: Scenario, r: ScenarioResult): string[] {
-  const e = scenario.expect ?? {};
+  const main = checkExpect(scenario.expect ?? {}, r);
+  if (main.length === 0) return main;
+  const alternatives = scenario.expect?.alternatives ?? [];
+  return alternatives.some((alt) => checkExpect(alt, r).length === 0) ? [] : main;
+}
+
+function checkExpect(e: ScenarioExpect, r: ScenarioResult): string[] {
   const out: string[] = [];
   const status = e.status ?? 'completed';
   if (status !== 'any' && r.status !== status)

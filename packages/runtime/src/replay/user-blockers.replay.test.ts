@@ -126,6 +126,22 @@ describe('a refusal the user must fix ends the task at once', () => {
     expect(runs.at(-1)?.status).toBe('needs-user');
   });
 
+  it('a refused verified block stops plainly, without the "could not be confirmed" error (P5)', async () => {
+    // Argon mx-xl-refused-02 (2026-10-19): `set` ×2 + `finish when=verified` on a protected sheet.
+    const bridge = new RefusingBridge({
+      code: 'host_refused',
+      reason: 'protected',
+      message: 'Sheet2 is protected.',
+    });
+    const { events } = await run(
+      [cmd('set Sheet2!A1 "Remarks"\nset Sheet2!A2 "review"\nfinish when=verified')],
+      bridge,
+      'Put Remarks in A1',
+    );
+    expect(events.filter((e) => e.type === 'error')).toEqual([]);
+    expect(events.filter((e) => e.type === 'needs-user')).toHaveLength(1);
+  });
+
   it('keeps "incomplete" when an earlier write landed, so asking again cannot repeat it', async () => {
     const bridge = new RefusingBridge(
       { code: 'host_refused', reason: 'protected', message: 'Sheet2 is protected.' },
@@ -168,6 +184,23 @@ describe('a refusal the user must fix ends the task at once', () => {
       },
     ]);
     expect(runs.at(-1)?.status).toBe('needs-user');
+  });
+
+  it('stops a repeated program even when its suggested_questions block changes each turn', async () => {
+    // The engine adds a fresh follow-up block every turn; it must not hide the repeat (2026-10-19).
+    const bridge = new RefusingBridge();
+    const looping = (n: number) =>
+      cmd('help discover flag') + `\n\n\`\`\`suggested_questions\n["Question ${n}?"]\n\`\`\``;
+    const { events, modelCalls, thrown } = await run(
+      [looping(1), looping(2), looping(3), looping(4), looping(5)],
+      bridge,
+      'Flag this for follow-up',
+    );
+    expect(thrown).toBeUndefined();
+    expect(modelCalls).toBe(3);
+    expect(events.filter((e) => e.type === 'needs-user')).toEqual([
+      { type: 'needs-user', turn: 3, blocker: { cause: 'no_progress' } },
+    ]);
   });
 
   it('stops when the same read-only program comes back a third time', async () => {

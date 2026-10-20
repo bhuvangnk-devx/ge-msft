@@ -416,6 +416,28 @@ export function extractCommandBlock(modelText: string): string | null {
   return plainMatch ? plainMatch[1]!.trim() : null;
 }
 
+/**
+ * Drop the engine's own follow-up block from the end of a reply. Gemini Enterprise's assistant
+ * prompt asks for a closing ```suggested_questions block on every turn; it is never executable.
+ * It is removed only when it is the last block AND directly follows a closed fence, so it cannot
+ * cut lines out of a program or turn an unclosed program into a complete one.
+ */
+export function stripFollowUpBlock(modelText: string): string {
+  const lines = modelText.trimEnd().split('\n');
+  const bare = (line: string | undefined) => /^```[^\S\n]*$/.test((line ?? '').trimEnd());
+  if (lines.length < 3 || !bare(lines[lines.length - 1])) return modelText;
+  // The fence line that opens the last block: the nearest fence line above the closing one.
+  let open = lines.length - 2;
+  while (open >= 0 && !lines[open]!.startsWith('```')) open--;
+  if (open < 0 || !/^```suggested_questions[^\S\n]*$/i.test(lines[open]!.trimEnd()))
+    return modelText;
+  let above = open - 1;
+  while (above >= 0 && lines[above]!.trim() === '') above--;
+  if (!bare(lines[above])) return modelText;
+  const offset = lines.slice(0, open).reduce((n, line) => n + line.length + 1, 0);
+  return modelText.slice(0, offset).trimEnd();
+}
+
 /* ───────────────────────────── line parsing ───────────────────────────── */
 
 /**

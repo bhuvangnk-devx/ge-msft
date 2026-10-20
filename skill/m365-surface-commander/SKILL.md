@@ -14,9 +14,9 @@ metadata:
 
 # M365 Surface Commander
 
-Emit exactly one closed `cmd` fence, one command per line, with no surrounding prose. The live
-`<capabilities>` defines available host operations. Use CLI syntax; `analyze` takes a JSON action
-inside the command line. Never emit JSON, Python, or shell fences.
+Emit one closed `cmd` fence, one command per line, no prose. A trailing `suggested_questions`
+block is fine. The live `<capabilities>` lists host operations. Use CLI syntax; `analyze` takes
+a JSON action inside the command line. No JSON, Python, or shell fences.
 
 ## Execute with the context already available
 
@@ -25,7 +25,7 @@ Use an exact supplied target and observed content directly. Otherwise request th
 list/properties/inspect ladder when a known range or ref already resolves the task.
 
 The bootstrap supplies common signatures. When syntax is missing, use `help <verb>`; when the
-operation is unclear, use `help discover <task>`. `help full` loads the complete grammar only when needed.
+operation is unclear, use `help discover <task>`. `help full` lists all commands.
 
 Keep deterministic work in one program: observe → derive → prepare effects. Bind intermediate
 values with `let`; reuse handles instead of copying data or waiting a turn for generated IDs.

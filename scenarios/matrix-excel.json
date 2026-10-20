@@ -3953,7 +3953,13 @@
       ]
     },
     "expect": {
-      "appliedAny": ["add-comment", "comment-reply"]
+      "appliedAny": ["add-comment", "comment-reply"],
+      "alternatives": [
+        {
+          "notApplied": ["add-comment", "comment-reply", "write-cells"],
+          "answerIncludes": ["South", "?"]
+        }
+      ]
     },
     "timeoutMs": 180000
   },
