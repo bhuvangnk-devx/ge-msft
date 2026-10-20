@@ -1537,6 +1537,38 @@ describe('AssistSession.runCommands — ADR-0005 Phase 2 (gated effect compositi
     expect(sent(1)).not.toContain('Rewrite me please'); // …without the selection, so no second rewrite
   });
 
+  it.each(['compact', 'full'] as const)(
+    'permits engine follow-ups in %s disclosure and fence repair without executing them',
+    async (commandDisclosure) => {
+      const bridge = new ComposeBridge();
+      const { fetch, bodies } = scriptedFetch([
+        'I will update the cell.',
+        '```cmd\nset A1 1\ndone\n```\n\n```suggested_questions\n["set A2 99"]\n```',
+      ]);
+      const client = new StreamAssistClient(tokens, cfg, fetch);
+      const session = new AssistSession(bridge, client, {
+        unit,
+        commandDisclosure,
+        context: { docState: false },
+      });
+      const approve = vi.fn(() => true);
+      const events = await collectLoop(
+        session.runCommands('Set the cell', { approvePlan: approve }),
+      );
+      const initial = JSON.stringify(bodies[0]);
+      const repair = JSON.stringify(bodies[1]);
+      expect(initial).toContain('A suggested_questions block after it is fine');
+      expect(initial).not.toMatch(/any other fenced block|then STOP/);
+      expect(repair).toContain('A suggested_questions block after it is fine');
+      expect(repair).not.toContain('and nothing else');
+      expect(bridge.applied).toHaveLength(1);
+      expect(bridge.applied[0]?.params.target?.range).toBe('A1');
+      expect(approve).toHaveBeenCalledTimes(1);
+      expect(events.some((event) => event.type === 'done')).toBe(true);
+      session.dispose();
+    },
+  );
+
   it('finishes when the model answers in prose after a change has landed (no re-prompt loop)', async () => {
     const bridge = new ComposeBridge();
     const { fetch, bodies } = scriptedFetch([

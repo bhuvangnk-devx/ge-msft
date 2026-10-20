@@ -9,6 +9,7 @@ import {
 import { SurfaceSchema, type Surface } from './context.js';
 import { VERBS_BY_SURFACE } from './command-palette.js';
 import { INTENT_REQUIRES } from './intent-capability.js';
+import { TABLE_FACTS_RULE } from './capability-registry.js';
 
 /**
  * The planner block (ADR-0004 — the `m365-command-planner` skill). The planner turns free text into
@@ -596,6 +597,7 @@ export function renderPlanPrompt(
         ]),
     'For bulk data entry such as schedules or generated tables, plan one rectangular grid/table ' +
       'materialization step, not dozens of per-cell steps.',
+    ...(surface === 'powerpoint' ? [TABLE_FACTS_RULE] : []),
     'Rules: the whole plan goes in one ```plan block; phrase steps as intentions (not ```cmd commands); context is ' +
       'only a context-construction hint and never grants upload/code/write authority; if anything ' +
       'material is ambiguous, emit clarify line(s) instead of over-specifying.',

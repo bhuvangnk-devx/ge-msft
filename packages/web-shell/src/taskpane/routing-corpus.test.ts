@@ -3,10 +3,8 @@ import type { Intent, Surface } from '@ge/contracts';
 import { inferImplicitIntent, shouldUsePlannerForFreeText } from './components/App.js';
 
 /**
- * A routing regression corpus. Every question must stay in chat on every surface (no planner, no
- * command loop); every action request must leave chat. A starts-with-a-verb question such as
- * "Draft ideas for a subject line?" is deliberately absent: it goes to the planner, whose "chat"
- * verdict then answers it in chat (see controller.test.ts).
+ * Free text on writable surfaces reaches the planner in both languages, including questions that
+ * also request a write. The planner's `changes` signal owns the final chat/command decision.
  */
 const QUESTIONS = [
   'What is the total revenue in this sheet?',
@@ -142,14 +140,14 @@ const route = (s: Surface, raw: string) => {
   return shouldUsePlannerForFreeText(ALL, inv) ? 'planner' : 'chat';
 };
 describe('free-text routing corpus', () => {
-  it.each(ID_QUESTIONS)('stays in chat on every surface (id): %s', (q) => {
-    for (const surface of SURFACES) expect(route(surface, q), surface).toBe('chat');
+  it.each(ID_QUESTIONS)('reaches the planner on every writable surface (id): %s', (q) => {
+    for (const surface of SURFACES) expect(route(surface, q), surface).toBe('planner');
   });
   it.each(ID_ACTIONS)('leaves chat on at least one surface (id): %s', (a) => {
     expect(SURFACES.map((surface) => route(surface, a))).not.toEqual(SURFACES.map(() => 'chat'));
   });
-  it.each(QUESTIONS)('stays in chat on every surface: %s', (q) => {
-    for (const surface of SURFACES) expect(route(surface, q), surface).toBe('chat');
+  it.each(QUESTIONS)('reaches the planner on every writable surface: %s', (q) => {
+    for (const surface of SURFACES) expect(route(surface, q), surface).toBe('planner');
   });
   it.each(ACTIONS)('leaves chat on at least one surface: %s', (a) => {
     expect(SURFACES.map((surface) => route(surface, a))).not.toEqual(SURFACES.map(() => 'chat'));
@@ -169,7 +167,7 @@ describe('Indonesian fast paths reach the matching intent', () => {
   });
 });
 
-describe('cell references: statements are edits, questions stay in chat (fix E: other text → planner)', () => {
+describe('cell references: the planner decides whether a statement or question changes the sheet', () => {
   it.each([
     ['b5 = 100', 'planner'],
     ["'Q3 Sales'!B5 should be 100", 'planner'],
@@ -179,11 +177,11 @@ describe('cell references: statements are edits, questions stay in chat (fix E: 
     ['B5 to 100', 'planner'],
     ['Nilai B5 harus 100', 'planner'],
     ['put 5 in A4', 'planner'],
-    ['Is B5 correct', 'chat'],
-    ['Are the totals in G12 right', 'chat'],
-    ['Was G12 changed', 'chat'],
+    ['Is B5 correct', 'planner'],
+    ['Are the totals in G12 right', 'planner'],
+    ['Was G12 changed', 'planner'],
     ['Could you check B5', 'planner'],
-    ['Can you tell me what B5 means', 'chat'],
+    ['Can you tell me what B5 means', 'planner'],
     ['Print this on A4 paper', 'planner'],
     ['MP3 files are attached', 'planner'],
     ['PS5 sales are up', 'planner'],
@@ -192,8 +190,8 @@ describe('cell references: statements are edits, questions stay in chat (fix E: 
     ['Windows 11 is installed', 'planner'],
     ['H1 results are in', 'planner'],
     ['thanks for B5', 'planner'],
-    ['Apa isi B5?', 'chat'],
-    ['Jelaskan rumus di G12', 'chat'],
+    ['Apa isi B5?', 'planner'],
+    ['Jelaskan rumus di G12', 'planner'],
   ] as const)('excel: %s → %s', (raw, expected) => {
     expect(route('excel', raw)).toBe(expected);
   });
@@ -354,7 +352,7 @@ const EN_ID_PAIRS: Array<[Surface, string, string]> = [
   ],
   ['outlook', 'Attach a text file called notes.txt', 'Lampirkan file teks bernama notes.txt'],
   ['outlook', "Change the subject to 'Release freeze'", "Ganti subjek menjadi 'Release freeze'"],
-  // Questions and chat (should stay in chat in both languages)
+  // Questions and chat (the planner chooses chat in both languages)
   ['excel', 'What is the total revenue in this sheet?', 'Berapa total pendapatan di sheet ini?'],
   ['excel', 'What is in B5?', 'Apa isi B5?'],
   ['excel', 'Explain the formula in G12', 'Jelaskan rumus di G12'],

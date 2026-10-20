@@ -74,6 +74,9 @@ artifact.
   it (add `at=N` to make it slide N, as with `slide`); `slide=<id|number|last>` adds it to an
   existing one. Use it for table-native content instead of
   bullet text when the live grammar exposes it.
+  For factual tables, preserve source precision and leave missing facts blank/TBD. Do not infer
+  assignments or deadlines from the topic. Synthetic examples/proposals require an explicit user
+  request and visible labelling; approval alone does not supply missing facts.
 - `/apply-slide-layout` applies a discovered layout name/id to a known slide. List available layouts
   first and fail closed if the host does not expose the requested layout.
 - `/insert-slide` with `deckBase64` is only for host-staged compiled deck artifacts; it is not a

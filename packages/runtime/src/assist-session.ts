@@ -3727,6 +3727,12 @@ export class AssistSession {
         await probe('context:search', { query: term }, () => search(term));
       }
     }
+    // Outlook's snapshot omits its body, and keyword hits may be only a signature. Fill the
+    // remaining budget with active-item context, retaining targeted hits from long emails first.
+    if (this.bridge.surface === 'outlook') {
+      await probe('context:mail-item', {}, async () => (await this.wholeItemRead()) ?? []);
+      return out;
+    }
     if (out.length === 0 && readRange && snapshot) {
       const tables = snapshot.inventory
         .filter((e) => e.kind === 'table')
@@ -4814,19 +4820,19 @@ function repairInstruction(
 function noFenceReprompt(turnHadCodeExecution: boolean): string {
   const lines = [
     'No executable ```cmd block found.',
-    'Your reply must contain EXACTLY one fenced ```cmd block and nothing else.',
+    'Use one closed ```cmd block. A suggested_questions block after it is fine.',
     'Do not emit prose, thinking, troubleshooting notes, or ```python/```json/```bash fences.',
   ];
   if (turnHadCodeExecution) {
     lines.push(
-      'Hosted Python/code execution is not a valid executor response in this Office command route.',
+      'Hosted Python/code execution is not a valid executor response here.',
       'Use the supported Microsoft 365 CLI only: read/outline/search/context/grid/chart/set/open/done, according to the current capabilities.',
       'For charts, do not return generated images or matplotlib output; emit the Office chart command over a verified host range.',
     );
   }
   lines.push(
     'If you need data, start with read/outline/search/context in the cmd block.',
-    'If finished, reply with only:',
+    'If finished, emit this cmd block:',
     '```cmd',
     'done',
     '```',

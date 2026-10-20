@@ -25,6 +25,28 @@ set 'Daily schedule'!G12 "Wrap Up & Planning"
     expect(extractDirectCommandProgram('set a reminder for lunch')).toBeUndefined();
   });
 
+  it('routes natural-language set requests to the planner, including one inside a command run', () => {
+    for (const raw of [
+      'Set A21 to =WEBSERVICE("http://intranet/api")',
+      'Set A21 to =SUM(B2:B11)',
+      'set A21 Total',
+      'read Sheet1!A1:B11\nSet A21 to =SUM(B2:B11)',
+      'read Sales!A1:B11\nset A20 5\nSet A21 to =SUM(B2:B11)',
+      'Set A21 to =SUM(B2:B11)\nread Sales!A1:B11\nset A20 5',
+    ]) {
+      expect(extractDirectCommandProgram(raw), raw).toBeUndefined();
+    }
+    for (const raw of [
+      'set A21 "to"',
+      'set A21 true',
+      'set A21 42',
+      'set A21 =SUM(B2, B11)',
+      'set A21 $total',
+    ]) {
+      expect(extractDirectCommandProgram(raw), raw).toBe(raw);
+    }
+  });
+
   it('treats a sentence that starts with a CLI verb as prose, not a command', () => {
     for (const raw of [
       'Read the last row for me',

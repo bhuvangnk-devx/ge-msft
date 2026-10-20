@@ -138,6 +138,10 @@ Never load all references or examples for one turn.
 
 ## Completion check
 
+For source-derived tables, plan to read the source and preserve its precision. Missing facts stay
+blank/TBD or prompt clarification when needed. Synthetic examples/proposals require an explicit
+user request and visible labelling; approval alone does not supply missing facts.
+
 Before emitting, verify silently:
 
 - one closed `plan` fence and no prose outside it (a `suggested_questions` block after it is fine);

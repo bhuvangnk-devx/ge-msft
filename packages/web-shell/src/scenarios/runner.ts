@@ -63,6 +63,13 @@ export interface ScenarioExpect {
   documentIncludes?: string[];
   /** Case-insensitive text that must NOT appear in the document afterwards. */
   documentExcludes?: string[];
+  /** PowerPoint: exact one-based positions of new slides, compared with the seed's stable IDs. */
+  insertedSlidePositions?: number[];
+  /** PowerPoint: inspect actual table cells under the requested column headers. */
+  tableColumns?: Record<string, { allowed?: string[]; includes?: string[]; nonEmpty?: boolean }>;
+  tableRowCount?: number;
+  /** Rows in matching tables: strings match substrings; arrays whitelist exact cell values. */
+  tableRows?: Array<Record<string, string | string[]>>;
   /**
    * Excel: border edge → weight that one formatted range must carry, e.g. { "EdgeTop": "Thick" }.
    * A uniform thin grid must not pass "thick outside" (WS5 T2, Argon mx-xl-format-10).
@@ -94,9 +101,16 @@ export interface Scenario {
  * Why a scenario never reached the model, or undefined when any Gemini call got an answer. A run
  * refused by quota, auth or an outage says nothing about the model or the pane: it is NOT RUN,
  * never FAIL (WS5 T3: a quota outage read as 23 PowerPoint failures, 2026-10-19).
+ * A local command program needs no Gemini call; its document checks still decide pass or fail.
  */
-export function geminiRefusal(transcript: readonly TranscriptEntry[]): string | undefined {
-  if (transcript.length === 0) return 'no Gemini call was made';
+export function geminiRefusal(
+  transcript: readonly TranscriptEntry[],
+  localProgram = false,
+): string | undefined {
+  if (transcript.length === 0) return localProgram ? undefined : 'no Gemini call was made';
+  // Active/failed HTTP 200 streams are executed runs; their task/deadline checks decide the verdict.
+  if (transcript.some((t) => t.status === 200 && t.bodyState && t.bodyState !== 'complete'))
+    return undefined;
   if (transcript.some((t) => t.status === 200 && t.reply.trim() !== '')) return undefined;
   const refused = [...new Set(transcript.filter((t) => t.status !== 200).map((t) => t.status))];
   return refused.length > 0
@@ -128,7 +142,8 @@ export interface ScenarioResult {
 type Sim = { snapshot(): unknown; restore(): void };
 
 function installHost(scenario: Scenario): Sim {
-  const seed = scenario.seed as never;
+  // Simulators mutate their seed. Preserve the declared before-state for outcome checks/replays.
+  const seed = structuredClone(scenario.seed) as never;
   switch (scenario.surface) {
     case 'excel':
       return installFakeExcel(excelSeed(seed));
@@ -277,13 +292,17 @@ export async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       gates,
       steps: state.steps.map((s) => ({ kind: s.kind, text: s.text })),
       runs,
-      transcript,
+      // The recorder may still settle after cancellation: freeze the observed evidence and verdict.
+      transcript: transcript.map((entry) => ({ ...entry })),
       document,
     };
     if (Date.now() - started >= timeoutMs) result.failures.push(`timed out after ${timeoutMs} ms`);
-    result.failures.push(...check(scenario, result));
+    result.failures.push(...checkScenario(scenario, result));
     result.passed = result.failures.length === 0;
-    const refusal = geminiRefusal(result.transcript);
+    const refusal = geminiRefusal(
+      result.transcript,
+      result.runs.some((run) => run.mode === 'program'),
+    );
     if (refusal) {
       result.notRun = refusal;
       result.passed = false;
@@ -325,14 +344,14 @@ async function dispatchLikeComposer(
   return controller.send(seed, grounding);
 }
 
-function check(scenario: Scenario, r: ScenarioResult): string[] {
-  const main = checkExpect(scenario.expect ?? {}, r);
+export function checkScenario(scenario: Scenario, r: ScenarioResult): string[] {
+  const main = checkExpect(scenario.expect ?? {}, r, scenario.seed);
   if (main.length === 0) return main;
   const alternatives = scenario.expect?.alternatives ?? [];
-  return alternatives.some((alt) => checkExpect(alt, r).length === 0) ? [] : main;
+  return alternatives.some((alt) => checkExpect(alt, r, scenario.seed).length === 0) ? [] : main;
 }
 
-function checkExpect(e: ScenarioExpect, r: ScenarioResult): string[] {
+function checkExpect(e: ScenarioExpect, r: ScenarioResult, seed: Scenario['seed']): string[] {
   const out: string[] = [];
   const status = e.status ?? 'completed';
   if (status !== 'any' && r.status !== status)
@@ -383,6 +402,68 @@ function checkExpect(e: ScenarioExpect, r: ScenarioResult): string[] {
   for (const text of e.documentExcludes ?? []) {
     if (doc.includes(text.toLowerCase()))
       out.push(`document contains "${text}", expected it absent`);
+  }
+  if (e.tableColumns) {
+    const normal = (text: string) => text.trim().toLowerCase();
+    const slides =
+      (r.document as { slides?: Array<{ shapes?: Array<{ table?: string[][] }> }> }).slides ?? [];
+    const tables = slides
+      .flatMap((slide) => slide.shapes ?? [])
+      .flatMap((shape) => (shape.table ? [shape.table] : []));
+    const columns = Object.entries(e.tableColumns);
+    const matching = tables.filter((table) =>
+      columns.every(([name]) => table[0]?.some((cell) => normal(cell) === normal(name))),
+    );
+    if (!matching.length)
+      out.push(`no table has columns ${columns.map(([name]) => name).join(', ')}`);
+    for (const table of matching) {
+      if (e.tableRowCount !== undefined && table.length - 1 !== e.tableRowCount)
+        out.push(`table has ${table.length - 1} data rows, expected ${e.tableRowCount}`);
+      const remaining = table.slice(1);
+      for (const expected of e.tableRows ?? []) {
+        const index = remaining.findIndex((row) =>
+          Object.entries(expected).every(([name, wanted]) => {
+            const column = table[0]!.findIndex((cell) => normal(cell) === normal(name));
+            if (column < 0) return false;
+            const cell = normal(row[column] ?? '');
+            return typeof wanted === 'string'
+              ? cell.includes(normal(wanted))
+              : wanted.map(normal).includes(cell);
+          }),
+        );
+        if (index < 0) out.push(`table is missing expected row ${JSON.stringify(expected)}`);
+        else remaining.splice(index, 1);
+      }
+      for (const [name, rules] of columns) {
+        const index = table[0]!.findIndex((cell) => normal(cell) === normal(name));
+        const cells = table.slice(1).map((row) => normal(row[index] ?? ''));
+        if (rules.nonEmpty && (!cells.length || cells.some((cell) => !cell)))
+          out.push(`table column ${name} has empty cells`);
+        if (rules.allowed && cells.some((cell) => !rules.allowed!.map(normal).includes(cell)))
+          out.push(`table column ${name} contains an unsupported value`);
+        for (const text of rules.includes ?? []) {
+          if (!cells.some((cell) => cell.includes(normal(text))))
+            out.push(`table column ${name} does not contain "${text}"`);
+        }
+      }
+    }
+  }
+  if (e.insertedSlidePositions) {
+    const before = seed.slides as Array<{ id?: string }> | undefined;
+    const after = (r.document as { slides?: Array<{ id?: string }> }).slides;
+    if (!before || !after || [...before, ...after].some((slide) => !slide.id)) {
+      out.push('slide positions require seed and result slides with stable IDs');
+    } else {
+      const original = new Set(before.map((slide) => slide.id));
+      const retained = after.filter((slide) => original.has(slide.id)).map((slide) => slide.id);
+      if (JSON.stringify(retained) !== JSON.stringify(before.map((slide) => slide.id)))
+        out.push('original slides were removed or reordered');
+      const positions = after.flatMap((slide, i) => (original.has(slide.id) ? [] : [i + 1]));
+      if (JSON.stringify(positions) !== JSON.stringify(e.insertedSlidePositions))
+        out.push(
+          `new slides are at ${JSON.stringify(positions)}, expected ${JSON.stringify(e.insertedSlidePositions)}`,
+        );
+    }
   }
   return out;
 }

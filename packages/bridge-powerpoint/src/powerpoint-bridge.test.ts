@@ -458,7 +458,7 @@ class FakeShapeCollection {
 class FakeSlide {
   constructor(
     private readonly slide: SlideSeed,
-    readonly index: number,
+    private readonly position: number,
     private readonly seed: DeckSeed,
     /**
      * Reached via `getItemAt` (by position) rather than by id or the `items` list. Like Office.js,
@@ -475,7 +475,12 @@ class FakeSlide {
   get id(): string {
     return this.slide.id;
   }
-  load(_p?: string): this {
+  get index(): number {
+    requireSlideIndex('index');
+    return this.position;
+  }
+  load(props?: string): this {
+    requireSlideIndex(props);
     this.byPosition = false;
     return this;
   }
@@ -554,7 +559,8 @@ class FakeSlideCollection {
   constructor(private readonly seed: DeckSeed) {
     this.items = seed.slides.map((s, i) => new FakeSlide(s, i, seed));
   }
-  load(_p?: string): this {
+  load(props?: string): this {
+    requireSlideIndex(props);
     return this;
   }
   getCount(): { value: number } {
@@ -598,6 +604,15 @@ class FakeSlideCollection {
     if (!slide) throw new Error(`fake-powerpoint: no slide ${id}`);
     return new FakeSlide(slide, index, this.seed);
   }
+}
+
+/** Model the real property version, not only the method's requirement set. */
+function requireSlideIndex(props?: string): void {
+  if (
+    /\bindex\b/.test(props ?? '') &&
+    !Office.context.requirements.isSetSupported('PowerPointApi', '1.8')
+  )
+    throw new Error('Slide.index requires PowerPointApi 1.8');
 }
 
 class FakePresentation {
@@ -846,6 +861,55 @@ describe('PowerPointBridge surface + capabilities', () => {
     expect(caps.surface).toBe('powerpoint');
     expect(caps.actuations.map((a) => a.kind)).toContain('insert-slide');
   });
+});
+
+describe('PowerPoint read compatibility', () => {
+  it.each([1.4, 1.5, 1.7, 1.8])(
+    'keeps correct slide positions across read ports on API %s',
+    async (version) => {
+      installed = install(deck(SAMPLE_SLIDES, [1]), { requirements: { PowerPointApi: version } });
+      const bridge = new PowerPointBridge();
+      const snapshot = await bridge.captureDocState();
+      expect(snapshot?.inventory.map((entry) => entry.id)).toEqual([
+        'slide:s1',
+        'slide:s2',
+        'slide:s3',
+      ]);
+      const slide = {
+        id: 'pp:slide:s2',
+        kind: 'slide',
+        surface: 'powerpoint',
+        title: 'Slide 2',
+      } as const;
+      expect(contextText(await bridge.resolveContext(slide))).toContain('Pat, Sam');
+      expect(contextText(await bridge.readRange('slide:2'))).toContain('Pat, Sam');
+      expect(contextText(await bridge.searchDocument('Roster'))).toContain('Pat, Sam');
+      const shape = await bridge.resolveContext({
+        id: 'pp:shape:s2:s2-shape-1',
+        kind: 'shape',
+        surface: 'powerpoint',
+        title: 'Shape on slide 2',
+      });
+      expect(contextText(shape)).toContain('Pat, Sam');
+      expect(shape[0]?.ref.title).toBe('Shape s2-shape-1 on slide 2');
+      const refs = await bridge.listContext();
+      const selected = await bridge.resolveContext({
+        id: 'selection',
+        kind: 'selection',
+        surface: 'powerpoint',
+        title: 'Selected slide',
+      });
+      if (version >= 1.5) {
+        expect(refs[0]?.title).toBe('Slide 2: Roster');
+        expect(contextText(selected)).toContain('Pat, Sam');
+        expect(snapshot?.selection?.title).toBe('Slide 2 (slide:s2)');
+      } else {
+        expect(refs.map((ref) => ref.id)).toEqual(['pp:deck']);
+        expect(selected).toEqual([]);
+        expect(snapshot?.selection).toBeUndefined();
+      }
+    },
+  );
 });
 
 /* ───────────────────────────── listContext ───────────────────────────── */
@@ -1210,6 +1274,44 @@ describe('PowerPointBridge.resolveContext', () => {
 /* ───────────────────────────── captureDocState ───────────────────────────── */
 
 describe('PowerPointBridge.captureDocState', () => {
+  it.each([
+    [[0], 'Slide 1 (slide:s1)'],
+    [[1], 'Slide 2 (slide:s2)'],
+    [[0, 2], 'Slide 1 (slide:s1), Slide 3 (slide:s3)'],
+  ] as const)('identifies the live selected slides %s in the snapshot', async (indices, title) => {
+    installed = install(deck(SAMPLE_SLIDES, [...indices]));
+    const snapshot = await new PowerPointBridge().captureDocState();
+    expect(snapshot?.selection).toEqual({ kind: 'slide', title });
+  });
+
+  it('omits selection when the host lacks selected-slide support or nothing is selected', async () => {
+    installed = install(deck(SAMPLE_SLIDES, [0]), { requirements: { PowerPointApi: 1.4 } });
+    expect((await new PowerPointBridge().captureDocState())?.selection).toBeUndefined();
+    installed.restore();
+    installed = install(deck(SAMPLE_SLIDES, []));
+    expect((await new PowerPointBridge().captureDocState())?.selection).toBeUndefined();
+  });
+
+  it('keeps the deck snapshot if the optional selected-slide read fails', async () => {
+    installed = install(deck(SAMPLE_SLIDES, [0]));
+    const run = PowerPoint.run;
+    const host = vi
+      .spyOn(PowerPoint, 'run')
+      .mockImplementationOnce(run)
+      .mockRejectedValueOnce(new Error('selection temporarily unavailable'));
+    try {
+      const snapshot = await new PowerPointBridge().captureDocState();
+      expect(snapshot?.inventory.map((entry) => entry.id)).toEqual([
+        'slide:s1',
+        'slide:s2',
+        'slide:s3',
+      ]);
+      expect(snapshot?.selection).toBeUndefined();
+    } finally {
+      host.mockRestore();
+    }
+  });
+
   it('returns undefined when TextRange.text (1.4) is unsupported', async () => {
     installed = install(deck(SAMPLE_SLIDES, [0]), { requirements: { PowerPointApi: 1.3 } });
     expect(await new PowerPointBridge().captureDocState()).toBeUndefined();

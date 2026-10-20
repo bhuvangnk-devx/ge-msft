@@ -105,7 +105,7 @@ describe('the "Reported to support" notice', () => {
     act(() => {
       root.render(createElement(App, { controller, surface: 'word', reporter }));
     });
-    typeAndSend('what is the launch decision? fail');
+    typeAndSend('/ask what is the launch decision? fail');
     await settle();
     expect(reporter.report).toHaveBeenCalledOnce();
     expect(notice()).toContain('c730e5ec');
@@ -123,7 +123,7 @@ describe('the "Reported to support" notice', () => {
     act(() => {
       root.render(createElement(App, { controller, surface: 'word', reporter }));
     });
-    typeAndSend('what is the launch decision? fail');
+    typeAndSend('/ask what is the launch decision? fail');
     await settle();
     expect(reporter.report).toHaveBeenCalledOnce();
 

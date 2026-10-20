@@ -17,6 +17,8 @@ export interface TranscriptEntry {
   request: string;
   /** The model's visible text for this call, joined from the streamed replies. */
   reply: string;
+  /** Distinguish an active or failed stream from a completed response with an empty answer. */
+  bodyState?: 'streaming' | 'complete' | 'failed';
 }
 
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..');
@@ -146,14 +148,29 @@ export function liveFetch(
     }
     const res = await fetch(input, { ...init, headers });
     if (url.includes(':streamAssist')) {
-      const body = await res.clone().text();
-      transcript.push({
+      const entry: TranscriptEntry = {
         at: new Date().toISOString(),
         url: url.replace(/projects\/[^/]+/, 'projects/…'),
         status: res.status,
         request: typeof init.body === 'string' ? init.body : '',
-        reply: replyText(body),
-      });
+        reply: '',
+        bodyState: 'streaming',
+      };
+      transcript.push(entry);
+      // Return headers immediately, as real fetch does. Awaiting the whole clone here makes
+      // an active stream look like a stalled POST and hides thought/heartbeat frames from the client.
+      void res
+        .clone()
+        .text()
+        .then(
+          (body) => {
+            entry.reply = replyText(body);
+            entry.bodyState = 'complete';
+          },
+          () => {
+            entry.bodyState = 'failed';
+          },
+        );
     }
     return res;
   }) as typeof fetch;

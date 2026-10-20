@@ -479,7 +479,8 @@
     "expect": {
       "applied": {
         "insert-slide": 1
-      }
+      },
+      "insertedSlidePositions": [3]
     }
   },
   {

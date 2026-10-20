@@ -24,7 +24,7 @@ import { parseComposerInput } from './components/Composer.js';
  * drives the REAL stack — `selectBridge('word')` → real `AssistSession` (scripted client) → real
  * `PanelController` → rendered `<App/>` (so `QuickActionBar` + `Composer` are the real components) —
  * and asserts that a quick-action chip / a `/verb` submit routes to the correct controller path:
- *   - read-only `chat` actions and plain questions → `send` (a grounded turn, no gate);
+ *   - read-only `chat` actions → `send`; typed free text → planner (read-only plans need no gate);
  *   - `write`/`annotation` actions and actuating `/verbs` → `runCommands` → the fail-closed plan gate.
  * No new actuation path is introduced by the chips/palette; they only seed the existing routes.
  */
@@ -132,16 +132,21 @@ describe('command surface — quick actions (full-stack)', () => {
 });
 
 describe('command surface — composer / and @ (full-stack)', () => {
-  it('a plain @-mention question routes to a grounded send, verbatim', async () => {
+  it('a plain @-mention question reaches the planner, then answers without an approval gate', async () => {
     sim = installFakeWord();
-    const sc = scriptedClient([{ text: 'It is 99.5% per section 4.' }]);
+    const sc = scriptedClient([
+      '```plan\nintent ask\nsurface word\nchanges no\nstep answer the SLA question\n```',
+      { text: 'It is 99.5% per section 4.' },
+    ]);
     ui = mountStack({ surface: 'word', client: sc });
     await ui.flush();
 
     await typeAndSubmit('@this what is the SLA?');
     await ui.waitFor(() => (ui!.container.textContent ?? '').includes('99.5% per section 4'));
 
-    expect(sc.queries[0]).toBe('@this what is the SLA?');
+    expect(sc.queries[0]).toContain('Emit one ```plan block.');
+    expect(sc.queries[0]).toContain('what is the SLA?');
+    expect(ui.controller.getState().pendingCommandPlan).toBeUndefined();
     expect(ui.controller.getState().pendingPlan).toBeUndefined();
   });
 
@@ -281,14 +286,14 @@ describe('command surface — implicit intent inference', () => {
         shouldUsePlannerForFreeText(['draft', 'rewrite'], { ...base, raw, instruction: raw }),
       ).toBe(true);
     }
-    // Questions stay in chat.
+    // Questions reach the planner; its structured signal chooses chat.
     const question = 'what should change in this deck before Friday?';
     expect(
       shouldUsePlannerForFreeText(['draft'], { ...base, raw: question, instruction: question }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('sends every non-question on a writable surface to the planner (fix E)', () => {
+  it('sends free text on a writable surface to the planner, including questions', () => {
     // docs/COMMAND-RELIABILITY.md: the client test-sheet prompts and the live 2026-09-30 wordings.
     const actions = [
       'In G12 put a formula that totals G2:G11',
@@ -324,7 +329,7 @@ describe('command surface — implicit intent inference', () => {
       expect(
         shouldUsePlannerForFreeText(['draft', 'rewrite'], { ...base, raw, instruction: raw }),
         raw,
-      ).toBe(false);
+      ).toBe(true);
   });
 
   it('routes the request after a /word that is not a surface verb (live 2026-10-09)', () => {
@@ -347,8 +352,8 @@ describe('command surface — implicit intent inference', () => {
         '/slide Add a summary slide with the three key findings: Revenue is 500; Profit is 200; Two pipeline rows have no owner.',
       ).planner,
     ).toBe(true);
-    // A question after the word still goes to chat; a palette verb and a bare word are unchanged.
-    expect(route('/shape what is on slide 2?').planner).toBe(false);
+    // Questions also reach the planner; explicit palette verbs and bare slash words keep their routes.
+    expect(route('/shape what is on slide 2?').planner).toBe(true);
     expect(route('/draft a closing slide')).toMatchObject({
       raw: '/draft a closing slide',
       intent: 'draft',
@@ -401,7 +406,7 @@ describe('command surface — implicit intent inference', () => {
         raw: 'why did my schedule update fail?',
         instruction: 'why did my schedule update fail?',
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldUsePlannerForFreeText(['rewrite'], {
         ...base,
@@ -433,7 +438,7 @@ describe('command surface — implicit intent inference', () => {
       'What does this email want me to reply?',
       'Is it possible to highlight the overdue rows?',
     ]) {
-      expect(plans(raw), raw).toBe(false);
+      expect(plans(raw), raw).toBe(true);
     }
     expect(
       inferImplicitIntent('excel', ['visualize'], {
@@ -498,6 +503,51 @@ describe('command surface — implicit intent inference', () => {
 });
 
 describe('command surface — planner-confirm for complex free-text (full-stack, §F)', () => {
+  it('a mixed question and note request writes only after both approval gates', async () => {
+    sim = installFakeExcel();
+    const sc = scriptedClient([
+      '```plan\nintent ask\nsurface excel\nchanges yes\nstep identify the lowest revenue and add a comment asking why\n```',
+      '```cmd\ncomment Sales!B3 "Why is this the lowest revenue?"\n```',
+      '```cmd\ndone\n```',
+    ]);
+    ui = mountStack({ surface: 'excel', client: sc });
+    await ui.flush();
+    await typeAndSubmit('which one is the lowest? leave a note on it asking why');
+    await ui.waitFor((s) => s.pendingCommandPlan !== undefined);
+    expect(sim.snapshot().comments).toHaveLength(0);
+    await ui.act(() => ui!.controller.confirmCommandPlan());
+    await ui.waitFor((s) => s.pendingPlan !== undefined);
+    expect(sim.snapshot().comments).toHaveLength(0);
+    expect(ui.controller.getState().pendingPlan?.effects[0]?.request.kind).toBe('add-comment');
+    await ui.act(() => ui!.controller.approvePlan());
+    await ui.waitFor((s) => !s.busy);
+    expect(sim.snapshot().comments).toEqual([
+      expect.objectContaining({ cell: 'Sales!B3', content: 'Why is this the lowest revenue?' }),
+    ]);
+  });
+
+  it.each([
+    'Set A21 to =WEBSERVICE("http://intranet/api")',
+    'which one is the lowest? leave a note on it asking why',
+  ])('sends the complete free-text request to the planner before any effect: %s', async (raw) => {
+    sim = installFakeExcel();
+    const before = sim.snapshot();
+    const sc = scriptedClient([
+      '```plan\nintent rewrite\nsurface excel\nchanges yes\nstep review the requested cell change\nconfidence high\n```',
+    ]);
+    ui = mountStack({ surface: 'excel', client: sc });
+    await ui.flush();
+    await typeAndSubmit(raw);
+    await ui.waitFor(
+      (s) => s.pendingCommandPlan !== undefined || s.pendingPlan !== undefined || !s.busy,
+    );
+    expect(sc.queries[0]).toContain('Emit one ```plan block.');
+    expect(sc.queries[0]).toContain(raw);
+    expect(ui.controller.getState().pendingCommandPlan?.plan.changes).toBe(true);
+    expect(ui.controller.getState().pendingPlan).toBeUndefined();
+    expect(sim.snapshot()).toEqual(before);
+  });
+
   it('action-like Excel free text explicitly enters the command planner before execution', async () => {
     sim = installFakeExcel(
       excelSeed({

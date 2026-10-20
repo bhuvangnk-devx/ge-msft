@@ -54,5 +54,9 @@ Add an object to `excel.json`, `word.json`, `powerpoint.json` or `outlook.json`:
 | `answerIncludes` | The final answer contains each text (case-insensitive) |
 | `formatsInclude` | Excel: some formatted range has each property (`fontColor`, `horizontalAlignment`, `borders`, …) |
 | `documentIncludes` | The document afterwards contains each text |
+| `insertedSlidePositions` | PowerPoint: new slides occupy these exact one-based positions; all original stable slide IDs remain in their original order |
+| `tableColumns` | PowerPoint: matching native table columns have only `allowed` cell values, contain required `includes` text, or have `nonEmpty` cells |
+| `tableRowCount` | Tables matched by `tableColumns` have this exact number of data rows (header excluded) |
+| `tableRows` | Tables matched by `tableColumns` contain each expected row once; string fields match substrings, array fields whitelist exact cell values |
 
 Gemini's wording varies between runs, so check outcomes (what changed, final status), not exact text.

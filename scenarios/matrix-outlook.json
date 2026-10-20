@@ -14,7 +14,8 @@
       }
     },
     "expect": {
-      "notApplied": ["reply-mail", "create-mail"]
+      "notApplied": ["reply-mail", "create-mail"],
+      "answerIncludes": ["payment gateway", "security review", "Friday"]
     },
     "timeoutMs": 180000
   },
@@ -33,7 +34,8 @@
       }
     },
     "expect": {
-      "notApplied": ["reply-mail", "create-mail"]
+      "notApplied": ["reply-mail", "create-mail"],
+      "answerIncludes": ["owners", "Friday"]
     },
     "timeoutMs": 180000
   },

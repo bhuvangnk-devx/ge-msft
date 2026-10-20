@@ -131,18 +131,6 @@ const LEAD_IN =
   String.raw`|(?:saya|aku|kami|kita)\s+(?:mau|ingin|pengen|perlu|harus|akan)` +
   String.raw`)(?:[\s,!.]+|$))*`;
 
-/**
- * Indonesian action verbs in their common forms (base, -kan/-i, me- prefix). Read verbs such as
- * `jelaskan` (explain) and `ringkas(kan)` (summarize) are deliberately absent: they stay in chat.
- * Bare `isi` is absent too: it is also the noun "content" ("Isi dokumen ini tentang apa?").
- */
-const ID_ACTION_VERBS =
-  'balas|balaskan|membalas|tambah|tambahkan|menambah|menambahkan|buat|buatkan|membuat|' +
-  'ubah|mengubah|ganti|mengganti|hapus|menghapus|sisipkan|menyisipkan|masukkan|memasukkan|' +
-  'tulis|tuliskan|menulis|perbaiki|memperbaiki|memformat|urutkan|mengurutkan|isikan|mengisi|' +
-  'tandai|menandai|sorot|menyorot|pindahkan|memindahkan|terapkan|menerapkan|lampirkan|' +
-  'melampirkan|susun|menyusun|mengedit|revisi|merevisi|rapikan|merapikan|warnai|mewarnai';
-
 /** A request whose (lead-in-stripped) first word is one of `verbs`, optionally followed by `tail`. */
 function requestRe(verbs: string, tail = ''): RegExp {
   return new RegExp(String.raw`^\s*` + LEAD_IN + String.raw`(?:${verbs})\b` + tail, 'i');
@@ -161,21 +149,6 @@ const EXCEL_CHART_CONVERT_RE = requestRe(
   'turn|convert',
   String.raw`[\s\S]*\b(?:into|to)\b[\s\S]*\b(?:chart|graph|visuali[sz]ation)\b`,
 );
-const OFFICE_ACTION_REQUEST_RE = requestRe(
-  'update|fill|populate|insert|add|attach|apply|place|write|create|make|build|generate|draft|' +
-    'rewrite|revise|edit|review|comment|reply|respond|answer|flag|mark|turn|convert|visuali[sz]e|' +
-    'change|set|rename|retitle|replace|format|recolou?r|colou?r|move|resize|highlight|remove|' +
-    'delete|fix|correct|sort|resolve|address|' +
-    ID_ACTION_VERBS,
-);
-/**
- * Answering an existing comment thread is a write (`comment-reply`), however it is phrased —
- * "answer Adele's comment", "can you resolve this thread", "address the comment on the SLA".
- */
-const COMMENT_ACTION_RE =
-  /\b(?:reply|respond|answer|resolve|address|balas|membalas|selesaikan)\b[\s\S]*\b(?:comment|comments|thread|komentar)\b/i;
-/** "find and replace …" is a bulk write (`/find-replace`); "find" alone stays a read. */
-const FIND_REPLACE_RE = /\bfind\s*(?:and|&|\/)\s*replace\b/i;
 const WORD_REWRITE_RE = requestRe(
   'rewrite|revise|tighten|edit|replace|improve',
   String.raw`[\s\S]*\b(?:selection|selected text|paragraph|text|wording|clause|sentence)\b`,
@@ -269,15 +242,6 @@ function hasActuatingIntent(allowedIntents: Iterable<Intent> | undefined): boole
   return false;
 }
 
-/** Text that reads as a question or a request for an explanation, which plain chat answers (EN + ID). */
-const QUESTION_RE = new RegExp(
-  String.raw`^\s*(?:(?:ok(?:ay)?|so|hey|hi|halo|hai|tolong|mohon|coba)[\s,]+)?` +
-    String.raw`(?:(?:can|could|would)\s+you\s+(?:tell|explain|describe|summari[sz]e)\b|who|what|what's|when|where|which|why|how|is|are|was|were|does|did|should|summari[sz]e|explain|tell\s+me|describe|compare` +
-    // Indonesian (CIMB): question words, and "explain / summarize / list / compare / tell".
-    String.raw`|(?:bisa|bisakah)\s+(?:kamu\s+|anda\s+)?(?:jelaskan|ringkas(?:kan)?|ceritakan)\b|apa|apakah|bagaimana|gimana|kenapa|mengapa|siapa|kapan|berapa|di\s*mana|mana|jelaskan|terangkan|ringkas(?:kan)?|rangkum(?:kan)?|sebutkan|bandingkan|ceritakan)\b`,
-  'i',
-);
-
 /**
  * A leading `/word` that is not one of this surface's verbs carries no intent (the composer resolves
  * verbs against the surface palette only), so route the line, without its slash, as free text. Users type
@@ -294,12 +258,9 @@ export function withoutUnknownVerb(inv: ComposerInvocation): ComposerInvocation 
 }
 
 /**
- * Thin router predicate, not an intent classifier. It decides only whether free text goes to the
- * command planner or straight to chat; the planner owns intent selection, exclusions and
- * clarification, and can still answer in chat. On a surface that can write, anything that is not
- * a question goes to the planner. Matching a list of action verbs instead sent "In G12 put a
- * formula…", "show me a bar chart…" and "I want a bar chart…" to chat, where nothing can be
- * written and the model described or invented a result (docs/COMMAND-RELIABILITY.md, fix E).
+ * Free text on a writable surface goes to the planner. Its structured `changes` signal chooses
+ * chat or execution; guessing from question words would discard mixed question-and-write requests.
+ * Explicit intents and pasted CLI retain their dedicated routes.
  */
 export function shouldUsePlannerForFreeText(
   allowedIntents: Iterable<Intent> | undefined,
@@ -309,13 +270,7 @@ export function shouldUsePlannerForFreeText(
   const raw = inv.raw.trim();
   if (!raw || raw.startsWith('/')) return false;
   if (!hasActuatingIntent(allowedIntents)) return false;
-  if (
-    OFFICE_ACTION_REQUEST_RE.test(raw) ||
-    COMMENT_ACTION_RE.test(raw) ||
-    FIND_REPLACE_RE.test(raw)
-  )
-    return true;
-  return !(QUESTION_RE.test(raw) || raw.endsWith('?'));
+  return true;
 }
 
 /**

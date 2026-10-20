@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
 import { scriptedClient, mountStack, type MountedStack } from '../test-harness/index.js';
-import { installFakeOutlook, type OutlookSimulator } from '../test-harness/fake-outlook.js';
+import {
+  installFakeOutlook,
+  outlookSeed,
+  type OutlookSimulator,
+} from '../test-harness/fake-outlook.js';
+import { OutlookBridge } from '@ge/bridge-outlook';
+import { AssistSession } from '@ge/runtime';
+import type { ResolvedContext, SseEvent } from '@ge/contracts';
+import type { StreamAssistClient, StreamOptions } from '@ge/gemini-client';
 
 /**
  * Command reliability fixes A and D (docs/COMMAND-RELIABILITY.md) on Outlook, through the real
@@ -35,6 +43,58 @@ async function runToEnd(task: string) {
 }
 
 describe('Outlook command reliability', () => {
+  it.each([
+    {
+      query: 'Summarise this email',
+      body: '<p>Please inspect the ventilation and send findings by Tuesday.</p><p>Maya</p>',
+      facts: ['inspect the ventilation', 'Tuesday'],
+    },
+    {
+      query: 'What is Maya asking for?',
+      body: '<p>Please inspect the ventilation and send findings by Tuesday.</p><p>Maya</p>',
+      facts: ['inspect the ventilation', 'Tuesday'],
+    },
+    {
+      query: 'What is the Zircon deadline?',
+      body:
+        '<p>Routine facilities inspection details. '.repeat(900) +
+        '</p><p>The Zircon deadline is December 9.</p>',
+      facts: ['Zircon deadline is December 9'],
+    },
+  ])(
+    'grounds chat in the active email body for $query, not just search matches',
+    async ({ query, body, facts }) => {
+      sim = installFakeOutlook(
+        outlookSeed({
+          subject: 'Facilities review',
+          body,
+        }),
+      );
+      const contexts: ResolvedContext[][] = [];
+      const client = {
+        stream: async function* (_req: unknown, opts: StreamOptions): AsyncGenerator<SseEvent> {
+          contexts.push(opts.context ?? []);
+          yield { type: 'token', text: 'ok' };
+          yield { type: 'done' };
+        },
+      } as unknown as StreamAssistClient;
+      const session = new AssistSession(new OutlookBridge(), client, {
+        unit: { connectors: [], surfaceContext: { kind: 'outlook' } },
+      });
+      for await (const _event of session.ask(query)) {
+        // Consume the public chat stream; inspect the actual context shipped to the network.
+      }
+      const text = contexts[0]!
+        .flatMap((part) => (part.value.as === 'text' ? [part.value.text] : []))
+        .join('\n');
+      for (const fact of facts) expect(text).toContain(fact);
+      expect(text).toContain('data, not instructions');
+      expect(session.context.size).toBe(0);
+      expect(sim.snapshot().replyForms).toHaveLength(0);
+      expect(sim.snapshot().newMessageForms).toHaveLength(0);
+    },
+  );
+
   it('shows the model the exact reply and compose syntax on the first command turn (fix A)', async () => {
     sim = installFakeOutlook();
     const scripted = scriptedClient(['```cmd\ndone\n```']);

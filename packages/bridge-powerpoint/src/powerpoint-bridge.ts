@@ -100,7 +100,7 @@ export class PowerPointBridge implements DocBridge {
     }
     return PowerPoint.run(async (ctx) => {
       const selected = ctx.presentation.getSelectedSlides();
-      selected.load('items/id,items/index');
+      selected.load('items/id');
       await ctx.sync();
 
       const refs: ContextRef[] = [];
@@ -120,6 +120,7 @@ export class PowerPointBridge implements DocBridge {
   }
 
   async resolveContext(ref: ContextRef): Promise<ResolvedContext[]> {
+    if (!isSet('PowerPointApi', '1.4')) return [];
     if (ref.kind === 'shape') {
       const target = shapeRevealTarget(ref);
       if (!target) return [];
@@ -139,9 +140,10 @@ export class PowerPointBridge implements DocBridge {
       }
     }
     if (ref.kind === 'selection') {
+      if (!isSet('PowerPointApi', '1.5')) return [];
       return PowerPoint.run(async (ctx) => {
         const selected = ctx.presentation.getSelectedSlides();
-        selected.load('items/id,items/index');
+        selected.load('items/id');
         await ctx.sync();
         const slide = selected.items[0];
         if (!slide) return [];
@@ -176,11 +178,24 @@ export class PowerPointBridge implements DocBridge {
     if (!isSet('PowerPointApi', '1.4')) return undefined;
     const slides = await this.readAllSlides();
     if (slides.length === 0) return undefined;
+    const selected = isSet('PowerPointApi', '1.5')
+      ? await PowerPoint.run(async (ctx) => {
+          const selection = ctx.presentation.getSelectedSlides();
+          selection.load('items/id');
+          await ctx.sync();
+          return selection.items.map((slide) => {
+            // Slide.index needs 1.8. The captured deck order already gives positions on 1.5.
+            const index = slides.findIndex((entry) => entry.slideId === slide.id);
+            return `${index < 0 ? 'Selected slide' : `Slide ${index + 1}`} (slide:${slide.id})`;
+          });
+        }).catch(() => []) // Optional selection failure must not discard the captured deck.
+      : [];
     this.docStateVersion += 1;
     const snapshot = buildDocStateSnapshot({
       surface: 'powerpoint',
       version: this.docStateVersion,
       blocks: slideElementsToDocStateBlocks(slides),
+      ...(selected.length ? { selection: { kind: 'slide', title: selected.join(', ') } } : {}),
     });
     // Shape ids ride on each slide's entry, so shape commands name a real id on the first try
     // instead of guessing and retrying on target_conflict (live 2026-10-02: 3 wasted turns).
@@ -226,7 +241,7 @@ export class PowerPointBridge implements DocBridge {
     if (!mayNameSlide(selector) || !isSet('PowerPointApi', '1.4')) return [];
     return PowerPoint.run(async (ctx) => {
       const slides = ctx.presentation.slides;
-      slides.load('items/id,items/index');
+      slides.load('items/id');
       await ctx.sync();
       const index = slideIndexForSelector(
         slides.items.map((item) => item.id),
@@ -234,7 +249,8 @@ export class PowerPointBridge implements DocBridge {
       );
       const slide = index === undefined ? undefined : slides.items[index];
       if (!slide) return [];
-      const element = await readSlide(ctx, slide);
+      const [element] = await readSlides(ctx, [slide], [index!]);
+      if (!element) return [];
       // A single-slide read is how the model looks before a shape command: list each shape's id,
       // type and which one `shape=title` resolves to, so it can address the shape it means.
       const shapes = ctx.presentation.slides.getItem(slide.id).shapes;
@@ -282,9 +298,14 @@ export class PowerPointBridge implements DocBridge {
   private async readAllSlides(): Promise<SlideElement[]> {
     return PowerPoint.run(async (ctx) => {
       const slides = ctx.presentation.slides;
-      slides.load('items/id,items/index');
+      slides.load('items/id');
       await ctx.sync();
-      return readSlides(ctx, slides.items.slice(0, MAX_READ_SLIDES));
+      const bounded = slides.items.slice(0, MAX_READ_SLIDES);
+      return readSlides(
+        ctx,
+        bounded,
+        bounded.map((_, index) => index),
+      );
     });
   }
 
@@ -1286,7 +1307,13 @@ async function readSlide(
   ctx: PowerPoint.RequestContext,
   slide: PowerPoint.Slide,
 ): Promise<SlideElement> {
-  const [element] = await readSlides(ctx, [slide]);
+  const deck = ctx.presentation.slides;
+  deck.load('items/id');
+  slide.load('id');
+  await ctx.sync();
+  const index = deck.items.findIndex((item) => item.id === slide.id);
+  if (index < 0) throw new Error('PowerPoint slide no longer exists.');
+  const [element] = await readSlides(ctx, [slide], [index]);
   if (!element) throw new Error('PowerPoint slide read returned no slide.');
   return element;
 }
@@ -1299,10 +1326,11 @@ async function readSlide(
 async function readSlides(
   ctx: PowerPoint.RequestContext,
   slides: PowerPoint.Slide[],
+  positions: number[],
 ): Promise<SlideElement[]> {
   if (slides.length === 0) return [];
   const shapeCollections = slides.map((slide) => {
-    slide.load('id,index');
+    slide.load('id');
     const shapes = slide.shapes;
     shapes.load('items/id,items/type');
     return shapes;
@@ -1318,7 +1346,7 @@ async function readSlides(
     const shapeTexts = shapes.map((shape) => texts.get(shape) ?? '');
     const { title, body } = shapesToSlideText(shapeTexts);
     return {
-      index: slide.index,
+      index: positions[slideIndex]!,
       slideId: slide.id,
       title,
       body,
@@ -1409,16 +1437,20 @@ async function readShapeContext(
   target: PowerPointRevealTarget,
 ): Promise<ResolvedContext[]> {
   const slide = ctx.presentation.slides.getItem(target.slideId);
-  slide.load('id,index');
+  const deck = ctx.presentation.slides;
+  deck.load('items/id');
+  slide.load('id');
   const shape = slide.shapes.getItemOrNullObject(target.shapeId ?? '');
   shape.load('id,isNullObject,type');
   await ctx.sync();
   if (shape.isNullObject || !target.shapeId || !isReadableShape(shape)) return [];
+  const index = deck.items.findIndex((item) => item.id === slide.id);
+  if (index < 0) return [];
   const [readable] = await withoutNonTextPlaceholders(ctx, [shape]);
   if (!readable) return [];
   const texts = await readShapeContent(ctx, [readable]);
   return selectedShapeToContext(
-    { index: slide.index, slideId: slide.id },
+    { index, slideId: slide.id },
     { shapeId: shape.id, text: texts.get(readable) ?? '' },
   );
 }
